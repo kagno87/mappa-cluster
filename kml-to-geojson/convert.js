@@ -1,40 +1,101 @@
 const fs = require('fs');
 const { DOMParser } = require('xmldom');
-const toGeoJSON = require('@tmcw/togeojson');
 
-// 1️⃣ leggi KML
-const kmlText = fs.readFileSync('bianco.kml', 'utf8');
-const dom = new DOMParser().parseFromString(kmlText);
+/* =========================
+   ARGOMENTI CLI
+========================= */
+const inputKml = process.argv[2];
+const outputGeojson = process.argv[3];
 
-// 2️⃣ converti in GeoJSON
-const geojson = toGeoJSON.kml(dom);
+if (!inputKml || !outputGeojson) {
+  console.error('Uso: node convert.js input.kml output.geojson');
+  process.exit(1);
+}
 
-// 3️⃣ leggi direttamente i Placemark dal KML
+/* =========================
+   LETTURA KML
+========================= */
+const kmlText = fs.readFileSync(inputKml, 'utf8');
+const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
+
+/* =========================
+   UTILS
+========================= */
+function getText(node, tag) {
+  const el = node.getElementsByTagName(tag)[0];
+  return el ? el.textContent.trim() : '';
+}
+
+function getExtendedData(node, name) {
+  const data = node.getElementsByTagName('Data');
+  for (let i = 0; i < data.length; i++) {
+    if (data[i].getAttribute('name') === name) {
+      const value = data[i].getElementsByTagName('value')[0];
+      return value ? value.textContent.trim() : '';
+    }
+  }
+  return '';
+}
+
+/* =========================
+   CONVERSIONE MANUALE
+========================= */
 const placemarks = dom.getElementsByTagName('Placemark');
 
-geojson.features.forEach((feature, i) => {
-  const pm = placemarks[i];
-  if (!pm) return;
+const features = [];
 
-  // nome vero
-  const nameEl = pm.getElementsByTagName('name')[0];
-  if (nameEl) {
-    feature.properties.name = nameEl.textContent.trim();
+for (let i = 0; i < placemarks.length; i++) {
+  const p = placemarks[i];
+
+  const name = getText(p, 'name');
+  const description = getText(p, 'description');
+  const gxMedia = getExtendedData(p, 'gx_media_links');
+
+    if (!name || !description) {
+    console.warn(
+      `⚠️ Placemark ${i + 1} incompleto →`,
+      {
+        name: name || '(vuoto)',
+        description: description ? 'OK' : '(vuota)'
+      }
+    );
   }
 
-  // descrizione HTML vera
-  const descEl = pm.getElementsByTagName('description')[0];
-  if (descEl) {
-    feature.properties.description = descEl.textContent.trim();
-  }
-});
 
-// 4️⃣ salva
+  const point = p.getElementsByTagName('Point')[0];
+  if (!point) continue;
+
+  const coordsText = getText(point, 'coordinates');
+  if (!coordsText) continue;
+
+  const [lon, lat] = coordsText.split(',').map(Number);
+
+  features.push({
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: [lon, lat]
+    },
+    properties: {
+      name: name || '',
+      description: description || '',
+      gx_media_links: gxMedia || ''
+    }
+  });
+}
+
+/* =========================
+   GEOJSON FINALE
+========================= */
+const geojson = {
+  type: 'FeatureCollection',
+  features
+};
+
 fs.writeFileSync(
-  'bianco.geojson',
+  outputGeojson,
   JSON.stringify(geojson, null, 2),
   'utf8'
 );
 
-console.log('✅ bianco.geojson creato con name + description reali');
-
+console.log(`✅ Creato ${outputGeojson}`);

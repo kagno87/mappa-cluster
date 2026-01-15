@@ -1,0 +1,21 @@
+ACCENDERE IL PROXY PER LE IMMAGINI (Mapbox + MyMaps)
+
+Questo progetto utilizza un proxy locale per caricare correttamente le
+immagini provenienti da Google My Maps, evitando problemi di CORS.
+
+REQUISITI - Node.js installato - Cartella “proxy” presente nel progetto
+
+PASSAGGI
+
+1.  Apri la cartella windows del progetto
+
+2.  Apri Powershell (scrivi "powershell" nella barra indirizzo della cartella)
+
+3.  Immetti: 
+    node server.js
+
+5.  Proxy immagini attivo su http://localhost:3000
+
+IMPORTANTE - Il proxy DEVE rimanere acceso mentre usi la mappa - Dopo un
+riavvio del PC va riacceso manualmente - Se le immagini non si vedono,
+il 90% delle volte il proxy è spento

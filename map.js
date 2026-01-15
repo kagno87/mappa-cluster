@@ -1,5 +1,9 @@
-mapboxgl.accessToken = 'pk.eyJ1IjoicGluZ2VvIiwiYSI6ImNtazl2NHducTFlcDUzZXNoMTd0ZzdxMDcifQ.Y9JlBgOGjtP9olv54nHE3g';
+mapboxgl.accessToken =
+  'pk.eyJ1IjoicGluZ2VvIiwiYSI6ImNtazl2NHducTFlcDUzZXNoMTd0ZzdxMDcifQ.Y9JlBgOGjtP9olv54nHE3g';
 
+/* =========================
+   MAPPA
+========================= */
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/light-v11',
@@ -9,11 +13,11 @@ const map = new mapboxgl.Map({
 
 map.addControl(new mapboxgl.NavigationControl());
 
-/* ========= LOAD ========= */
+/* =========================
+   LOAD
+========================= */
 map.on('load', () => {
-  console.log('Mapbox caricato correttamente');
-
-  /* ========= SOURCES ========= */
+  /* ===== SOURCES ===== */
   map.addSource('nero', {
     type: 'geojson',
     data: 'nero.geojson',
@@ -30,7 +34,7 @@ map.on('load', () => {
     clusterMaxZoom: 14
   });
 
-  /* ========= CLUSTERS NERO ========= */
+  /* ===== LAYERS NERO ===== */
   map.addLayer({
     id: 'clusters-nero',
     type: 'circle',
@@ -38,13 +42,7 @@ map.on('load', () => {
     filter: ['has', 'point_count'],
     paint: {
       'circle-color': '#333',
-      'circle-radius': [
-        'step',
-        ['get', 'point_count'],
-        15,
-        10, 20,
-        50, 30
-      ],
+      'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 50, 30],
       'circle-opacity': 0.8
     }
   });
@@ -58,9 +56,7 @@ map.on('load', () => {
       'text-field': '{point_count_abbreviated}',
       'text-size': 12
     },
-    paint: {
-      'text-color': '#ffffff'
-    }
+    paint: { 'text-color': '#fff' }
   });
 
   map.addLayer({
@@ -69,28 +65,22 @@ map.on('load', () => {
     source: 'nero',
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': '#000000',
+      'circle-color': '#000',
       'circle-radius': 6
     }
   });
 
-  /* ========= CLUSTERS BIANCO ========= */
+  /* ===== LAYERS BIANCO ===== */
   map.addLayer({
     id: 'clusters-bianco',
     type: 'circle',
     source: 'bianco',
     filter: ['has', 'point_count'],
     paint: {
-      'circle-color': '#ffffff',
-      'circle-radius': [
-        'step',
-        ['get', 'point_count'],
-        15,
-        10, 20,
-        30, 25
-      ],
+      'circle-color': '#fff',
+      'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 30, 25],
       'circle-stroke-width': 2,
-      'circle-stroke-color': '#000000'
+      'circle-stroke-color': '#000'
     }
   });
 
@@ -103,9 +93,7 @@ map.on('load', () => {
       'text-field': '{point_count_abbreviated}',
       'text-size': 12
     },
-    paint: {
-      'text-color': '#000000'
-    }
+    paint: { 'text-color': '#000' }
   });
 
   map.addLayer({
@@ -114,92 +102,153 @@ map.on('load', () => {
     source: 'bianco',
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': '#ffffff',
+      'circle-color': '#fff',
       'circle-radius': 6,
       'circle-stroke-width': 2,
-      'circle-stroke-color': '#000000'
+      'circle-stroke-color': '#000'
     }
   });
+
+  updatePanelHeight();
 });
 
-/* ========= CLICK CLUSTER ========= */
-map.on('click', 'clusters-nero', (e) => {
-  const f = map.queryRenderedFeatures(e.point, { layers: ['clusters-nero'] })[0];
-  map.getSource('nero').getClusterExpansionZoom(f.properties.cluster_id, (err, zoom) => {
-    if (!err) map.easeTo({ center: f.geometry.coordinates, zoom });
-  });
+/* =========================
+   CLUSTER ZOOM
+========================= */
+function zoomCluster(e, source) {
+  const feature = map.queryRenderedFeatures(e.point, {
+    layers: [`clusters-${source}`]
+  })[0];
+
+  map.getSource(source).getClusterExpansionZoom(
+    feature.properties.cluster_id,
+    (err, zoom) => {
+      if (!err) {
+        map.easeTo({
+          center: feature.geometry.coordinates,
+          zoom
+        });
+      }
+    }
+  );
+}
+
+map.on('click', 'clusters-nero', e => zoomCluster(e, 'nero'));
+map.on('click', 'clusters-bianco', e => zoomCluster(e, 'bianco'));
+
+/* =========================
+   CURSORE
+========================= */
+[
+  'clusters-nero',
+  'clusters-bianco',
+  'nero-points',
+  'unclustered-point-bianco'
+].forEach(layer => {
+  map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'));
+  map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''));
 });
 
-map.on('click', 'clusters-bianco', (e) => {
-  const f = map.queryRenderedFeatures(e.point, { layers: ['clusters-bianco'] })[0];
-  map.getSource('bianco').getClusterExpansionZoom(f.properties.cluster_id, (err, zoom) => {
-    if (!err) map.easeTo({ center: f.geometry.coordinates, zoom });
-  });
-});
+/* =========================
+   CLICK PIN
+========================= */
+map.on('click', 'nero-points', e =>
+  updatePanel(e.features[0].properties)
+);
+map.on('click', 'unclustered-point-bianco', e =>
+  updatePanel(e.features[0].properties)
+);
 
-/* ========= CURSORE ========= */
-['clusters-nero', 'clusters-bianco', 'nero-points', 'unclustered-point-bianco']
-  .forEach(layer => {
-    map.on('mouseenter', layer, () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', layer, () => map.getCanvas().style.cursor = '');
-  });
-
-/* ========= CLICK PIN ========= */
-map.on('click', 'nero-points', e => updatePanel(e.features[0].properties));
-map.on('click', 'unclustered-point-bianco', e => updatePanel(e.features[0].properties));
-
-/* ========= PANEL ========= */
+/* =========================
+   PANEL
+========================= */
 function updatePanel(properties) {
-  console.log('UPDATE PANEL CHIAMATA', properties);
+  const panel = document.getElementById('panel');
+  const imgEl = document.getElementById('panel-image');
+  const titleEl = document.getElementById('panel-title');
+  const descEl = document.getElementById('panel-description');
 
-  /* --- TITOLO --- */
-  document.getElementById('panel-title').textContent =
-    (properties.name && properties.name.trim()) || 'Senza nome';
+  panel.classList.remove('panel-empty');
 
-  /* --- HTML CONTENT --- */
+  /* ===== TITOLO ===== */
+  titleEl.textContent = properties.name || '';
+
+  /* ===== CONTENUTO HTML ===== */
   let htmlContent = '';
 
   if (properties.description) {
     if (properties.description.trim().startsWith('{')) {
       try {
-        htmlContent = JSON.parse(properties.description).value || '';
-      } catch {}
+        const parsed = JSON.parse(properties.description);
+        htmlContent = parsed.value || '';
+      } catch {
+        htmlContent = '';
+      }
     } else {
       htmlContent = properties.description;
     }
   }
 
-  /* --- IMMAGINE --- */
+  /* ===== IMMAGINE ===== */
   let imageUrl = null;
 
-  const imgMatch = htmlContent.match(/<img[^>]+src=['"]([^'"]+)['"]/i);
-  if (imgMatch) {
+  const imgMatch = htmlContent.match(/<img[^>]+src="([^">]+)"/);
+  if (imgMatch && imgMatch[1]) {
     imageUrl = imgMatch[1];
   } else if (properties.gx_media_links) {
     imageUrl = properties.gx_media_links;
   }
 
-  const img = document.getElementById('panel-image');
   if (imageUrl) {
-    img.src = 'http://localhost:3000/image?url=' + encodeURIComponent(imageUrl);
-    img.style.display = 'block';
+    imgEl.src =
+      'http://localhost:3000/image?url=' +
+      encodeURIComponent(imageUrl);
+    imgEl.style.display = 'block';
   } else {
-    img.style.display = 'none';
+    imgEl.style.display = 'none';
   }
 
-  /* --- DESCRIZIONE --- */
+  /* ===== DESCRIZIONE ===== */
   let text = '';
   const parts = htmlContent.split(/<br\s*\/?><br\s*\/?>/i);
   if (parts.length > 1) {
     text = parts.slice(1).join(' ');
   }
 
-  // rimuove "name:" e "description:"
-  text = text.replace(/name:\s*/gi, '').replace(/description:\s*/gi, '');
+  text = text
+    .replace(/name:\s*/gi, '')
+    .replace(/description:\s*/gi, '')
+    .trim();
 
   const tmp = document.createElement('div');
   tmp.innerHTML = text;
+  descEl.textContent = tmp.textContent || '';
 
-  document.getElementById('panel-description').textContent =
-    tmp.textContent.trim();
+  updatePanelHeight();
 }
+
+/* =========================
+   PANEL HEIGHT → MAP
+========================= */
+function updatePanelHeight() {
+  const panel = document.getElementById('panel');
+  if (!panel) return;
+
+  const height = panel.offsetHeight;
+
+  document.documentElement.style.setProperty(
+    '--panel-height',
+    `${height}px`
+  );
+
+  map.setPadding({
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: height
+  });
+
+  map.resize();
+}
+
+window.addEventListener('resize', updatePanelHeight);

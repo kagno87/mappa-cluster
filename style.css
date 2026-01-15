@@ -5,27 +5,64 @@ html, body {
 }
 
 #map {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 100%;
+  height: calc(100% - var(--panel-height));
 }
+
 
 #panel {
   position: fixed;
-  right: 0;
-  top: 0;
-  width: 320px;
-  height: 100vh;
-  background: white;
-  border-left: 1px solid #ddd;
-  padding: 15px;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 250px;
+
+  background: #2e2e2e;
+  color: #ffffff;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
   box-sizing: border-box;
-  overflow-y: auto;
-  font-family: sans-serif;
 }
 
-#panel img {
-  width: 100%;
-  margin-top: 10px;
-  display: none;
+
+
+#panel-image {
+  height: 230px;          /* fisso */
+  width: 280px;
+
+  object-fit: cover;
+  object-position: center;
+
+  display: block;
 }
+
+#panel-image-wrapper {
+  position: relative;
+  width: 280px;   /* la tua ratio attuale */
+  height: 230px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+
+#panel-title,
+#panel-description {
+  position: absolute;
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 35%;
+}
+
+
+
 

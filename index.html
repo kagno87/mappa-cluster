@@ -6,22 +6,34 @@
 
   <!-- Mapbox -->
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <link
+    href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
+    rel="stylesheet"
+  />
 
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<div id="map"></div>
+  <!-- MAPPA -->
+  <div id="map"></div>
 
-<div id="panel">
-  <h2 id="panel-title">Seleziona un punto</h2>
-  <img id="panel-image" alt="" style="display:none; max-width:100%; margin-bottom:10px;" />
-  <p id="panel-description"></p>
-</div>
+  <!-- PANEL IN BASSO -->
+  <div id="panel">
 
+    <!-- wrapper dedicato SOLO all'immagine -->
+    <div id="image-wrapper">
+      <img id="panel-image" alt="" />
+    </div>
 
+    <!-- testo (per ora lo lasciamo, ma non lo stiliamo) -->
+    <div id="panel-text">
+      <h2 id="panel-title">Seleziona un punto</h2>
+      <p id="panel-description"></p>
+    </div>
 
-<script src="map.js"></script>
+  </div>
+
+  <script src="map.js"></script>
 </body>
 </html>

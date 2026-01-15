@@ -1,0 +1,35 @@
+RECUPERARE IL PROGETTO BIANCONERO DA GITHUB
+
+Questa guida spiega come scaricare il progetto su un nuovo computer
+usando GitHub.
+
+REQUISITI - Git installato - Accesso al repository GitHub
+
+PASSAGGI
+
+1.  Apri una cartella dove vuoi il progetto
+
+2.  Apri un terminale in quella cartella
+
+3.  Clona il repository:
+
+    git clone https://github.com/USERNAME/BIANCONERO.git
+
+4.  Entra nella cartella del progetto:
+
+    cd BIANCONERO
+
+5.  Apri Visual Studio Code:
+
+    code .
+
+POST-INSTALLAZIONE
+
+-   Avvia il proxy: cd proxy node server.js
+
+-   Apri index.html con Live Server
+
+-   Se non vedi le immagini, controlla che il proxy sia attivo
+
+CONSIGLIO Non modificare direttamente master se stai sperimentando: usa
+branch o backup.
