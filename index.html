@@ -23,13 +23,19 @@
 
     <!-- wrapper dedicato SOLO all'immagine -->
     <div id="image-wrapper">
-      <img id="panel-image" alt="" />
-    </div>
+      <img id="panel-image" />
 
-    <!-- testo (per ora lo lasciamo, ma non lo stiliamo) -->
-    <div id="panel-text">
-      <h2 id="panel-title">Seleziona un punto</h2>
-      <p id="panel-description"></p>
+      <div class="image-overlay">
+        
+        <div class="overlay-text">
+          <h3 id="overlay-title"></h3>
+          <p id="overlay-description"></p>
+          
+        </div>
+
+        <div class="overlay-coordinates" id="overlay-coordinates"></div>
+
+      </div>
     </div>
 
   </div>
@@ -37,3 +43,4 @@
   <script src="map.js"></script>
 </body>
 </html>
+

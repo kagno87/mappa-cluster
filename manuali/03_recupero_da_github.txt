@@ -1,35 +1,95 @@
-RECUPERARE IL PROGETTO BIANCONERO DA GITHUB
+MANUALE DI RECUPERO STATI PRECEDENTI DA GITHUB
+========================================
 
-Questa guida spiega come scaricare il progetto su un nuovo computer
-usando GitHub.
+Questo manuale spiega come recuperare versioni precedenti (stati stabili)
+del progetto usando Git e GitHub.
 
-REQUISITI - Git installato - Accesso al repository GitHub
+--------------------------------------------------
+CONCETTI BASE
+--------------------------------------------------
 
-PASSAGGI
+- Repository: il progetto sotto controllo Git
+- Commit: una "fotografia" dello stato del progetto
+- Branch: una linea di sviluppo (di solito 'master' o 'main')
+- Remote (origin): il repository su GitHub
 
-1.  Apri una cartella dove vuoi il progetto
+--------------------------------------------------
+1. CLONARE IL PROGETTO DA GITHUB (DA ZERO)
+--------------------------------------------------
 
-2.  Apri un terminale in quella cartella
+Se perdi tutto in locale o cambi computer:
 
-3.  Clona il repository:
+1. Apri PowerShell
+2. Vai nella cartella dove vuoi il progetto
+3. Esegui:
 
-    git clone https://github.com/USERNAME/BIANCONERO.git
+git clone https://github.com/kagno87/mappa-cluster.git
 
-4.  Entra nella cartella del progetto:
+Questo crea una cartella con l'ULTIMO stato salvato online.
 
-    cd BIANCONERO
+--------------------------------------------------
+2. VEDERE LA STORIA DEI COMMIT
+--------------------------------------------------
 
-5.  Apri Visual Studio Code:
+Dentro la cartella del progetto:
 
-    code .
+git log --oneline
 
-POST-INSTALLAZIONE
+Ogni riga è uno STATO RECUPERABILE.
 
--   Avvia il proxy: cd proxy node server.js
+--------------------------------------------------
+3. TORNARE A UNO STATO PRECEDENTE (TEMPORANEO)
+--------------------------------------------------
 
--   Apri index.html con Live Server
+git checkout <hash_commit>
 
--   Se non vedi le immagini, controlla che il proxy sia attivo
+Per tornare all'ultimo stato:
 
-CONSIGLIO Non modificare direttamente master se stai sperimentando: usa
-branch o backup.
+git checkout master
+
+--------------------------------------------------
+4. TORNARE A UNO STATO PRECEDENTE (DEFINITIVO)
+--------------------------------------------------
+
+git reset --hard <hash_commit>
+git push --force
+
+⚠️ Riscrive la storia: usare con cautela.
+
+--------------------------------------------------
+5. CREARE UN BRANCH DA UNO STATO STABILE (CONSIGLIATO)
+--------------------------------------------------
+
+git checkout <hash_commit>
+git checkout -b nuovo-branch
+
+--------------------------------------------------
+6. SALVARE UN NUOVO STATO STABILE
+--------------------------------------------------
+
+git add .
+git commit -m "descrizione chiara"
+git push
+
+--------------------------------------------------
+7. RECUPERARE UN FILE SPECIFICO
+--------------------------------------------------
+
+git checkout <hash_commit> -- style.css
+
+--------------------------------------------------
+8. COMANDI UTILI
+--------------------------------------------------
+
+git status
+git diff
+git restore .
+
+--------------------------------------------------
+REGOLA D'ORO
+--------------------------------------------------
+
+Uno stato stabile = un commit.
+Sperimenta sempre su branch separati.
+
+FINE
