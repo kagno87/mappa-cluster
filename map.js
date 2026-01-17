@@ -201,8 +201,9 @@ function updatePanel(feature) {
     (properties.title && properties.title.trim()) ||
     'Senza nome';
 
-  const overlayTitleEl = document.getElementById('overlay-title');
-  if (overlayTitleEl) overlayTitleEl.textContent = title;
+  const titleTextEl = document.getElementById('title-text');
+  if (titleTextEl) titleTextEl.textContent = title;
+
 
   /* ====== DESCRIPTION NORMALIZZATA ====== */
   let htmlContent = '';
@@ -311,6 +312,20 @@ if (copyBtn) {
     navigator.clipboard.writeText(text);
   });
 }
+
+const titleCopyBtn = document.getElementById('title-copy');
+
+if (titleCopyBtn) {
+  titleCopyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+
+    const text = document.getElementById('title-text')?.textContent;
+    if (!text) return;
+
+    navigator.clipboard.writeText(text);
+  });
+}
+
 
 
 window.addEventListener('resize', updatePanelHeight);
