@@ -137,13 +137,33 @@ html, body {
 
 .overlay-coordinates {
   position: absolute;
-  left: 10px;
+  left: 8px;
   bottom: 10px;
 
   font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   font-size: 12px;
   letter-spacing: 0.04em;
   opacity: 0.75;
+}
+
+#coords-copy {
+  pointer-events: auto;
+}
+
+
+#coords-copy {
+  margin-left: 0px;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+#coords-copy:hover {
+  opacity: 1;
 }
 
 

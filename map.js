@@ -189,9 +189,9 @@ function updatePanel(feature) {
     coordsText = formatCoords(Number(lat), Number(lon));
   }
 
-  const coordsEl = document.getElementById('overlay-coordinates');
-  if (coordsEl) {
-    coordsEl.textContent = coordsText;
+  const coordsTextEl = document.getElementById('coords-text');
+  if (coordsTextEl) {
+    coordsTextEl.textContent = coordsText;
   }
 
 
@@ -297,6 +297,19 @@ function formatCoords(lat, lng, decimals = 4) {
   const lngFixed = Math.abs(lng).toFixed(decimals);
 
   return `${latDir} ${latFixed}°, ${lngDir} ${lngFixed}°`;
+}
+
+const copyBtn = document.getElementById('coords-copy');
+
+if (copyBtn) {
+  copyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+
+    const text = document.getElementById('coords-text')?.textContent;
+    if (!text) return;
+
+    navigator.clipboard.writeText(text);
+  });
 }
 
 
