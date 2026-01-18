@@ -194,6 +194,18 @@ function updatePanel(feature) {
     coordsTextEl.textContent = coordsText;
   }
 
+  const overlay = document.querySelector('.image-overlay');
+
+  if (
+    overlay &&
+    feature.geometry &&
+    feature.geometry.type === 'Point'
+  ) {
+    overlay.dataset.lon = feature.geometry.coordinates[0];
+    overlay.dataset.lat = feature.geometry.coordinates[1];
+  }
+
+
 
   /* ====== TITOLO ====== */
   const title =
@@ -326,6 +338,25 @@ if (titleCopyBtn) {
   });
 }
 
+const overlay = document.querySelector('.image-overlay');
+
+if (overlay) {
+  overlay.addEventListener('click', (e) => {
+    // evita conflitti con i pulsanti copy
+    if (e.target.closest('button')) return;
+
+    const lon = parseFloat(overlay.dataset.lon);
+    const lat = parseFloat(overlay.dataset.lat);
+
+    
+    if (!isNaN(lon) && !isNaN(lat)) {
+      map.easeTo({
+        center: [lon, lat],
+        duration: 800
+      });
+    }
+  });
+}
 
 
 window.addEventListener('resize', updatePanelHeight);

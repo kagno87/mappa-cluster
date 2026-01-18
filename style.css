@@ -93,9 +93,13 @@ html, body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
-
-  
 }
+
+#image-wrapper:hover .image-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 
 
 
@@ -151,7 +155,7 @@ html, body {
   position: absolute;
   left: 8px;
   bottom: 10px;
-  max-width: 60%;
+  
 }
 
 #overlay-description {
@@ -206,5 +210,12 @@ html, body {
   vertical-align: middle;
 }
 
+.image-overlay {
+  cursor: pointer;
+}
+
+.image-overlay button {
+  cursor: default;
+}
 
 
