@@ -48,15 +48,21 @@ for (let i = 0; i < placemarks.length; i++) {
   const p = placemarks[i];
 
   const name = getText(p, 'name');
+  
   const description = getText(p, 'description');
   const gxMedia = getExtendedData(p, 'gx_media_links');
+  const country = getExtendedData(p, 'country');
+  const sizeRaw = getExtendedData(p, 'size');
 
-    if (!name || !description) {
+  const size = sizeRaw !== '' ? Number(sizeRaw) : null;
+
+  if (!name || !country || size === null || Number.isNaN(size)) {
     console.warn(
       `⚠️ Placemark ${i + 1} incompleto →`,
       {
         name: name || '(vuoto)',
-        description: description ? 'OK' : '(vuota)'
+        country: country || '(mancante)',
+        size: sizeRaw || '(mancante)'
       }
     );
   }
@@ -78,9 +84,12 @@ for (let i = 0; i < placemarks.length; i++) {
     },
     properties: {
       name: name || '',
-      description: description || '',
-      gx_media_links: gxMedia || ''
+      country: country || '',
+      size: size,
+      gx_media_links: gxMedia || '',
+      description: description || ''
     }
+
   });
 }
 

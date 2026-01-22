@@ -267,29 +267,16 @@ function updatePanel(feature) {
     imgEl.style.display = 'none';
   }
 
-  /* ====== DESCRIZIONE TESTUALE ====== */
-  let descriptionText = '';
-
-  if (htmlContent) {
-    const parts = htmlContent.split(/<br\s*\/?><br\s*\/?>/i);
-    if (parts.length > 1) {
-      descriptionText = parts[1];
-    }
-  }
-
-  descriptionText = descriptionText
-    .replace(/name:\s*/gi, '')
-    .replace(/description:\s*/gi, '')
-    .trim();
-
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = descriptionText;
-
-  const cleanDescription =
-    tempDiv.textContent || tempDiv.innerText || '';
+  
+  /* ====== COUNTRY ====== */
+  const country =
+    (properties.country && properties.country.trim()) || '';
 
   const overlayDescEl = document.getElementById('overlay-description');
-  if (overlayDescEl) overlayDescEl.textContent = cleanDescription;
+  if (overlayDescEl) {
+    overlayDescEl.textContent = country;
+  }
+
 
   updatePanelHeight();
 }
