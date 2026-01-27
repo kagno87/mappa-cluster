@@ -81,7 +81,19 @@ map.on('load', () => {
     type: 'circle',
     source: 'nero',
     filter: ['!', ['has', 'point_count']],
-    paint: { 'circle-color': '#000000', 'circle-radius': 6 }
+    paint: {
+      'circle-color': '#000000',
+      'circle-radius': [
+        'match',
+        ['get', 'size'],
+        1, 6,
+        2, 10,
+        3, 14,
+        6 // fallback
+      ]
+    }
+
+    
   });
 
   map.addLayer({
@@ -113,10 +125,18 @@ map.on('load', () => {
     filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-color': '#ffffff',
-      'circle-radius': 6,
-      'circle-stroke-width': 2,
+      'circle-radius': [
+        'match',
+        ['get', 'size'],
+        1, 5,
+        2, 9,
+        3, 13,
+        6
+      ],
+      'circle-stroke-width': 1.2,
       'circle-stroke-color': '#000000'
     }
+         
   });
 
     /* ========= CLICK CLUSTER ========= */
