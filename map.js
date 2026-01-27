@@ -42,16 +42,16 @@ map.on('load', () => {
     type: 'geojson',
     data: 'nero.geojson',
     cluster: true,
-    clusterRadius: 50,
-    clusterMaxZoom: 14
+    clusterRadius: 70,
+    clusterMaxZoom: 7
   });
 
   map.addSource('bianco', {
     type: 'geojson',
     data: 'bianco.geojson',
     cluster: true,
-    clusterRadius: 50,
-    clusterMaxZoom: 14
+    clusterRadius: 70,
+    clusterMaxZoom: 7
   });
 
   /* ========= CLUSTERS ========= */
@@ -82,15 +82,18 @@ map.on('load', () => {
     source: 'nero',
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': '#000000',
+      'circle-color': '#2c2c2c',
       'circle-radius': [
         'match',
         ['get', 'size'],
-        1, 6,
-        2, 10,
-        3, 14,
-        6 // fallback
-      ]
+        1, 5,
+        2, 9,
+        3, 13,
+        6
+      ],
+      'circle-stroke-width': 1.2,
+      'circle-stroke-color': '#000000'
+    
     }
 
     
