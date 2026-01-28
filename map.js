@@ -43,7 +43,12 @@ map.on('load', () => {
     data: 'nero.geojson',
     cluster: true,
     clusterRadius: 70,
-    clusterMaxZoom: 7
+    clusterMaxZoom: 7,
+
+    clusterProperties: {
+    maxSize: ['max', ['get', 'size']]
+    }
+
   });
 
   map.addSource('bianco', {
@@ -51,7 +56,12 @@ map.on('load', () => {
     data: 'bianco.geojson',
     cluster: true,
     clusterRadius: 70,
-    clusterMaxZoom: 7
+    clusterMaxZoom: 7,
+
+    clusterProperties: {
+    maxSize: ['max', ['get', 'size']]
+    }
+
   });
 
   /* ========= CLUSTERS ========= */
@@ -61,20 +71,49 @@ map.on('load', () => {
     source: 'nero',
     filter: ['has', 'point_count'],
     paint: {
-      'circle-color': '#333',
-      'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 50, 30],
-      'circle-opacity': 0.8
+      'circle-color': '#2c2c2c',
+      'circle-radius': [
+        'match',
+        ['get', 'maxSize'],
+        1, 5,
+        2, 10,
+        3, 15,
+        7 // fallback
+      ],
+
+      'circle-opacity': 1.0,
+      'circle-stroke-width': 1.2,
+      'circle-stroke-color': '#000000'
     }
   });
 
+  
   map.addLayer({
-    id: 'nero-cluster-count',
-    type: 'symbol',
+    id: 'clusters-nero-ring',
+    type: 'circle',
     source: 'nero',
     filter: ['has', 'point_count'],
-    layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 },
-    paint: { 'text-color': '#ffffff' }
+    paint: {
+      'circle-color': 'rgba(0,0,0,0)',    
+      'circle-radius': [
+        'match',
+        ['get', 'maxSize'],
+        1, 8,   
+        2, 13,   
+        3, 18,   
+        10
+      ],
+
+      // STROKE
+      'circle-stroke-width': 1.2,
+      'circle-stroke-color': '#000000',
+      'circle-stroke-opacity': 0.5
+       
+    }
+
+
   });
+
 
   map.addLayer({
     id: 'nero-points',
@@ -87,8 +126,8 @@ map.on('load', () => {
         'match',
         ['get', 'size'],
         1, 5,
-        2, 9,
-        3, 13,
+        2, 10,
+        3, 15,
         6
       ],
       'circle-stroke-width': 1.2,
@@ -106,20 +145,48 @@ map.on('load', () => {
     filter: ['has', 'point_count'],
     paint: {
       'circle-color': '#ffffff',
-      'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 30, 25],
-      'circle-stroke-width': 2,
+
+      'circle-radius': [
+        'match',
+        ['get', 'maxSize'],
+        1, 5,
+        2, 10,
+        3, 15,
+        7 // fallback
+      ],
+      
+      'circle-stroke-width': 1.2,
       'circle-stroke-color': '#000000'
+      
     }
   });
 
   map.addLayer({
-    id: 'cluster-count-bianco',
-    type: 'symbol',
+    id: 'clusters-bianco-ring',
+    type: 'circle',
     source: 'bianco',
     filter: ['has', 'point_count'],
-    layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 },
-    paint: { 'text-color': '#000000' }
+    paint: {
+      'circle-color': 'rgba(0,0,0,0)',    
+      'circle-radius': [
+        'match',
+        ['get', 'maxSize'],
+        1, 8,   
+        2, 13,   
+        3, 18,   
+        10
+      ],
+
+      // STROKE
+      'circle-stroke-width': 1.2,
+      'circle-stroke-color': '#000000',
+      'circle-stroke-opacity': 0.5
+       
+    }
+
+
   });
+
 
   map.addLayer({
     id: 'unclustered-point-bianco',
@@ -132,8 +199,8 @@ map.on('load', () => {
         'match',
         ['get', 'size'],
         1, 5,
-        2, 9,
-        3, 13,
+        2, 10,
+        3, 15,
         6
       ],
       'circle-stroke-width': 1.2,
