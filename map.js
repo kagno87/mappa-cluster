@@ -244,7 +244,55 @@ map.on('load', () => {
     );
   });
 
+  document.querySelectorAll('.layer-toggle').forEach(toggle => {
+  const layerKey = toggle.dataset.layer;
+  let active = true;
+
+  toggle.classList.add('active');
+
+  toggle.addEventListener('click', () => {
+    active = !active;
+
+    toggle.classList.toggle('active', active);
+    setLayerGroupVisibility(layerKey, active);
+  });
+  
 });
+
+
+});
+
+/* ========= TOGGLE LAYER ========= */
+
+const layerGroups = {
+  nero: [
+    'clusters-nero',
+    'clusters-nero-ring',
+    'nero-points'
+  ],
+  bianco: [
+    'clusters-bianco',
+    'clusters-bianco-ring',
+    'unclustered-point-bianco'
+  ]
+};
+
+function setLayerGroupVisibility(group, visible) {
+  const layers = layerGroups[group];
+  if (!layers) return;
+
+  layers.forEach(id => {
+    if (map.getLayer(id)) {
+      map.setLayoutProperty(
+        id,
+        'visibility',
+        visible ? 'visible' : 'none'
+      );
+    }
+  });
+}
+
+
 
 /* ========= CURSORE ========= */
 ['clusters-nero', 'clusters-bianco', 'nero-points', 'unclustered-point-bianco']
