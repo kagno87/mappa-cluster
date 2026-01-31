@@ -256,7 +256,7 @@ map.on('load', () => {
     toggle.classList.toggle('active', active);
     setLayerGroupVisibility(layerKey, active);
   });
-  
+
 });
 
 
@@ -480,6 +480,28 @@ if (overlay) {
         duration: 800
       });
     }
+  });
+}
+
+const layerInfo = document.getElementById('layer-info');
+const neroToggle = document.querySelector('.layer-toggle[data-layer="nero"]');
+
+if (layerInfo && neroToggle) {
+
+  neroToggle.addEventListener('mouseenter', () => {
+    const rect = neroToggle.getBoundingClientRect();
+
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    layerInfo.style.left = `${centerX}px`;
+    layerInfo.style.top = `${centerY}px`;
+
+    layerInfo.hidden = false;
+  });
+
+  neroToggle.addEventListener('mouseleave', () => {
+    layerInfo.hidden = true;
   });
 }
 
