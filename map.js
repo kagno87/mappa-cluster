@@ -484,26 +484,30 @@ if (overlay) {
 }
 
 const layerInfo = document.getElementById('layer-info');
-const neroToggle = document.querySelector('.layer-toggle[data-layer="nero"]');
+const toggles = document.querySelectorAll('.layer-toggle');
 
-if (layerInfo && neroToggle) {
-
-  neroToggle.addEventListener('mouseenter', () => {
-    const rect = neroToggle.getBoundingClientRect();
-
+toggles.forEach(toggle => {
+  toggle.addEventListener('mouseenter', () => {
+    const rect = toggle.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
 
     layerInfo.style.left = `${centerX}px`;
     layerInfo.style.top = `${centerY}px`;
 
+    // Testo dinamico dal dataset
+    const text = toggle.dataset.layerInfo || '';
+    layerInfo.innerHTML = `<div class="layer-info-title">${text}</div>`;
+
     layerInfo.hidden = false;
   });
 
-  neroToggle.addEventListener('mouseleave', () => {
+  toggle.addEventListener('mouseleave', () => {
     layerInfo.hidden = true;
   });
-}
+});
+
+
 
 
 window.addEventListener('resize', updatePanelHeight);
