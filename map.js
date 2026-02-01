@@ -257,6 +257,26 @@ map.on('load', () => {
     setLayerGroupVisibility(layerKey, active);
   });
 
+  const searchContainer = document.getElementById('search-container');
+
+  if (
+    searchContainer &&
+    typeof MapboxGeocoder !== 'undefined' &&
+    !searchContainer.querySelector('.mapboxgl-ctrl-geocoder')
+  ) {
+    const geocoder = new MapboxGeocoder({
+      accessToken: mapboxgl.accessToken,
+      mapboxgl: mapboxgl,
+      marker: false,
+      flyTo: { speed: 1.2 },
+      placeholder: 'Cerca un luogo…'
+    });
+
+    searchContainer.appendChild(geocoder.onAdd(map));
+  }
+
+
+
 });
 
 
