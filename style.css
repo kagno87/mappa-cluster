@@ -254,6 +254,12 @@ html, body {
 
 
 /* ===== DOT TOGGLE ===== */
+#layer-toggles {
+  display: flex;
+  gap: 12px;
+  margin-left: 300px;
+}
+
 .layer-toggle {
   position: relative;
   width: 18px;
