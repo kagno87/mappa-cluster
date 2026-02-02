@@ -269,7 +269,8 @@ map.on('load', () => {
       mapboxgl: mapboxgl,
       marker: false,
       flyTo: { speed: 1.2 },
-      placeholder: 'Cerca un luogo…'
+      language: 'en', 
+      placeholder: 'Search for a place'
     });
 
     searchContainer.appendChild(geocoder.onAdd(map));
