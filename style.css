@@ -364,3 +364,72 @@ html, body {
   width: 100% !important;  /* 🔑 input sempre pieno */
 }
 
+/* ============================= */
+/* MAPBOX GEOCODER – DARK TOPBAR */
+/* ============================= */
+
+#search-container .mapboxgl-ctrl-geocoder {
+  background: #303030;                 /* stesso grigio della topbar */
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.6);       /* perimetro bianco */
+  border-radius: 20px;                  /* angoli arrotondati */
+  box-shadow: none;
+
+  height: 32px;
+  display: flex;
+  align-items: center;
+
+  transition: border-color 0.15s ease; /* micro feedback */
+}
+
+/* input */
+#search-container .mapboxgl-ctrl-geocoder--input {
+  background: transparent;
+  color: #ffffff;
+
+  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+
+  padding: 6px 10px;
+  height: 100%;
+}
+
+/* placeholder */
+#search-container .mapboxgl-ctrl-geocoder--input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* icona lente */
+#search-container .mapboxgl-ctrl-geocoder--icon-search {
+  fill: #ffffff;
+  opacity: 0.8;
+}
+
+/* bottone clear (X) */
+#search-container .mapboxgl-ctrl-geocoder--button {
+  background: transparent;
+}
+
+#search-container .mapboxgl-ctrl-geocoder--icon-close {
+  fill: #ffffff;
+  opacity: 0.7;
+}
+
+#search-container .mapboxgl-ctrl-geocoder--icon-close:hover {
+  opacity: 1;
+}
+
+/* sposta il testo dell’input oltre l’icona lente */
+#search-container .mapboxgl-ctrl-geocoder--input {
+  padding-left: 34px;   /* 🔑 aumenta spazio a sinistra */
+}
+
+/* rimuove outline di focus del browser */
+#search-container .mapboxgl-ctrl-geocoder--input:focus {
+  outline: none;
+}
+
+#search-container .mapboxgl-ctrl-geocoder:focus-within {
+  border-color: rgba(255, 255, 255, 1); /* 🔑 100% */
+}
+
