@@ -9,7 +9,13 @@ const map = new mapboxgl.Map({
   zoom: 6
 });
 
-map.addControl(new mapboxgl.NavigationControl());
+/* ========= STILI BASE ========= */
+const BASE_STYLES = {
+  light: 'mapbox://styles/mapbox/light-v11',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12'
+};
+
+let currentBaseStyleKey = 'light';
 
 /* ========= PANEL HEIGHT (DEVE STARE QUI, IN ALTO) ========= */
 function updatePanelHeight() {
@@ -18,10 +24,7 @@ function updatePanelHeight() {
 
   const height = panel.offsetHeight;
 
-  document.documentElement.style.setProperty(
-    '--panel-height',
-    `${height}px`
-  );
+  document.documentElement.style.setProperty('--panel-height', `${height}px`);
 
   map.setPadding({
     top: 0,
@@ -31,232 +34,64 @@ function updatePanelHeight() {
   });
 }
 
-/* ========= LOAD ========= */
-map.on('load', () => {
-  console.log('Mapbox caricato correttamente');
+/* ========= CONTROLLO SWITCHER MAP/SAT ========= */
+class MapStyleSwitcherControl {
+  onAdd(mapInstance) {
+    this.map = mapInstance;
 
-  updatePanelHeight();
+    const container = document.createElement('div');
+    container.className = 'mapboxgl-ctrl map-style-switcher';
 
-  /* ========= SOURCES ========= */
-  map.addSource('nero', {
-    type: 'geojson',
-    data: 'nero.geojson',
-    cluster: true,
-    clusterRadius: 70,
-    clusterMaxZoom: 7,
+    const group = document.createElement('div');
+    group.className = 'mapboxgl-ctrl-group mapboxgl-ctrl';
 
-    clusterProperties: {
-    maxSize: ['max', ['get', 'size']]
-    }
+    const btnMap = document.createElement('button');
+    btnMap.type = 'button';
+    btnMap.title = 'Map';
+    btnMap.textContent = 'MAP';
 
-  });
+    const btnSat = document.createElement('button');
+    btnSat.type = 'button';
+    btnSat.title = 'Satellite';
+    btnSat.textContent = 'SAT';
 
-  map.addSource('bianco', {
-    type: 'geojson',
-    data: 'bianco.geojson',
-    cluster: true,
-    clusterRadius: 70,
-    clusterMaxZoom: 7,
+    const setActiveUI = () => {
+      btnMap.classList.toggle('is-active', currentBaseStyleKey === 'light');
+      btnSat.classList.toggle('is-active', currentBaseStyleKey === 'satellite');
+    };
 
-    clusterProperties: {
-    maxSize: ['max', ['get', 'size']]
-    }
+    btnMap.addEventListener('click', () => {
+      if (currentBaseStyleKey === 'light') return;
+      currentBaseStyleKey = 'light';
+      setActiveUI();
+      this.map.setStyle(BASE_STYLES.light);
+    });
 
-  });
+    btnSat.addEventListener('click', () => {
+      if (currentBaseStyleKey === 'satellite') return;
+      currentBaseStyleKey = 'satellite';
+      setActiveUI();
+      this.map.setStyle(BASE_STYLES.satellite);
+    });
 
-  /* ========= CLUSTERS ========= */
-  map.addLayer({
-    id: 'clusters-nero',
-    type: 'circle',
-    source: 'nero',
-    filter: ['has', 'point_count'],
-    paint: {
-      'circle-color': '#2c2c2c',
-      'circle-radius': [
-        'match',
-        ['get', 'maxSize'],
-        1, 5,
-        2, 10,
-        3, 15,
-        7 // fallback
-      ],
+    group.appendChild(btnMap);
+    group.appendChild(btnSat);
+    container.appendChild(group);
 
-      'circle-opacity': 1.0,
-      'circle-stroke-width': 1.2,
-      'circle-stroke-color': '#000000'
-    }
-  });
+    setActiveUI();
 
-  
-  map.addLayer({
-    id: 'clusters-nero-ring',
-    type: 'circle',
-    source: 'nero',
-    filter: ['has', 'point_count'],
-    paint: {
-      'circle-color': 'rgba(0,0,0,0)',    
-      'circle-radius': [
-        'match',
-        ['get', 'maxSize'],
-        1, 8,   
-        2, 13,   
-        3, 18,   
-        10
-      ],
+    this.container = container;
+    return container;
+  }
 
-      // STROKE
-      'circle-stroke-width': 1.2,
-      'circle-stroke-color': '#000000',
-      'circle-stroke-opacity': 0.5
-       
-    }
+  onRemove() {
+    this.container?.parentNode?.removeChild(this.container);
+    this.map = undefined;
+  }
+}
 
-
-  });
-
-
-  map.addLayer({
-    id: 'nero-points',
-    type: 'circle',
-    source: 'nero',
-    filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-color': '#2c2c2c',
-      'circle-radius': [
-        'match',
-        ['get', 'size'],
-        1, 5,
-        2, 10,
-        3, 15,
-        6
-      ],
-      'circle-stroke-width': 1.2,
-      'circle-stroke-color': '#000000'
-    
-    }
-
-    
-  });
-
-  map.addLayer({
-    id: 'clusters-bianco',
-    type: 'circle',
-    source: 'bianco',
-    filter: ['has', 'point_count'],
-    paint: {
-      'circle-color': '#ffffff',
-
-      'circle-radius': [
-        'match',
-        ['get', 'maxSize'],
-        1, 5,
-        2, 10,
-        3, 15,
-        7 // fallback
-      ],
-      
-      'circle-stroke-width': 1.2,
-      'circle-stroke-color': '#000000'
-      
-    }
-  });
-
-  map.addLayer({
-    id: 'clusters-bianco-ring',
-    type: 'circle',
-    source: 'bianco',
-    filter: ['has', 'point_count'],
-    paint: {
-      'circle-color': 'rgba(0,0,0,0)',    
-      'circle-radius': [
-        'match',
-        ['get', 'maxSize'],
-        1, 8,   
-        2, 13,   
-        3, 18,   
-        10
-      ],
-
-      // STROKE
-      'circle-stroke-width': 1.2,
-      'circle-stroke-color': '#000000',
-      'circle-stroke-opacity': 0.5
-       
-    }
-
-
-  });
-
-
-  map.addLayer({
-    id: 'unclustered-point-bianco',
-    type: 'circle',
-    source: 'bianco',
-    filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-color': '#ffffff',
-      'circle-radius': [
-        'match',
-        ['get', 'size'],
-        1, 5,
-        2, 10,
-        3, 15,
-        6
-      ],
-      'circle-stroke-width': 1.2,
-      'circle-stroke-color': '#000000'
-    }
-         
-  });
-
-    /* ========= CLICK CLUSTER ========= */
-  map.on('click', 'clusters-nero', (e) => {
-    const f = e.features && e.features[0];
-    if (!f) return;
-
-    map.getSource('nero').getClusterExpansionZoom(
-      f.properties.cluster_id,
-      (err, zoom) => {
-        if (!err) {
-          map.easeTo({
-            center: f.geometry.coordinates,
-            zoom
-          });
-        }
-      }
-    );
-  });
-
-  map.on('click', 'clusters-bianco', (e) => {
-    const f = e.features && e.features[0];
-    if (!f) return;
-
-    map.getSource('bianco').getClusterExpansionZoom(
-      f.properties.cluster_id,
-      (err, zoom) => {
-        if (!err) {
-          map.easeTo({
-            center: f.geometry.coordinates,
-            zoom
-          });
-        }
-      }
-    );
-  });
-
-  document.querySelectorAll('.layer-toggle').forEach(toggle => {
-  const layerKey = toggle.dataset.layer;
-  let active = true;
-
-  toggle.classList.add('active');
-
-  toggle.addEventListener('click', () => {
-    active = !active;
-
-    toggle.classList.toggle('active', active);
-    setLayerGroupVisibility(layerKey, active);
-  });
-
+/* ========= GEOCODER (solo una volta) ========= */
+function setupGeocoderOnce() {
   const searchContainer = document.getElementById('search-container');
 
   if (
@@ -269,33 +104,18 @@ map.on('load', () => {
       mapboxgl: mapboxgl,
       marker: false,
       flyTo: { speed: 1.2 },
-      language: 'en', 
+      language: 'en',
       placeholder: 'Search for a place'
     });
 
     searchContainer.appendChild(geocoder.onAdd(map));
   }
-
-
-
-});
-
-
-});
+}
 
 /* ========= TOGGLE LAYER ========= */
-
 const layerGroups = {
-  nero: [
-    'clusters-nero',
-    'clusters-nero-ring',
-    'nero-points'
-  ],
-  bianco: [
-    'clusters-bianco',
-    'clusters-bianco-ring',
-    'unclustered-point-bianco'
-  ]
+  nero: ['clusters-nero', 'clusters-nero-ring', 'nero-points'],
+  bianco: ['clusters-bianco', 'clusters-bianco-ring', 'unclustered-point-bianco']
 };
 
 function setLayerGroupVisibility(group, visible) {
@@ -304,31 +124,220 @@ function setLayerGroupVisibility(group, visible) {
 
   layers.forEach(id => {
     if (map.getLayer(id)) {
-      map.setLayoutProperty(
-        id,
-        'visibility',
-        visible ? 'visible' : 'none'
-      );
+      map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
     }
   });
 }
 
+function applyLayerToggleState() {
+  document.querySelectorAll('.layer-toggle').forEach(toggle => {
+    const layerKey = toggle.dataset.layer;
+    const visible = toggle.classList.contains('active');
+    setLayerGroupVisibility(layerKey, visible);
+  });
+}
 
+/* ========= INIT DI SOURCES/LAYERS + HANDLERS ========= */
+function initDataLayersAndHandlers() {
+  addSourcesIfMissing();
+  addLayersIfMissing();
+  applyLayerToggleState();
+  bindMapInteractions();
+  updatePanelHeight();
+}
 
-/* ========= CURSORE ========= */
-['clusters-nero', 'clusters-bianco', 'nero-points', 'unclustered-point-bianco']
-  .forEach(layer => {
-    map.on('mouseenter', layer, () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', layer, () => map.getCanvas().style.cursor = '');
+function addSourcesIfMissing() {
+  if (!map.getSource('nero')) {
+    map.addSource('nero', {
+      type: 'geojson',
+      data: 'nero.geojson',
+      cluster: true,
+      clusterRadius: 70,
+      clusterMaxZoom: 7,
+      clusterProperties: {
+        maxSize: ['max', ['get', 'size']]
+      }
+    });
+  }
+
+  if (!map.getSource('bianco')) {
+    map.addSource('bianco', {
+      type: 'geojson',
+      data: 'bianco.geojson',
+      cluster: true,
+      clusterRadius: 70,
+      clusterMaxZoom: 7,
+      clusterProperties: {
+        maxSize: ['max', ['get', 'size']]
+      }
+    });
+  }
+}
+
+function addLayersIfMissing() {
+  /* ========= CLUSTERS NERO ========= */
+  if (!map.getLayer('clusters-nero')) {
+    map.addLayer({
+      id: 'clusters-nero',
+      type: 'circle',
+      source: 'nero',
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': '#2c2c2c',
+        'circle-radius': ['match', ['get', 'maxSize'], 1, 5, 2, 10, 3, 15, 7],
+        'circle-opacity': 1.0,
+        'circle-stroke-width': 1.2,
+        'circle-stroke-color': '#000000'
+      }
+    });
+  }
+
+  if (!map.getLayer('clusters-nero-ring')) {
+    map.addLayer({
+      id: 'clusters-nero-ring',
+      type: 'circle',
+      source: 'nero',
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': 'rgba(0,0,0,0)',
+        'circle-radius': ['match', ['get', 'maxSize'], 1, 8, 2, 13, 3, 18, 10],
+        'circle-stroke-width': 1.2,
+        'circle-stroke-color': '#000000',
+        'circle-stroke-opacity': 0.5
+      }
+    });
+  }
+
+  if (!map.getLayer('nero-points')) {
+    map.addLayer({
+      id: 'nero-points',
+      type: 'circle',
+      source: 'nero',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': '#2c2c2c',
+        'circle-radius': ['match', ['get', 'size'], 1, 5, 2, 10, 3, 15, 6],
+        'circle-stroke-width': 1.2,
+        'circle-stroke-color': '#000000'
+      }
+    });
+  }
+
+  /* ========= CLUSTERS BIANCO ========= */
+  if (!map.getLayer('clusters-bianco')) {
+    map.addLayer({
+      id: 'clusters-bianco',
+      type: 'circle',
+      source: 'bianco',
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': '#ffffff',
+        'circle-radius': ['match', ['get', 'maxSize'], 1, 5, 2, 10, 3, 15, 7],
+        'circle-stroke-width': 1.2,
+        'circle-stroke-color': '#000000'
+      }
+    });
+  }
+
+  if (!map.getLayer('clusters-bianco-ring')) {
+    map.addLayer({
+      id: 'clusters-bianco-ring',
+      type: 'circle',
+      source: 'bianco',
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': 'rgba(0,0,0,0)',
+        'circle-radius': ['match', ['get', 'maxSize'], 1, 8, 2, 13, 3, 18, 10],
+        'circle-stroke-width': 1.2,
+        'circle-stroke-color': '#000000',
+        'circle-stroke-opacity': 0.5
+      }
+    });
+  }
+
+  if (!map.getLayer('unclustered-point-bianco')) {
+    map.addLayer({
+      id: 'unclustered-point-bianco',
+      type: 'circle',
+      source: 'bianco',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': '#ffffff',
+        'circle-radius': ['match', ['get', 'size'], 1, 5, 2, 10, 3, 15, 6],
+        'circle-stroke-width': 1.2,
+        'circle-stroke-color': '#000000'
+      }
+    });
+  }
+}
+
+/* ========= HANDLERS MAP (riagganciati dopo setStyle) ========= */
+function bindMapInteractions() {
+  // Cluster click
+  map.off('click', 'clusters-nero', onClickClusterNero);
+  map.on('click', 'clusters-nero', onClickClusterNero);
+
+  map.off('click', 'clusters-bianco', onClickClusterBianco);
+  map.on('click', 'clusters-bianco', onClickClusterBianco);
+
+  // Cursore pointer
+  const layers = ['clusters-nero', 'clusters-bianco', 'nero-points', 'unclustered-point-bianco'];
+  layers.forEach(layer => {
+    map.off('mouseenter', layer, onEnterPointer);
+    map.off('mouseleave', layer, onLeavePointer);
+    map.on('mouseenter', layer, onEnterPointer);
+    map.on('mouseleave', layer, onLeavePointer);
   });
 
-/* ========= CLICK PIN ========= */
-map.on('click', 'nero-points', e => updatePanel(e.features[0]));
-map.on('click', 'unclustered-point-bianco', e => updatePanel(e.features[0]));
+  // Click pin
+  map.off('click', 'nero-points', onClickNeroPoint);
+  map.off('click', 'unclustered-point-bianco', onClickBiancoPoint);
+  map.on('click', 'nero-points', onClickNeroPoint);
+  map.on('click', 'unclustered-point-bianco', onClickBiancoPoint);
+}
+
+function onClickClusterNero(e) {
+  const f = e.features && e.features[0];
+  if (!f) return;
+
+  map.getSource('nero').getClusterExpansionZoom(
+    f.properties.cluster_id,
+    (err, zoom) => {
+      if (!err) map.easeTo({ center: f.geometry.coordinates, zoom });
+    }
+  );
+}
+
+function onClickClusterBianco(e) {
+  const f = e.features && e.features[0];
+  if (!f) return;
+
+  map.getSource('bianco').getClusterExpansionZoom(
+    f.properties.cluster_id,
+    (err, zoom) => {
+      if (!err) map.easeTo({ center: f.geometry.coordinates, zoom });
+    }
+  );
+}
+
+function onEnterPointer() {
+  map.getCanvas().style.cursor = 'pointer';
+}
+
+function onLeavePointer() {
+  map.getCanvas().style.cursor = '';
+}
+
+function onClickNeroPoint(e) {
+  updatePanel(e.features[0]);
+}
+
+function onClickBiancoPoint(e) {
+  updatePanel(e.features[0]);
+}
 
 /* ========= PANEL ========= */
 function updatePanel(feature) {
-
   const properties = feature.properties || {};
 
   /* ====== COORDINATE ====== */
@@ -339,32 +348,19 @@ function updatePanel(feature) {
     feature.geometry.type === 'Point' &&
     Array.isArray(feature.geometry.coordinates)
   ) {
-    
     const [lon, lat] = feature.geometry.coordinates;
-
-    const lonFixed = Number(lon).toFixed(4);
-    const latFixed = Number(lat).toFixed(4);
-
     coordsText = formatCoords(Number(lat), Number(lon));
   }
 
   const coordsTextEl = document.getElementById('coords-text');
-  if (coordsTextEl) {
-    coordsTextEl.textContent = coordsText;
-  }
+  if (coordsTextEl) coordsTextEl.textContent = coordsText;
 
   const overlay = document.querySelector('.image-overlay');
 
-  if (
-    overlay &&
-    feature.geometry &&
-    feature.geometry.type === 'Point'
-  ) {
+  if (overlay && feature.geometry && feature.geometry.type === 'Point') {
     overlay.dataset.lon = feature.geometry.coordinates[0];
     overlay.dataset.lat = feature.geometry.coordinates[1];
   }
-
-
 
   /* ====== TITOLO ====== */
   const title =
@@ -375,12 +371,10 @@ function updatePanel(feature) {
   const titleTextEl = document.getElementById('title-text');
   if (titleTextEl) titleTextEl.textContent = title;
 
-
   /* ====== DESCRIPTION NORMALIZZATA ====== */
   let htmlContent = '';
 
   if (properties.description) {
-    // Caso My Maps con JSON {"@type":"html","value":"..."}
     if (
       typeof properties.description === 'string' &&
       properties.description.trim().startsWith('{')
@@ -391,9 +385,7 @@ function updatePanel(feature) {
       } catch (e) {
         htmlContent = '';
       }
-    }
-    // Caso HTML diretto
-    else {
+    } else {
       htmlContent = properties.description;
     }
   }
@@ -409,37 +401,29 @@ function updatePanel(feature) {
   }
 
   const imgEl = document.getElementById('panel-image');
+
   if (imgEl && imageUrl) {
     const proxiedUrl =
-      'http://localhost:3000/image?url=' +
-      encodeURIComponent(imageUrl);
-    imgEl.style.display = 'block';
+      'http://localhost:3000/image?url=' + encodeURIComponent(imageUrl);
 
-    preloadImage(proxiedUrl, (loadedUrl) => {
+    preloadImage(proxiedUrl, loadedUrl => {
       if (loadedUrl) {
         imgEl.src = loadedUrl;
         imgEl.style.display = 'block';
       }
     });
-     
   } else if (imgEl) {
     imgEl.style.display = 'none';
   }
 
-  
   /* ====== COUNTRY ====== */
-  const country =
-    (properties.country && properties.country.trim()) || '';
+  const country = (properties.country && properties.country.trim()) || '';
 
   const overlayDescEl = document.getElementById('overlay-description');
-  if (overlayDescEl) {
-    overlayDescEl.textContent = country;
-  }
-
+  if (overlayDescEl) overlayDescEl.textContent = country;
 
   updatePanelHeight();
 }
-
 
 function preloadImage(url, callback) {
   const img = new Image();
@@ -458,10 +442,11 @@ function formatCoords(lat, lng, decimals = 4) {
   return `${latDir} ${latFixed}°, ${lngDir} ${lngFixed}°`;
 }
 
+/* ========= COPY BUTTONS ========= */
 const copyBtn = document.getElementById('coords-copy');
 
 if (copyBtn) {
-  copyBtn.addEventListener('click', (e) => {
+  copyBtn.addEventListener('click', e => {
     e.stopPropagation();
 
     const text = document.getElementById('coords-text')?.textContent;
@@ -474,7 +459,7 @@ if (copyBtn) {
 const titleCopyBtn = document.getElementById('title-copy');
 
 if (titleCopyBtn) {
-  titleCopyBtn.addEventListener('click', (e) => {
+  titleCopyBtn.addEventListener('click', e => {
     e.stopPropagation();
 
     const text = document.getElementById('title-text')?.textContent;
@@ -484,17 +469,16 @@ if (titleCopyBtn) {
   });
 }
 
-const overlay = document.querySelector('.image-overlay');
+/* ========= OVERLAY CLICK -> FLYTO ========= */
+const overlayEl = document.querySelector('.image-overlay');
 
-if (overlay) {
-  overlay.addEventListener('click', (e) => {
-    // evita conflitti con i pulsanti copy
+if (overlayEl) {
+  overlayEl.addEventListener('click', e => {
     if (e.target.closest('button')) return;
 
-    const lon = parseFloat(overlay.dataset.lon);
-    const lat = parseFloat(overlay.dataset.lat);
+    const lon = parseFloat(overlayEl.dataset.lon);
+    const lat = parseFloat(overlayEl.dataset.lat);
 
-    
     if (!isNaN(lon) && !isNaN(lat)) {
       map.easeTo({
         center: [lon, lat],
@@ -504,6 +488,7 @@ if (overlay) {
   });
 }
 
+/* ========= TOOLTIP LAYER INFO ========= */
 const layerInfo = document.getElementById('layer-info');
 const toggles = document.querySelectorAll('.layer-toggle');
 
@@ -516,7 +501,6 @@ toggles.forEach(toggle => {
     layerInfo.style.left = `${centerX}px`;
     layerInfo.style.top = `${centerY}px`;
 
-    // Testo dinamico dal dataset
     const text = toggle.dataset.layerInfo || '';
     layerInfo.innerHTML = `<div class="layer-info-title">${text}</div>`;
 
@@ -528,7 +512,40 @@ toggles.forEach(toggle => {
   });
 });
 
+/* ========= TOGGLE UI CLICK (resta uguale ma ora funziona anche dopo setStyle) ========= */
+document.querySelectorAll('.layer-toggle').forEach(toggle => {
+  const layerKey = toggle.dataset.layer;
+  let active = true;
 
+  toggle.classList.add('active');
 
+  toggle.addEventListener('click', () => {
+    active = !active;
+
+    toggle.classList.toggle('active', active);
+    setLayerGroupVisibility(layerKey, active);
+  });
+});
+
+/* ========= LOAD (prima volta) ========= */
+map.on('load', () => {
+  console.log('Mapbox caricato correttamente');
+
+  updatePanelHeight();
+
+  // controlli
+  map.addControl(new mapboxgl.NavigationControl());
+  map.addControl(new MapStyleSwitcherControl(), 'top-right');
+
+  setupGeocoderOnce();
+
+  // init per lo stile corrente
+  initDataLayersAndHandlers();
+});
+
+/* ========= OGNI VOLTA CHE CAMBI STILE ========= */
+map.on('style.load', () => {
+  initDataLayersAndHandlers();
+});
 
 window.addEventListener('resize', updatePanelHeight);

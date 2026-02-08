@@ -453,3 +453,37 @@ html, body {
   display: block;
 }
 
+/* ===== MAP STYLE SWITCHER (sotto + / -) ===== */
+.mapboxgl-ctrl.map-style-switcher {
+  box-shadow: none;
+}
+
+.map-style-switcher .mapboxgl-ctrl-group {
+  overflow: hidden;
+}
+
+.map-style-switcher button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+
+  background: #303030;
+  color: #ffffff;
+
+  border: 0;
+  cursor: pointer;
+
+  font: 600 12px/1 Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.map-style-switcher button:hover {
+  filter: brightness(1.1);
+}
+
+.map-style-switcher button.is-active {
+  background: #ffffff;
+  color: #111111;
+}
+
