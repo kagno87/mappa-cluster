@@ -540,18 +540,68 @@ map.on('load', () => {
   updatePanelHeight();
 
   // controlli
-  map.addControl(new mapboxgl.NavigationControl());
+  map.addControl(
+    new mapboxgl.NavigationControl({
+      showCompass: false,   // 👈 nasconde la bussola
+      showZoom: true        // 👈 lascia solo + e –
+    })
+  );
+
   map.addControl(new MapStyleSwitcherControl(), 'top-right');
 
   setupGeocoderOnce();
 
   // init per lo stile corrente
   initDataLayersAndHandlers();
+  lockZenithNorth();
 });
 
 /* ========= OGNI VOLTA CHE CAMBI STILE ========= */
 map.on('style.load', () => {
   initDataLayersAndHandlers();
+  lockZenithNorth();
 });
 
 window.addEventListener('resize', updatePanelHeight);
+
+function lockZenithNorth() {
+  // 1) blocca tilt e rotazione a livello di camera
+  // (così anche se qualcosa prova a cambiare, non può superare 0)
+  try {
+    map.setMinPitch(0);
+    map.setMaxPitch(0);
+  } catch (e) {
+    // alcune versioni possono non avere questi setter: in quel caso ci pensano i listener sotto
+  }
+
+  // 2) disabilita le gesture che ruotano/tiltano
+  // Ctrl+drag / tasto destro drag / drag rotate
+  map.dragRotate.disable();
+
+  // Touch: disabilita solo la rotazione (lo zoom pinch resta)
+  map.touchZoomRotate.disableRotation();
+
+  // (opzionale) evita che la rotazione “trascini” anche il pitch
+  // Se disponibile nella tua versione, aiuta a prevenire tilt involontari
+  try {
+    map.setPitch(0, { animate: false });
+    map.setBearing(0, { animate: false });
+  } catch (e) {}
+
+  // 3) “cintura di sicurezza”: se per qualsiasi motivo pitch/bearing cambiano, li rimettiamo a 0
+  const snapBack = () => {
+    const b = map.getBearing();
+    const p = map.getPitch();
+
+    // tolleranza minima per evitare loop/inseguimenti
+    if (Math.abs(b) > 0.001) map.setBearing(0, { animate: false });
+    if (Math.abs(p) > 0.001) map.setPitch(0, { animate: false });
+  };
+
+  map.off('rotateend', snapBack);
+  map.off('pitchend', snapBack);
+
+  map.on('rotateend', snapBack);
+  map.on('pitchend', snapBack);
+}
+
