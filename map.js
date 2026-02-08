@@ -12,7 +12,7 @@ const map = new mapboxgl.Map({
 /* ========= STILI BASE ========= */
 const BASE_STYLES = {
   light: 'mapbox://styles/mapbox/light-v11',
-  satellite: 'mapbox://styles/mapbox/satellite-streets-v12'
+  satellite: 'mapbox://styles/pingeo/cmldojdsl00bg01sjejrzdjzk'
 };
 
 let currentBaseStyleKey = 'light';
@@ -26,13 +26,19 @@ function updatePanelHeight() {
 
   document.documentElement.style.setProperty('--panel-height', `${height}px`);
 
-  map.setPadding({
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: height
+  // 🔑 IMPORTANTISSIMO: il canvas deve adattarsi al nuovo size del container
+  requestAnimationFrame(() => {
+    map.resize();
+
+    map.setPadding({
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0
+    });
   });
 }
+
 
 /* ========= CONTROLLO SWITCHER MAP/SAT ========= */
 class MapStyleSwitcherControl {
