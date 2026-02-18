@@ -9,3 +9,5 @@ old/
 
 # Logs
 *.log
+
+config.local.js

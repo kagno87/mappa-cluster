@@ -1,4 +1,4 @@
-mapboxgl.accessToken = '';
+mapboxgl.accessToken = window.MAPBOX_TOKEN;
 
 /* ========= MAP ========= */
 const map = new mapboxgl.Map({
