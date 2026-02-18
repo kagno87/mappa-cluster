@@ -1,0 +1,25 @@
+CONVERSIONE FILE DA KML A GEOJSON
+
+Il progetto include un tool locale per convertire file KML (esportati da
+Google My Maps) in GeoJSON compatibile con Mapbox.
+
+STRUTTURA - Cartella: kml-to-geojson/ - Script Node.js di conversione
+
+PASSAGGI
+
+1.  Copia il file KML (es: bianco.kml o nero.kml) dentro la cartella
+    kml-to-geojson
+
+2.  Apri PowerShell dalla cartella kml-to-geojson
+
+3.  Esegui il comando:
+
+    node convert.js input.kml output.geojson
+
+    esempio: node convert.js bianco.kml bianco.geojson
+
+4.  Sposta il file .geojson generato nella root del progetto (accanto a
+    map.js)
+
+NOTE - I GeoJSON mantengono name, description e immagini - Le immagini
+vengono poi caricate tramite proxy

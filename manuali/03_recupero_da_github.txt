@@ -1,0 +1,95 @@
+MANUALE DI RECUPERO STATI PRECEDENTI DA GITHUB
+========================================
+
+Questo manuale spiega come recuperare versioni precedenti (stati stabili)
+del progetto usando Git e GitHub.
+
+--------------------------------------------------
+CONCETTI BASE
+--------------------------------------------------
+
+- Repository: il progetto sotto controllo Git
+- Commit: una "fotografia" dello stato del progetto
+- Branch: una linea di sviluppo (di solito 'master' o 'main')
+- Remote (origin): il repository su GitHub
+
+--------------------------------------------------
+1. CLONARE IL PROGETTO DA GITHUB (DA ZERO)
+--------------------------------------------------
+
+Se perdi tutto in locale o cambi computer:
+
+1. Apri PowerShell
+2. Vai nella cartella dove vuoi il progetto
+3. Esegui:
+
+git clone https://github.com/kagno87/mappa-cluster.git
+
+Questo crea una cartella con l'ULTIMO stato salvato online.
+
+--------------------------------------------------
+2. VEDERE LA STORIA DEI COMMIT
+--------------------------------------------------
+
+Dentro la cartella del progetto:
+
+git log --oneline
+
+Ogni riga è uno STATO RECUPERABILE.
+
+--------------------------------------------------
+3. TORNARE A UNO STATO PRECEDENTE (TEMPORANEO)
+--------------------------------------------------
+
+git checkout <hash_commit>
+
+Per tornare all'ultimo stato:
+
+git checkout master
+
+--------------------------------------------------
+4. TORNARE A UNO STATO PRECEDENTE (DEFINITIVO)
+--------------------------------------------------
+
+git reset --hard <hash_commit>
+git push --force
+
+⚠️ Riscrive la storia: usare con cautela.
+
+--------------------------------------------------
+5. CREARE UN BRANCH DA UNO STATO STABILE (CONSIGLIATO)
+--------------------------------------------------
+
+git checkout <hash_commit>
+git checkout -b nuovo-branch
+
+--------------------------------------------------
+6. SALVARE UN NUOVO STATO STABILE
+--------------------------------------------------
+
+git add .
+git commit -m "descrizione chiara"
+git push
+
+--------------------------------------------------
+7. RECUPERARE UN FILE SPECIFICO
+--------------------------------------------------
+
+git checkout <hash_commit> -- style.css
+
+--------------------------------------------------
+8. COMANDI UTILI
+--------------------------------------------------
+
+git status
+git diff
+git restore .
+
+--------------------------------------------------
+REGOLA D'ORO
+--------------------------------------------------
+
+Uno stato stabile = un commit.
+Sperimenta sempre su branch separati.
+
+FINE

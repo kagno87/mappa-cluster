@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mapbox Cluster Avanzato</title>
+
+  <!-- Mapbox -->
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link
+    href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="style.css" />
+
+  <link
+    rel="stylesheet"
+    href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.css"
+    type="text/css"
+  />
+  <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.1.0/mapbox-gl-geocoder.min.js"></script>
+
+
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+
+    <div id="brand">
+      <img src="logo1.png" alt="Logo">
+    </div>
+
+    <div id="layer-toggles">
+      <div class="layer-toggle active" data-layer="nero" data-layer-info="Caves, Tunnels and Mines">
+        <span class="toggle-ring"></span>
+        <span class="toggle-dot"></span>
+      </div>
+
+      <div class="layer-toggle active" data-layer="bianco" data-layer-info="Glaciers and Winter Sports">
+        <span class="toggle-ring"></span>
+        <span class="toggle-dot"></span>
+      </div>
+    </div>
+
+    <div id="search-container"></div>
+
+    <div id="layer-info" hidden></div>
+
+  </div>
+
+
+
+   
+  
+
+  <!-- MAPPA -->
+  <div id="map"></div>
+
+  <!-- PANEL IN BASSO -->
+  <div id="panel">
+
+    <!-- wrapper dedicato SOLO all'immagine -->
+    <div id="image-wrapper">
+      <img id="panel-image" />
+
+      <div class="image-overlay">
+        
+        <div class="overlay-text">
+          <h3 id="overlay-title">
+            <span id="title-text"></span>
+            <button id="title-copy" type="button" title="Copia nome">⧉</button>
+          </h3>
+                  
+        </div>
+
+        <div class="overlay-bottom">
+
+          <p id="overlay-description"></p>
+
+          <div class="overlay-coordinates" id="overlay-coordinates">
+            <button id="coords-copy" type="button" title="Copia coordinate">⧉</button>
+            <span id="coords-text"></span>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script src="map.js"></script>
+</body>
+</html>
+
