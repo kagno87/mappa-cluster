@@ -24,6 +24,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Create runtime config (MAPBOX_TOKEN)
         run: |
           echo "window.MAPBOX_TOKEN = \"${{ secrets.MAPBOX_TOKEN }}\";" > config.local.js
