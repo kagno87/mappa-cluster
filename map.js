@@ -429,7 +429,9 @@ function updatePanel(feature) {
 
   if (imgEl && imageUrl) {
     const proxiedUrl =
-      'http://localhost:3000/image?url=' + encodeURIComponent(imageUrl);
+      'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' + encodeURIComponent(imageUrl);
+
+    console.log("PROXY IMG →", proxiedUrl);
 
     preloadImage(proxiedUrl, loadedUrl => {
       if (loadedUrl) {
