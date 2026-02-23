@@ -118,8 +118,13 @@ class DualScaleControl {
   onAdd(mapInstance) {
     this.map = mapInstance;
 
+    // BOX esterno (posizionamento gestito via CSS)
+    const box = document.createElement('div');
+    box.className = 'mapboxgl-ctrl dual-scale-box';
+
+    // Container interno (layout delle due scale affiancate)
     const container = document.createElement('div');
-    container.className = 'mapboxgl-ctrl dual-scale-control';
+    container.className = 'dual-scale-control';
 
     // Crea 2 “items” (barra + label)
     const makeItem = (unit) => {
@@ -153,8 +158,14 @@ class DualScaleControl {
     container.appendChild(makeItem('metric'));
     container.appendChild(makeItem('imperial'));
 
-    this.container = container;
-    return container;
+    // Montaggio finale
+    box.appendChild(container);
+
+    // Riferimenti per onRemove
+    this.container = box;
+    this.inner = container;
+
+    return box;
   }
 
   onRemove() {
@@ -164,6 +175,7 @@ class DualScaleControl {
         try { sc?.onRemove(); } catch (e) {}
       });
     }
+
     this.container?.parentNode?.removeChild(this.container);
     this.map = undefined;
   }

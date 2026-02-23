@@ -541,66 +541,83 @@ html, body {
   transform: translateY(-50%);
 }
 
-/* ===== DUAL SCALE (km + mi) – look “dopo” ===== */
+/* ===== DUAL SCALE – versione pulita/corretta (solo blocco scale) ===== */
 
 .dual-scale-control {
   display: flex;
-  gap: 6px;                 /* barre più vicine */
+  gap: 4px;              /* km più vicino a mi */
   background: transparent;
   box-shadow: none;
   padding: 0;
 }
 
-/* ogni item = barra + label */
+/* colonna per ciascuna scala (barra + testo ruotato) */
 .dual-scale-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  position: relative;
+  width: 22px;
+  height: 120px;         /* ERA 50px: troppo basso e creava “random” */
+  overflow: visible;
 }
 
-/* Questo è l'elemento originale di Mapbox:
-   lo ruotiamo per rendere la lunghezza verticale,
-   poi “nascondiamo” il testo e teniamo solo la barra */
-.dual-scale-control .mapboxgl-ctrl-scale {
+/* barra (usiamo la scale Mapbox solo per la lunghezza) */
+.dual-scale-item .mapboxgl-ctrl-scale {
+  position: absolute;
+  left: 0;
+  top: 0;
+
   transform: rotate(-90deg);
   transform-origin: left top;
 
   background: transparent !important;
   border: 0 !important;
-
   padding: 0 !important;
   margin: 0 !important;
 
-  height: 0 !important;          /* niente box */
+  height: 0 !important;
   line-height: 0 !important;
-  font-size: 0 !important;        /* nasconde il testo */
+  font-size: 0 !important;       /* nasconde testo originale Mapbox */
   color: transparent !important;
 
-  border-top: 4px solid #222 !important;  /* barra sottile (regola qui: 3/4px) */
+  border-top: 4px solid #222 !important; /* spessore barra */
 }
 
-/* Label ruotata di 90° */
-.dual-scale-label {
+/* label ruotata: qui fai l’allineamento “nuovo” */
+.dual-scale-item .dual-scale-label {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+
+  /* spostamento controllato del testo */
+  transform: rotate(-90deg) translateX(70px) translateY(6px);
+  transform-origin: left bottom;
+
+  white-space: nowrap;
+  line-height: 1;
+
   font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #222;
-
-  transform: rotate(-90deg);
-  transform-origin: center;
-
-  white-space: nowrap;
-  line-height: 1;
 }
 
-/* Centra il blocco a sinistra come il control a destra */
+/* wrapper del controllo (resta dentro i controls Mapbox) */
+.dual-scale-box {
+  position: relative;
+  margin-left: 0px;     
+  pointer-events: none;
+}
+
+/* centratura verticale “semplice come a destra” */
 .mapboxgl-ctrl-top-left {
+  left: 18px !important; 
   top: 50% !important;
   transform: translateY(-50%);
 }
 
-
+/* elimina margini default dei controls Mapbox (stabilità su resize) */
+.mapboxgl-ctrl-top-left .mapboxgl-ctrl {
+  margin: 0 !important;
+}
 
 
 
