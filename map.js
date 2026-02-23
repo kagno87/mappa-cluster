@@ -113,6 +113,62 @@ class ZoomAndStyleControl {
   }
 }
 
+/* ========= DUAL SCALE (km + mi) – slim + rotated label ========= */
+class DualScaleControl {
+  onAdd(mapInstance) {
+    this.map = mapInstance;
+
+    const container = document.createElement('div');
+    container.className = 'mapboxgl-ctrl dual-scale-control';
+
+    // Crea 2 “items” (barra + label)
+    const makeItem = (unit) => {
+      const item = document.createElement('div');
+      item.className = 'dual-scale-item';
+
+      const sc = new mapboxgl.ScaleControl({ maxWidth: 110, unit });
+      const scEl = sc.onAdd(mapInstance); // <div class="mapboxgl-ctrl-scale">
+
+      // Label separata (ruotata via CSS)
+      const label = document.createElement('div');
+      label.className = 'dual-scale-label';
+      label.textContent = scEl.textContent || '';
+
+      // Sync label quando Mapbox aggiorna la scala (zoom)
+      const obs = new MutationObserver(() => {
+        label.textContent = scEl.textContent || '';
+      });
+      obs.observe(scEl, { childList: true, characterData: true, subtree: true });
+
+      // Salvataggio riferimenti per cleanup
+      this._items = this._items || [];
+      this._items.push({ sc, obs });
+
+      item.appendChild(scEl);
+      item.appendChild(label);
+
+      return item;
+    };
+
+    container.appendChild(makeItem('metric'));
+    container.appendChild(makeItem('imperial'));
+
+    this.container = container;
+    return container;
+  }
+
+  onRemove() {
+    if (this._items) {
+      this._items.forEach(({ sc, obs }) => {
+        try { obs?.disconnect(); } catch (e) {}
+        try { sc?.onRemove(); } catch (e) {}
+      });
+    }
+    this.container?.parentNode?.removeChild(this.container);
+    this.map = undefined;
+  }
+}
+
 
 
 /* ========= GEOCODER (solo una volta) ========= */
@@ -562,6 +618,8 @@ map.on('load', () => {
 
   // controlli
   map.addControl(new ZoomAndStyleControl(), 'top-right');
+
+  map.addControl(new DualScaleControl(), 'top-left');
 
   setupGeocoderOnce();
 

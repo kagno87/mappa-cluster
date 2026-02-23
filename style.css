@@ -541,6 +541,66 @@ html, body {
   transform: translateY(-50%);
 }
 
+/* ===== DUAL SCALE (km + mi) – look “dopo” ===== */
+
+.dual-scale-control {
+  display: flex;
+  gap: 6px;                 /* barre più vicine */
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* ogni item = barra + label */
+.dual-scale-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Questo è l'elemento originale di Mapbox:
+   lo ruotiamo per rendere la lunghezza verticale,
+   poi “nascondiamo” il testo e teniamo solo la barra */
+.dual-scale-control .mapboxgl-ctrl-scale {
+  transform: rotate(-90deg);
+  transform-origin: left top;
+
+  background: transparent !important;
+  border: 0 !important;
+
+  padding: 0 !important;
+  margin: 0 !important;
+
+  height: 0 !important;          /* niente box */
+  line-height: 0 !important;
+  font-size: 0 !important;        /* nasconde il testo */
+  color: transparent !important;
+
+  border-top: 4px solid #222 !important;  /* barra sottile (regola qui: 3/4px) */
+}
+
+/* Label ruotata di 90° */
+.dual-scale-label {
+  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+
+  transform: rotate(-90deg);
+  transform-origin: center;
+
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* Centra il blocco a sinistra come il control a destra */
+.mapboxgl-ctrl-top-left {
+  top: 50% !important;
+  transform: translateY(-50%);
+}
+
+
 
 
 
