@@ -59,37 +59,41 @@
 
   <!-- PANEL IN BASSO -->
   <div id="panel">
+    <div id="panel-strip">
+      <!-- BOX 1 (attivo) -->
+      <div class="panel-card is-active">
+        <div class="image-wrapper">
+          <img class="panel-image" />
 
-    <!-- wrapper dedicato SOLO all'immagine -->
-    <div id="image-wrapper">
-      <img id="panel-image" />
+          <div class="image-overlay">
+            <div class="overlay-text">
+              <h3 class="overlay-title">
+                <span class="title-text"></span>
+                <button class="title-copy" type="button">⧉</button>
+              </h3>
+            </div>
 
-      <div class="image-overlay">
-        
-        <div class="overlay-text">
-          <h3 id="overlay-title">
-            <span id="title-text"></span>
-            <button id="title-copy" type="button" title="Copia nome">⧉</button>
-          </h3>
-                  
-        </div>
+            <div class="overlay-bottom">
+              <p class="overlay-description"></p>
 
-        <div class="overlay-bottom">
-
-          <p id="overlay-description"></p>
-
-          <div class="overlay-coordinates" id="overlay-coordinates">
-            <button id="coords-copy" type="button" title="Copia coordinate">⧉</button>
-            <span id="coords-text"></span>
+              <div class="overlay-coordinates">
+                <button class="coords-copy" type="button">⧉</button>
+                <span class="coords-text"></span>
+              </div>
+            </div>
           </div>
-
         </div>
-
       </div>
+
+      <!-- BOX 2..5 (placeholder, per ora vuoti) -->
+      <div class="panel-card"><div class="image-wrapper empty"></div></div>
+      <div class="panel-card"><div class="image-wrapper empty"></div></div>
+      <div class="panel-card"><div class="image-wrapper empty"></div></div>
+      <div class="panel-card"><div class="image-wrapper empty"></div></div>
     </div>
-
   </div>
-
+  
+  
   <script src="config.local.js"></script>
 
   <script src="map.js"></script>

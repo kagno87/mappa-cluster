@@ -445,10 +445,10 @@ function updatePanel(feature) {
     coordsText = formatCoords(Number(lat), Number(lon));
   }
 
-  const coordsTextEl = document.getElementById('coords-text');
+  const coordsTextEl = document.querySelector('.panel-card.is-active .coords-text');
   if (coordsTextEl) coordsTextEl.textContent = coordsText;
 
-  const overlay = document.querySelector('.image-overlay');
+  const overlay = document.querySelector('.panel-card.is-active .image-overlay');
 
   if (overlay && feature.geometry && feature.geometry.type === 'Point') {
     overlay.dataset.lon = feature.geometry.coordinates[0];
@@ -461,7 +461,7 @@ function updatePanel(feature) {
     (properties.title && properties.title.trim()) ||
     'Senza nome';
 
-  const titleTextEl = document.getElementById('title-text');
+  const titleTextEl = document.querySelector('.panel-card.is-active .title-text');
   if (titleTextEl) titleTextEl.textContent = title;
 
   /* ====== DESCRIPTION NORMALIZZATA ====== */
@@ -493,7 +493,7 @@ function updatePanel(feature) {
     imageUrl = properties.gx_media_links;
   }
 
-  const imgEl = document.getElementById('panel-image');
+  const imgEl = document.querySelector('.panel-card.is-active .panel-image');
 
   if (imgEl && imageUrl) {
     const proxiedUrl =
@@ -514,7 +514,7 @@ function updatePanel(feature) {
   /* ====== COUNTRY ====== */
   const country = (properties.country && properties.country.trim()) || '';
 
-  const overlayDescEl = document.getElementById('overlay-description');
+  const overlayDescEl = document.querySelector('.panel-card.is-active .overlay-description');
   if (overlayDescEl) overlayDescEl.textContent = country;
 
   updatePanelHeight();
@@ -538,50 +538,41 @@ function formatCoords(lat, lng, decimals = 4) {
 }
 
 /* ========= COPY BUTTONS ========= */
-const copyBtn = document.getElementById('coords-copy');
+document.getElementById('panel')?.addEventListener('click', (e) => {
+  const card = e.target.closest('.panel-card');
+  if (!card) return;
 
-if (copyBtn) {
-  copyBtn.addEventListener('click', e => {
+  // copia coords
+  if (e.target.closest('.coords-copy')) {
     e.stopPropagation();
+    const text = card.querySelector('.coords-text')?.textContent;
+    if (text) navigator.clipboard.writeText(text);
+    return;
+  }
 
-    const text = document.getElementById('coords-text')?.textContent;
-    if (!text) return;
-
-    navigator.clipboard.writeText(text);
-  });
-}
-
-const titleCopyBtn = document.getElementById('title-copy');
-
-if (titleCopyBtn) {
-  titleCopyBtn.addEventListener('click', e => {
+  // copia titolo
+  if (e.target.closest('.title-copy')) {
     e.stopPropagation();
-
-    const text = document.getElementById('title-text')?.textContent;
-    if (!text) return;
-
-    navigator.clipboard.writeText(text);
-  });
-}
+    const text = card.querySelector('.title-text')?.textContent;
+    if (text) navigator.clipboard.writeText(text);
+    return;
+  }
+});
 
 /* ========= OVERLAY CLICK -> FLYTO ========= */
-const overlayEl = document.querySelector('.image-overlay');
+document.getElementById('panel')?.addEventListener('click', (e) => {
+  const overlay = e.target.closest('.image-overlay');
+  if (!overlay) return;
 
-if (overlayEl) {
-  overlayEl.addEventListener('click', e => {
-    if (e.target.closest('button')) return;
+  if (e.target.closest('button')) return;
 
-    const lon = parseFloat(overlayEl.dataset.lon);
-    const lat = parseFloat(overlayEl.dataset.lat);
+  const lon = parseFloat(overlay.dataset.lon);
+  const lat = parseFloat(overlay.dataset.lat);
 
-    if (!isNaN(lon) && !isNaN(lat)) {
-      map.easeTo({
-        center: [lon, lat],
-        duration: 800
-      });
-    }
-  });
-}
+  if (!isNaN(lon) && !isNaN(lat)) {
+    map.easeTo({ center: [lon, lat], duration: 800 });
+  }
+});
 
 /* ========= TOOLTIP LAYER INFO ========= */
 const layerInfo = document.getElementById('layer-info');

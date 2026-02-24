@@ -150,6 +150,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: -4px;
 }
 
 .overlay-bottom {
@@ -613,10 +614,6 @@ html, body {
     0 1px 0 rgba(255,255,255,0.5),
     0 -1px 0 rgba(255,255,255,0.5);
 }
-}
-
-}
-}
 
 /* wrapper del controllo (resta dentro i controls Mapbox) */
 .dual-scale-box {
@@ -637,6 +634,128 @@ html, body {
   margin: 0 !important;
 }
 
+/* ===== PANEL STRIP 5 CARDS ===== */
 
+#panel {
+  height: 300px;                /* 280 + 10 top + 10 bottom */
+  background: #303030;
 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 10px 0;              /* 👈 padding verticale */
+  box-sizing: border-box;
+}
+
+#panel-strip {
+  display: flex;
+  gap: 10px;                      /* padding tra i box */
+  align-items: center;
+  justify-content: center;
+
+  /* così non “sfori” */
+  max-width: 100%;
+  padding: 0 10px;                /* respiro laterale */
+  box-sizing: border-box;
+}
+
+.panel-card {
+  width: 380px;
+  height: 280px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* wrapper immagine dentro la card */
+.panel-card .image-wrapper {
+  position: relative;
+  width: 380px;
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* immagine full card */
+.panel-card .panel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+
+  display: block;
+
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.panel-card .panel-image[src] {
+  opacity: 1;
+}
+
+/* overlay come prima, ma scoped alla card */
+.panel-card .image-overlay {
+  position: absolute;
+  inset: 5px;
+  background: rgba(0, 0, 0, 0.66);
+  color: #ffffff;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  cursor: pointer;
+}
+
+.panel-card .image-wrapper:hover .image-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* placeholder vuoti (visivamente) */
+.panel-card .image-wrapper.empty {
+  background: rgba(255,255,255,0.06);
+  border: 1px dashed rgba(255,255,255,0.25);
+  border-radius: 4px;
+}
+
+/* ===== COPY BUTTONS (ripristino stile originale) ===== */
+
+.panel-card .title-copy,
+.panel-card .coords-copy {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 4px;
+
+  color: inherit;
+  font: inherit;
+
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.panel-card .title-copy {
+  font-size: 18px;
+  vertical-align: middle;
+}
+
+.panel-card .coords-copy {
+  font-size: 12px;
+}
+
+.panel-card .title-copy:hover,
+.panel-card .coords-copy:hover {
+  opacity: 1;
+}
 
