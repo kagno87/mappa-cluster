@@ -10,6 +10,8 @@ html, body {
   /* base card size (desktop) */
   --card-w: 380px;
   --card-h: 280px;
+
+  --card-scale: 1;
 }
 
 #map {
@@ -725,7 +727,7 @@ html, body {
   background: none;
   border: none;
   padding: 0;
-  margin-left: 4px;
+  margin-left: calc(4px * var(--card-scale));
 
   color: inherit;
   font: inherit;
@@ -735,7 +737,7 @@ html, body {
 }
 
 .panel-card .title-copy {
-  font-size: 18px;
+  font-size: calc(18px * var(--card-scale));
   vertical-align: middle;
 }
 
@@ -748,3 +750,16 @@ html, body {
   opacity: 1;
 }
 
+/* ===== Overlay font: proporzionali alla scala card ===== */
+
+.panel-card .overlay-text h3 {
+  font-size: clamp(10px, calc(28px * var(--card-scale)), 28px);
+}
+
+.panel-card .overlay-description {
+  font-size: clamp(8px, calc(20px * var(--card-scale)), 20px);
+}
+
+.panel-card .overlay-coordinates {
+  font-size: clamp(8px, calc(12px * var(--card-scale)), 12px);
+}

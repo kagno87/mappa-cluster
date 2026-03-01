@@ -42,8 +42,8 @@ function updatePanelScale() {
   if (!panel) return;
 
   const n = 5;
-  const gap = 10;         // deve restare fisso
-  const sidePadding = 20; // #panel-strip: 10px + 10px
+  const gap = 10;
+  const sidePadding = 20;
   const baseW = 380;
   const baseH = 280;
 
@@ -54,6 +54,10 @@ function updatePanelScale() {
 
   document.documentElement.style.setProperty('--card-w', `${baseW * scale}px`);
   document.documentElement.style.setProperty('--card-h', `${baseH * scale}px`);
+
+  document.documentElement.style.setProperty('--card-scale', scale.toFixed(3));
+
+  
 }
 
 /* ========= CONTROLLO SWITCHER MAP/SAT ========= */
