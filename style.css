@@ -6,6 +6,10 @@ html, body {
 
 :root {
   --panel-height: 250px;
+
+  /* base card size (desktop) */
+  --card-w: 380px;
+  --card-h: 280px;
 }
 
 #map {
@@ -17,24 +21,6 @@ html, body {
   z-index: 1;
 }
 
-
-
-#panel {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 250px;
-
-  background: #303030;
-  color: #ffffff;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  box-sizing: border-box;
-}
 
 #panel-image {
   opacity: 0;
@@ -637,46 +623,49 @@ html, body {
 /* ===== PANEL STRIP 5 CARDS ===== */
 
 #panel {
-  height: 300px;                /* 280 + 10 top + 10 bottom */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+
+  height: calc(var(--card-h) + 20px); /* 10 top + 10 bottom */
+
   background: #303030;
+  color: #ffffff;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  padding: 10px 0;              /* 👈 padding verticale */
+  padding: 10px 0;
   box-sizing: border-box;
+
+  overflow: hidden; /* utile per evitare sbordi */
 }
 
 #panel-strip {
   display: flex;
-  gap: 10px;                      /* padding tra i box */
+  gap: 10px;              /* resta SEMPRE 10px */
   align-items: center;
   justify-content: center;
 
-  /* così non “sfori” */
   max-width: 100%;
-  padding: 0 10px;                /* respiro laterale */
+  padding: 0 10px;        /* respiro laterale */
   box-sizing: border-box;
 }
 
 .panel-card {
-  width: 380px;
-  height: 280px;
-  background: transparent;
+  width: var(--card-w);
+  height: var(--card-h);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* wrapper immagine dentro la card */
 .panel-card .image-wrapper {
   position: relative;
-  width: 380px;
-  height: 280px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: var(--card-w);
+  height: var(--card-h);
 }
 
 /* immagine full card */

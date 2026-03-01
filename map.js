@@ -37,6 +37,24 @@ function updatePanelHeight() {
   });
 }
 
+function updatePanelScale() {
+  const panel = document.getElementById('panel');
+  if (!panel) return;
+
+  const n = 5;
+  const gap = 10;         // deve restare fisso
+  const sidePadding = 20; // #panel-strip: 10px + 10px
+  const baseW = 380;
+  const baseH = 280;
+
+  const available = panel.clientWidth - sidePadding;
+  const maxCardW = (available - gap * (n - 1)) / n;
+
+  const scale = Math.min(1, maxCardW / baseW);
+
+  document.documentElement.style.setProperty('--card-w', `${baseW * scale}px`);
+  document.documentElement.style.setProperty('--card-h', `${baseH * scale}px`);
+}
 
 /* ========= CONTROLLO SWITCHER MAP/SAT ========= */
 class ZoomAndStyleControl {
@@ -517,6 +535,7 @@ function updatePanel(feature) {
   const overlayDescEl = document.querySelector('.panel-card.is-active .overlay-description');
   if (overlayDescEl) overlayDescEl.textContent = country;
 
+  updatePanelScale();
   updatePanelHeight();
 }
 
@@ -617,6 +636,7 @@ document.querySelectorAll('.layer-toggle').forEach(toggle => {
 map.on('load', () => {
   console.log('Mapbox caricato correttamente');
 
+  updatePanelScale();
   updatePanelHeight();
 
   // controlli
@@ -637,7 +657,10 @@ map.on('style.load', () => {
   lockZenithNorth();
 });
 
-window.addEventListener('resize', updatePanelHeight);
+window.addEventListener('resize', () => {
+  updatePanelScale();
+  updatePanelHeight();
+});
 
 function lockZenithNorth() {
   // 1) blocca tilt e rotazione a livello di camera
