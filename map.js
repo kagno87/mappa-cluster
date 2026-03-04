@@ -451,6 +451,46 @@ function onClickBiancoPoint(e) {
   updatePanel(e.features[0]);
 }
 
+/* ========= RANDOM IMAGE ========= */
+async function loadGeoJSON(url) {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
+  return res.json();
+}
+
+function isSize2Feature(f) {
+  const size = f?.properties?.size;
+  // size può arrivare come numero o stringa
+  return Number(size) === 2 && f?.geometry?.type === 'Point';
+}
+
+async function pickRandomSize2FromBothLayers() {
+  const [nero, bianco] = await Promise.all([
+    loadGeoJSON('nero.geojson').catch(() => null),
+    loadGeoJSON('bianco.geojson').catch(() => null),
+  ]);
+
+  const candidates = [
+    ...(nero?.features || []).filter(isSize2Feature),
+    ...(bianco?.features || []).filter(isSize2Feature),
+  ];
+
+  if (!candidates.length) return null;
+
+  const idx = Math.floor(Math.random() * candidates.length);
+  return candidates[idx];
+}
+
+async function showRandomSize2OnStartup() {
+  try {
+    const f = await pickRandomSize2FromBothLayers();
+    if (f) updatePanel(f);
+  } catch (e) {
+    console.warn('Startup random size=2 failed:', e);
+  }
+}
+
+
 /* ========= PANEL ========= */
 function updatePanel(feature) {
   const properties = feature.properties || {};
@@ -653,6 +693,8 @@ map.on('load', () => {
   // init per lo stile corrente
   initDataLayersAndHandlers();
   lockZenithNorth();
+
+  showRandomSize2OnStartup();
 });
 
 /* ========= OGNI VOLTA CHE CAMBI STILE ========= */
