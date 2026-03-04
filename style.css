@@ -144,7 +144,7 @@ html, body {
 .overlay-bottom {
   font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   position: absolute;
-  left: 8px;
+  left: 10px;
   bottom: 10px;
   
 }
