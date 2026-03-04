@@ -8,6 +8,11 @@ const map = new mapboxgl.Map({
   zoom: 6
 });
 
+window.addEventListener('DOMContentLoaded', () => {
+  updatePanelScale();
+  updatePanelHeight();
+});
+
 /* ========= STILI BASE ========= */
 const BASE_STYLES = {
   light: 'mapbox://styles/pingeo/cmle3qgj100br01s9fgb3gbo3',
@@ -15,11 +20,12 @@ const BASE_STYLES = {
 };
 
 let currentBaseStyleKey = 'light';
+let startupRandomShown = false;
 
 /* ========= PANEL HEIGHT ========= */
 function updatePanelHeight() {
-  const panel = document.getElementById('panel');
-  if (!panel || !map) return;
+  const strip = document.getElementById('panel-strip');
+  if (strip) strip.style.opacity = 1;
 
   const height = panel.offsetHeight;
 
@@ -482,6 +488,9 @@ async function pickRandomSize2FromBothLayers() {
 }
 
 async function showRandomSize2OnStartup() {
+  if (startupRandomShown) return;
+  startupRandomShown = true;
+
   try {
     const f = await pickRandomSize2FromBothLayers();
     if (f) updatePanel(f);
@@ -490,6 +499,9 @@ async function showRandomSize2OnStartup() {
   }
 }
 
+window.addEventListener('DOMContentLoaded', () => {
+  showRandomSize2OnStartup();
+});
 
 /* ========= PANEL ========= */
 function updatePanel(feature) {
@@ -567,6 +579,9 @@ function updatePanel(feature) {
       if (loadedUrl) {
         imgEl.src = loadedUrl;
         imgEl.style.display = 'block';
+
+        const panel = document.getElementById('panel');
+        if (panel) panel.style.opacity = 1;
       }
     });
   } else if (imgEl) {
@@ -694,7 +709,6 @@ map.on('load', () => {
   initDataLayersAndHandlers();
   lockZenithNorth();
 
-  showRandomSize2OnStartup();
 });
 
 /* ========= OGNI VOLTA CHE CAMBI STILE ========= */
