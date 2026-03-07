@@ -709,11 +709,10 @@ function applyLayerToggleState() {
 }
 
 /* ========= INIT ========= */
-function initDataLayersAndHandlers() {
+function initDataLayers() {
   addSourcesIfMissing();
   addLayersIfMissing();
   applyLayerToggleState();
-  bindMapInteractions();
   updatePanelHeight();
   refreshCrosshair();
 }
@@ -1217,13 +1216,14 @@ map.on('load', () => {
   map.addControl(new DualScaleControl(), 'top-left');
 
   setupGeocoderOnce();
-  initDataLayersAndHandlers();
+  initDataLayers();
+  bindMapInteractions();
   lockZenithNorth();
 });
 
 /* ========= STYLE LOAD ========= */
 map.on('style.load', () => {
-  initDataLayersAndHandlers();
+  initDataLayers();
   lockZenithNorth();
 });
 
