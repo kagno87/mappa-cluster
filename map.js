@@ -209,13 +209,13 @@ function getCrosshairMetrics(sizeValue) {
 
   switch (size) {
     case 1:
-      return { gap: 10, arm: 8, stroke: 3 };
+      return { gap: 13, arm: 8, stroke: 2.5 };
     case 2:
-      return { gap: 14, arm: 10, stroke: 4 };
+      return { gap: 17, arm: 10, stroke: 2.5 };
     case 3:
-      return { gap: 18, arm: 12, stroke: 4 };
+      return { gap: 21, arm: 12, stroke: 2.5 };
     default:
-      return { gap: 10, arm: 8, stroke: 3 };
+      return { gap: 13, arm: 8, stroke: 2.5 };
   }
 }
 
@@ -223,17 +223,26 @@ function buildCrosshairFeature(lon, lat, sizeValue) {
   const metrics = getCrosshairMetrics(sizeValue);
   const center = map.project([lon, lat]);
 
-  const leftOuter = map.unproject([center.x - (metrics.gap + metrics.arm), center.y]);
-  const leftInner = map.unproject([center.x - metrics.gap, center.y]);
+  function makeSegments(cx, cy) {
+    const leftOuter = map.unproject([cx - (metrics.gap + metrics.arm), cy]);
+    const leftInner = map.unproject([cx - metrics.gap, cy]);
 
-  const rightInner = map.unproject([center.x + metrics.gap, center.y]);
-  const rightOuter = map.unproject([center.x + metrics.gap + metrics.arm, center.y]);
+    const rightInner = map.unproject([cx + metrics.gap, cy]);
+    const rightOuter = map.unproject([cx + metrics.gap + metrics.arm, cy]);
 
-  const topOuter = map.unproject([center.x, center.y - (metrics.gap + metrics.arm)]);
-  const topInner = map.unproject([center.x, center.y - metrics.gap]);
+    const topOuter = map.unproject([cx, cy - (metrics.gap + metrics.arm)]);
+    const topInner = map.unproject([cx, cy - metrics.gap]);
 
-  const bottomInner = map.unproject([center.x, center.y + metrics.gap]);
-  const bottomOuter = map.unproject([center.x, center.y + metrics.gap + metrics.arm]);
+    const bottomInner = map.unproject([cx, cy + metrics.gap]);
+    const bottomOuter = map.unproject([cx, cy + metrics.gap + metrics.arm]);
+
+    return [
+      [[leftOuter.lng, leftOuter.lat], [leftInner.lng, leftInner.lat]],
+      [[rightInner.lng, rightInner.lat], [rightOuter.lng, rightOuter.lat]],
+      [[topOuter.lng, topOuter.lat], [topInner.lng, topInner.lat]],
+      [[bottomInner.lng, bottomInner.lat], [bottomOuter.lng, bottomOuter.lat]]
+    ];
+  }
 
   return {
     type: 'FeatureCollection',
@@ -241,16 +250,21 @@ function buildCrosshairFeature(lon, lat, sizeValue) {
       {
         type: 'Feature',
         properties: {
-          strokeWidth: metrics.stroke
+          role: 'outline'
         },
         geometry: {
           type: 'MultiLineString',
-          coordinates: [
-            [[leftOuter.lng, leftOuter.lat], [leftInner.lng, leftInner.lat]],
-            [[rightInner.lng, rightInner.lat], [rightOuter.lng, rightOuter.lat]],
-            [[topOuter.lng, topOuter.lat], [topInner.lng, topInner.lat]],
-            [[bottomInner.lng, bottomInner.lat], [bottomOuter.lng, bottomOuter.lat]]
-          ]
+          coordinates: makeSegments(center.x, center.y)
+        }
+      },
+      {
+        type: 'Feature',
+        properties: {
+          role: 'main'
+        },
+        geometry: {
+          type: 'MultiLineString',
+          coordinates: makeSegments(center.x, center.y)
         }
       }
     ]
@@ -813,20 +827,38 @@ function addLayersIfMissing() {
     });
   }
 
-  if (!map.getLayer('hover-crosshair-lines')) {
-    map.addLayer({
-      id: 'hover-crosshair-lines',
-      type: 'line',
-      source: 'hover-crosshair',
-      layout: {
-        'line-cap': 'round'
-      },
-      paint: {
-        'line-color': '#000000',
-        'line-width': ['coalesce', ['get', 'strokeWidth'], 3]
-      }
-    });
-  }
+  if (!map.getLayer('hover-crosshair-outline')) {
+  map.addLayer({
+    id: 'hover-crosshair-outline',
+    type: 'line',
+    source: 'hover-crosshair',
+    filter: ['==', ['get', 'role'], 'outline'],
+    layout: {
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#ffffff',
+      'line-width': 5,
+      'line-opacity': 0.6
+    }
+  });
+}
+
+if (!map.getLayer('hover-crosshair-lines')) {
+  map.addLayer({
+    id: 'hover-crosshair-lines',
+    type: 'line',
+    source: 'hover-crosshair',
+    filter: ['==', ['get', 'role'], 'main'],
+    layout: {
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#000000',
+      'line-width': 2.5
+    }
+  });
+}
 }
 
 /* ========= HANDLERS MAP ========= */
