@@ -35,7 +35,6 @@ function updatePanelHeight() {
   if (!panel) return;
 
   const height = panel.offsetHeight;
-
   document.documentElement.style.setProperty('--panel-height', `${height}px`);
 
   requestAnimationFrame(() => {
@@ -283,6 +282,14 @@ function renderCrosshair(lon, lat, sizeValue) {
   map.getSource('hover-crosshair').setData(
     buildCrosshairFeature(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size)
   );
+
+  if (map.getLayer('hover-crosshair-outline')) {
+    map.setPaintProperty('hover-crosshair-outline', 'line-opacity', 0.6);
+  }
+
+  if (map.getLayer('hover-crosshair-lines')) {
+    map.setPaintProperty('hover-crosshair-lines', 'line-opacity', 1);
+  }
 }
 
 function hideCrosshair() {
@@ -290,12 +297,25 @@ function hideCrosshair() {
   activeHoverTarget = null;
   crosshairRequestToken += 1;
 
+  if (map.getLayer('hover-crosshair-outline')) {
+    map.setPaintProperty('hover-crosshair-outline', 'line-opacity', 0);
+  }
+
+  if (map.getLayer('hover-crosshair-lines')) {
+    map.setPaintProperty('hover-crosshair-lines', 'line-opacity', 0);
+  }
+
   if (!map.getSource('hover-crosshair')) return;
 
-  map.getSource('hover-crosshair').setData({
-    type: 'FeatureCollection',
-    features: []
-  });
+  setTimeout(() => {
+    if (!map.getSource('hover-crosshair')) return;
+    if (activeCrosshair || activeHoverTarget) return;
+
+    map.getSource('hover-crosshair').setData({
+      type: 'FeatureCollection',
+      features: []
+    });
+  }, 120);
 }
 
 function refreshCrosshair() {
@@ -316,15 +336,6 @@ function refreshBestCrosshairAfterMove() {
   map.once('idle', () => {
     crosshairIdlePending = false;
 
-    if (!activeHoverTarget) return;
-    showBestCrosshairForTarget(activeHoverTarget);
-  });
-}
-
-function refreshBestCrosshairAfterMove() {
-  if (!activeHoverTarget) return;
-
-  map.once('idle', () => {
     if (!activeHoverTarget) return;
     showBestCrosshairForTarget(activeHoverTarget);
   });
@@ -828,37 +839,46 @@ function addLayersIfMissing() {
   }
 
   if (!map.getLayer('hover-crosshair-outline')) {
-  map.addLayer({
-    id: 'hover-crosshair-outline',
-    type: 'line',
-    source: 'hover-crosshair',
-    filter: ['==', ['get', 'role'], 'outline'],
-    layout: {
-      'line-cap': 'round'
-    },
-    paint: {
-      'line-color': '#ffffff',
-      'line-width': 5,
-      'line-opacity': 0.6
-    }
-  });
-}
+    map.addLayer({
+      id: 'hover-crosshair-outline',
+      type: 'line',
+      source: 'hover-crosshair',
+      filter: ['==', ['get', 'role'], 'outline'],
+      layout: {
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': '#ffffff',
+        'line-width': 5,
+        'line-opacity': 0,
+        'line-opacity-transition': {
+          duration: 120,
+          delay: 0
+        }
+      }
+    });
+  }
 
-if (!map.getLayer('hover-crosshair-lines')) {
-  map.addLayer({
-    id: 'hover-crosshair-lines',
-    type: 'line',
-    source: 'hover-crosshair',
-    filter: ['==', ['get', 'role'], 'main'],
-    layout: {
-      'line-cap': 'round'
-    },
-    paint: {
-      'line-color': '#000000',
-      'line-width': 2.5
-    }
-  });
-}
+  if (!map.getLayer('hover-crosshair-lines')) {
+    map.addLayer({
+      id: 'hover-crosshair-lines',
+      type: 'line',
+      source: 'hover-crosshair',
+      filter: ['==', ['get', 'role'], 'main'],
+      layout: {
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': '#000000',
+        'line-width': 2.5,
+        'line-opacity': 0,
+        'line-opacity-transition': {
+          duration: 120,
+          delay: 0
+        }
+      }
+    });
+  }
 }
 
 /* ========= HANDLERS MAP ========= */
@@ -923,7 +943,7 @@ function onEnterPointer(e) {
   const feature = e?.features?.[0];
   if (!feature) return;
 
-  const layerId = e?.features?.[0]?.layer?.id || '';
+  const layerId = feature?.layer?.id || '';
 
   if (layerId === 'nero-points') {
     const target = buildTargetFromFeature(feature, 'nero');
@@ -1168,16 +1188,26 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
     const currentZoom = map.getZoom();
     const nextZoom = Math.min(currentZoom + 2, 14);
 
-    // nasconde subito il mirino corrente ma mantiene il target hover attivo
     activeCrosshair = null;
     crosshairRequestToken += 1;
 
-    if (map.getSource('hover-crosshair')) {
+    if (map.getLayer('hover-crosshair-outline')) {
+      map.setPaintProperty('hover-crosshair-outline', 'line-opacity', 0);
+    }
+
+    if (map.getLayer('hover-crosshair-lines')) {
+      map.setPaintProperty('hover-crosshair-lines', 'line-opacity', 0);
+    }
+
+    setTimeout(() => {
+      if (!map.getSource('hover-crosshair')) return;
+      if (activeCrosshair) return;
+
       map.getSource('hover-crosshair').setData({
         type: 'FeatureCollection',
         features: []
       });
-    }
+    }, 120);
 
     map.easeTo({
       center: [lon, lat],
@@ -1192,7 +1222,6 @@ document.getElementById('panel')?.addEventListener('mouseover', (e) => {
   const wrapper = e.target.closest('.panel-card.is-active .image-wrapper');
   if (!wrapper) return;
 
-  // se stai solo passando tra figli interni della stessa wrapper, non rifare nulla
   if (wrapper.contains(e.relatedTarget)) return;
 
   const target = buildTargetFromActiveCard();
@@ -1203,7 +1232,6 @@ document.getElementById('panel')?.addEventListener('mouseout', (e) => {
   const wrapper = e.target.closest('.panel-card.is-active .image-wrapper');
   if (!wrapper) return;
 
-  // se stai ancora restando dentro la stessa wrapper, non nascondere nulla
   if (wrapper.contains(e.relatedTarget)) return;
 
   hideCrosshair();
