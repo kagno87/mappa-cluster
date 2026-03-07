@@ -8,11 +8,6 @@ const map = new mapboxgl.Map({
   zoom: 6
 });
 
-window.addEventListener('DOMContentLoaded', () => {
-  updatePanelScale();
-  updatePanelHeight();
-});
-
 /* ========= STILI BASE ========= */
 const BASE_STYLES = {
   light: 'mapbox://styles/pingeo/cmle3qgj100br01s9fgb3gbo3',
@@ -26,7 +21,14 @@ let crosshairRequestToken = 0;
 let activeHoverTarget = null;
 let crosshairIdlePending = false;
 
-/* ========= PANEL HEIGHT ========= */
+/* ========= STARTUP ========= */
+window.addEventListener('DOMContentLoaded', () => {
+  updatePanelScale();
+  updatePanelHeight();
+  showRandomSize2OnStartup();
+});
+
+/* ========= PANEL HEIGHT / SCALE ========= */
 function updatePanelHeight() {
   const strip = document.getElementById('panel-strip');
   if (strip) strip.style.opacity = 1;
@@ -39,13 +41,6 @@ function updatePanelHeight() {
 
   requestAnimationFrame(() => {
     map.resize();
-
-    map.setPadding({
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0
-    });
   });
 }
 
@@ -309,58 +304,6 @@ function refreshHtmlCrosshair() {
   renderHtmlCrosshair(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size);
 }
 
-function buildCrosshairFeature(lon, lat, sizeValue) {
-  const metrics = getCrosshairMetrics(sizeValue);
-  const center = map.project([lon, lat]);
-
-  function makeSegments(cx, cy) {
-    const leftOuter = map.unproject([cx - (metrics.gap + metrics.arm), cy]);
-    const leftInner = map.unproject([cx - metrics.gap, cy]);
-
-    const rightInner = map.unproject([cx + metrics.gap, cy]);
-    const rightOuter = map.unproject([cx + metrics.gap + metrics.arm, cy]);
-
-    const topOuter = map.unproject([cx, cy - (metrics.gap + metrics.arm)]);
-    const topInner = map.unproject([cx, cy - metrics.gap]);
-
-    const bottomInner = map.unproject([cx, cy + metrics.gap]);
-    const bottomOuter = map.unproject([cx, cy + metrics.gap + metrics.arm]);
-
-    return [
-      [[leftOuter.lng, leftOuter.lat], [leftInner.lng, leftInner.lat]],
-      [[rightInner.lng, rightInner.lat], [rightOuter.lng, rightOuter.lat]],
-      [[topOuter.lng, topOuter.lat], [topInner.lng, topInner.lat]],
-      [[bottomInner.lng, bottomInner.lat], [bottomOuter.lng, bottomOuter.lat]]
-    ];
-  }
-
-  return {
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        properties: {
-          role: 'outline'
-        },
-        geometry: {
-          type: 'MultiLineString',
-          coordinates: makeSegments(center.x, center.y)
-        }
-      },
-      {
-        type: 'Feature',
-        properties: {
-          role: 'main'
-        },
-        geometry: {
-          type: 'MultiLineString',
-          coordinates: makeSegments(center.x, center.y)
-        }
-      }
-    ]
-  };
-}
-
 function renderCrosshair(lon, lat, sizeValue) {
   activeCrosshair = {
     lon: Number(lon),
@@ -382,7 +325,7 @@ function hideCrosshair() {
   hideHtmlCrosshair();
 }
 
-function fadeOutCrosshairVisual() {
+function hideCrosshairKeepTarget() {
   activeCrosshair = null;
   crosshairRequestToken += 1;
   hideHtmlCrosshair();
@@ -501,13 +444,13 @@ async function showBestCrosshairForTarget(target) {
     sourceKey: target.sourceKey
   };
 
-  // nasconde subito l'eventuale crosshair vecchio
-  fadeOutCrosshairVisual();
+  hideCrosshairKeepTarget();
 
   const requestToken = ++crosshairRequestToken;
 
   const renderedPoint = getRenderedPointMatch(activeHoverTarget);
   if (requestToken !== crosshairRequestToken) return;
+
   if (renderedPoint) {
     renderCrosshair(renderedPoint.lon, renderedPoint.lat, renderedPoint.size);
     return;
@@ -515,6 +458,7 @@ async function showBestCrosshairForTarget(target) {
 
   const renderedCluster = await getRenderedClusterMatch(activeHoverTarget);
   if (requestToken !== crosshairRequestToken) return;
+
   if (renderedCluster) {
     renderCrosshair(renderedCluster.lon, renderedCluster.lat, renderedCluster.size);
     return;
@@ -768,7 +712,6 @@ function applyLayerToggleState() {
 function initDataLayersAndHandlers() {
   addSourcesIfMissing();
   addLayersIfMissing();
-  ensureCrosshairOnTop();
   applyLayerToggleState();
   bindMapInteractions();
   updatePanelHeight();
@@ -798,16 +741,6 @@ function addSourcesIfMissing() {
       clusterMaxZoom: 7,
       clusterProperties: {
         maxSize: ['max', ['get', 'size']]
-      }
-    });
-  }
-
-  if (!map.getSource('hover-crosshair')) {
-    map.addSource('hover-crosshair', {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: []
       }
     });
   }
@@ -906,58 +839,6 @@ function addLayersIfMissing() {
       }
     });
   }
-
-  if (!map.getLayer('hover-crosshair-outline')) {
-    map.addLayer({
-      id: 'hover-crosshair-outline',
-      type: 'line',
-      source: 'hover-crosshair',
-      filter: ['==', ['get', 'role'], 'outline'],
-      layout: {
-        'line-cap': 'round'
-      },
-      paint: {
-        'line-color': '#ffffff',
-        'line-width': 5,
-        'line-opacity': 0,
-        'line-opacity-transition': {
-          duration: 120,
-          delay: 0
-        }
-      }
-    });
-  }
-
-  if (!map.getLayer('hover-crosshair-lines')) {
-    map.addLayer({
-      id: 'hover-crosshair-lines',
-      type: 'line',
-      source: 'hover-crosshair',
-      filter: ['==', ['get', 'role'], 'main'],
-      layout: {
-        'line-cap': 'round'
-      },
-      paint: {
-        'line-color': '#000000',
-        'line-width': 2.5,
-        'line-opacity': 0,
-        'line-opacity-transition': {
-          duration: 120,
-          delay: 0
-        }
-      }
-    });
-  }
-}
-
-function ensureCrosshairOnTop() {
-  if (map.getLayer('hover-crosshair-outline')) {
-    map.moveLayer('hover-crosshair-outline');
-  }
-
-  if (map.getLayer('hover-crosshair-lines')) {
-    map.moveLayer('hover-crosshair-lines');
-  }
 }
 
 /* ========= HANDLERS MAP ========= */
@@ -1052,7 +933,7 @@ function onClickBiancoPoint(e) {
   updatePanel(e.features[0], 'bianco');
 }
 
-/* ========= RANDOM IMAGE ========= */
+/* ========= RANDOM FEATURE SIZE 2 ========= */
 async function loadGeoJSON(url) {
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
@@ -1118,10 +999,6 @@ async function refreshRandomSize2() {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  showRandomSize2OnStartup();
-});
-
 /* ========= PANEL ========= */
 function updatePanel(feature, sourceKey = null) {
   const properties = feature.properties || {};
@@ -1143,7 +1020,6 @@ function updatePanel(feature, sourceKey = null) {
   if (coordsTextEl) coordsTextEl.textContent = coordsText;
 
   const overlay = document.querySelector('.panel-card.is-active .image-overlay');
-
   if (overlay && lon !== null && lat !== null) {
     overlay.dataset.lon = lon;
     overlay.dataset.lat = lat;
@@ -1199,9 +1075,6 @@ function updatePanel(feature, sourceKey = null) {
       if (loadedUrl) {
         imgEl.src = loadedUrl;
         imgEl.style.display = 'block';
-
-        const panel = document.getElementById('panel');
-        if (panel) panel.style.opacity = 1;
       }
     });
   } else if (imgEl) {
@@ -1267,9 +1140,7 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
     const currentZoom = map.getZoom();
     const nextZoom = Math.min(currentZoom + 2, 14);
 
-    activeCrosshair = null;
-    crosshairRequestToken += 1;
-    hideHtmlCrosshair();
+    hideCrosshair();
 
     map.easeTo({
       center: [lon, lat],
@@ -1326,14 +1197,12 @@ toggles.forEach((toggle) => {
 /* ========= TOGGLE UI CLICK ========= */
 document.querySelectorAll('.layer-toggle').forEach((toggle) => {
   const layerKey = toggle.dataset.layer;
-  let active = true;
 
   toggle.classList.add('active');
 
   toggle.addEventListener('click', () => {
-    active = !active;
-    toggle.classList.toggle('active', active);
-    setLayerGroupVisibility(layerKey, active);
+    const isActive = toggle.classList.toggle('active');
+    setLayerGroupVisibility(layerKey, isActive);
   });
 });
 
@@ -1355,7 +1224,6 @@ map.on('load', () => {
 /* ========= STYLE LOAD ========= */
 map.on('style.load', () => {
   initDataLayersAndHandlers();
-  ensureCrosshairOnTop();
   lockZenithNorth();
 });
 
@@ -1365,6 +1233,7 @@ window.addEventListener('resize', () => {
   refreshCrosshair();
 });
 
+/* ========= LOCK NORTH / NO ROTATION ========= */
 function lockZenithNorth() {
   try {
     map.setMinPitch(0);

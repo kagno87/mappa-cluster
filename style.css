@@ -7,12 +7,15 @@ html, body {
 :root {
   --panel-height: 250px;
 
-  /* base card size (desktop) */
   --card-w: 380px;
   --card-h: 280px;
 
   --card-scale: 1;
 }
+
+/* ============================= */
+/* MAP                           */
+/* ============================= */
 
 #map-wrap {
   position: absolute;
@@ -31,11 +34,15 @@ html, body {
   z-index: 1;
 }
 
+/* ============================= */
+/* CROSSHAIR                     */
+/* ============================= */
+
 #crosshair-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 20; /* sopra tutto il canvas Mapbox */
+  z-index: 20;
 }
 
 .crosshair-html {
@@ -48,12 +55,12 @@ html, body {
 
 .crosshair-html .arm {
   position: absolute;
-  background: #000000;
+  background: #000;
   border-radius: 999px;
 }
 
 .crosshair-html .arm.outline {
-  background: #ffffff;
+  background: #fff;
   opacity: 0.6;
 }
 
@@ -77,193 +84,10 @@ html, body {
   width: 5px;
 }
 
+/* ============================= */
+/* TOP BAR                       */
+/* ============================= */
 
-#panel-image {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-#panel-image[src] {
-  opacity: 1;
-}
-
-
-#panel-image {
-  height: 230px;          /* fisso */
-  width: 280px;
-
-  object-fit: cover;
-  object-position: center;
-
-  display: block;
-}
-
-#image-wrapper {
-  position: relative;
-  width: 280px;   /* la tua ratio attuale */
-  height: 230px;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-
-
-#panel-title,
-#panel-description {
-  position: absolute;
-  right: 32px;
-  top: 50%;
-  transform: translateY(-50%);
-  max-width: 35%;
-}
-
-.image-overlay {
-  position: absolute;
-  inset: 5px;
-
-  background: rgba(0, 0, 0, 0.66);
-  color: #ffffff;
-
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-}
-
-#image-wrapper:hover .image-overlay {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-
-
-
-#image-wrapper:hover .image-overlay {
-  opacity: 1;
-}
-
-.image-overlay {
-  align-items: flex-start;
-  justify-content: flex-end;
-}
-
-.overlay-text {
-  text-align: left;
-  padding: 10px;
-
-  width: 100%;
-  box-sizing: border-box;
-
-  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-}
-
-.overlay-text h3 {
-  margin: 0 0 6px 0;
-
-  font-size: 28px;
-  font-weight: 400;
-  line-height: 1.2;
-}
-
-.overlay-text p {
-  margin: 0;
-
-  font-size: 18px;
-  font-weight: 400;
-  line-height: 1.35;
-  opacity: 1.0;
-}
-
-.overlay-coordinates {
-  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  opacity: 0.75;
-
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: -4px;
-}
-
-.overlay-bottom {
-  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  
-}
-
-#overlay-description {
-  margin: 0 0 5px 0; 
-  font-size: 20px;
-  line-height: 1.35;
-}
-
-
-#coords-copy {
-  pointer-events: auto;
-}
-
-#coords-copy {
-  margin-left: 0px;
-  background: none;
-  border: none;
-  color: inherit;
-  font-size: 12px;
-  padding: 0;
-  cursor: pointer;
-  opacity: 0.7;
-}
-
-#coords-copy:hover {
-  opacity: 1;
-}
-
-#title-copy {
-  pointer-events: auto;
-}
-
-#title-copy {
-  background: none;
-  border: none;
-  padding: 0;
-  margin-left: 0px;
-
-  color: inherit;
-  font: inherit;
-
-  cursor: pointer;
-  opacity: 0.7;
-}
-
-#title-copy:hover {
-  opacity: 1;
-}
-
-#title-copy {
-  font-size: 18px;
-  vertical-align: middle;
-}
-
-.image-overlay {
-  cursor: pointer;
-}
-
-.image-overlay button {
-  cursor: default;
-}
-
-/* ===== TOP BAR ===== */
 #topbar {
   position: fixed;
   top: 0;
@@ -275,7 +99,6 @@ html, body {
   display: flex;
   align-items: center;
   gap: 12px;
-  
 
   z-index: 3000;
   box-sizing: border-box;
@@ -285,7 +108,6 @@ html, body {
   content: "";
   position: absolute;
   inset: 0;
-
   background: #303030;
   z-index: 1;
 }
@@ -295,8 +117,33 @@ html, body {
   z-index: 3;
 }
 
+/* ============================= */
+/* BRAND                         */
+/* ============================= */
 
-/* ===== DOT TOGGLE ===== */
+#brand {
+  width: 180px;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+#brand img {
+  max-height: 30px;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* ============================= */
+/* LAYER TOGGLES                 */
+/* ============================= */
+
 #layer-toggles {
   display: flex;
   gap: 12px;
@@ -308,8 +155,6 @@ html, body {
   width: 18px;
   height: 18px;
   cursor: pointer;
-
-  z-index: 3;
 }
 
 .toggle-dot {
@@ -318,8 +163,7 @@ html, body {
   border-radius: 50%;
   transform: scale(1);
   transition: transform 0.25s ease;
-
-  z-index: 1;   /* sotto */
+  z-index: 1;
 }
 
 .toggle-ring {
@@ -328,18 +172,13 @@ html, body {
   border-radius: 50%;
   border: 1.2px solid #000;
   pointer-events: none;
-
-  z-index: 2;   /* sopra */
+  z-index: 2;
 }
 
-
-/* stato attivo */
 .layer-toggle:not(.active) .toggle-dot {
-  transform: scale(0.4); 
+  transform: scale(0.4);
 }
 
-
-/* colori */
 .layer-toggle[data-layer="nero"] .toggle-dot {
   background: #121212;
 }
@@ -348,16 +187,20 @@ html, body {
   background: #ffffff;
 }
 
+/* ============================= */
+/* LAYER INFO TOOLTIP            */
+/* ============================= */
+
 #layer-info {
   position: absolute;
 
-  background: rgba(63, 63, 63, 0.8);
-  color: #ffffff;
+  background: rgba(63,63,63,0.8);
+  color: #fff;
 
   padding: 10px 12px;
   border-radius: 4px;
 
-  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
   font-size: 13px;
   line-height: 1.35;
 
@@ -365,22 +208,10 @@ html, body {
   pointer-events: none;
 }
 
-#search-container {
-  flex: 1;              
-  min-width: 0;     
-  margin-left: 50px;    
+/* ============================= */
+/* SEARCH / GEOCODER             */
+/* ============================= */
 
-  position: relative;
-  z-index: 3;
-}
-
-#search-container .mapboxgl-ctrl-geocoder {
-  width: 100%;
-  min-width: 0;
-  box-shadow: none;
-}
-
-/* ===== FORCE GEOCODER TO STRETCH ===== */
 #search-container {
   flex: 1 1 auto;
   min-width: 0;
@@ -389,71 +220,60 @@ html, body {
   position: relative;
   z-index: 3;
 
-  display: flex;           /* 🔑 aiuta a far crescere il child */
+  display: flex;
   align-items: center;
 }
 
 #search-container .mapboxgl-ctrl-geocoder {
-  flex: 1 1 auto;          /* 🔑 può crescere */
+  flex: 1 1 auto;
   width: 100% !important;
 
-  min-width: 0 !important; /* 🔑 override del min-width Mapbox */
-  max-width: none !important; /* 🔑 se Mapbox limita a 320/360 */
+  min-width: 0 !important;
+  max-width: none !important;
 
   box-shadow: none;
-}
 
-#search-container .mapboxgl-ctrl-geocoder--input {
-  width: 100% !important;  /* 🔑 input sempre pieno */
-}
-
-/* ============================= */
-/* MAPBOX GEOCODER – DARK TOPBAR */
-/* ============================= */
-
-#search-container .mapboxgl-ctrl-geocoder {
-  background: #303030;                 /* stesso grigio della topbar */
-  box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.6);       /* perimetro bianco */
-  border-radius: 20px;                  /* angoli arrotondati */
-  box-shadow: none;
+  background: #303030;
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 20px;
 
   height: 32px;
+
   display: flex;
   align-items: center;
 
-  transition: border-color 0.15s ease; /* micro feedback */
+  transition: border-color 0.15s ease;
 }
 
-/* input */
 #search-container .mapboxgl-ctrl-geocoder--input {
-  background: transparent;
-  color: #ffffff;
+  width: 100% !important;
 
-  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  background: transparent;
+  color: #fff;
+
+  font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
   font-size: 14px;
 
   padding: 6px 10px;
+  padding-left: 12px;
+
   height: 100%;
 }
 
-/* placeholder */
 #search-container .mapboxgl-ctrl-geocoder--input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255,255,255,0.6);
 }
 
-/* icona lente */
 #search-container .mapboxgl-ctrl-geocoder--icon-search {
   display: none;
 }
 
-/* bottone clear (X) */
 #search-container .mapboxgl-ctrl-geocoder--button {
   background: transparent;
 }
 
 #search-container .mapboxgl-ctrl-geocoder--icon-close {
-  fill: #ffffff;
+  fill: #fff;
   opacity: 0.7;
 }
 
@@ -461,84 +281,39 @@ html, body {
   opacity: 1;
 }
 
-#search-container .mapboxgl-ctrl-geocoder--input {
-  padding-left: 12px;  
-}
-
 #search-container .mapboxgl-ctrl-geocoder--input:focus {
   outline: none;
 }
 
 #search-container .mapboxgl-ctrl-geocoder:focus-within {
-  border-color: rgba(255, 255, 255, 1); /* 🔑 100% */
+  border-color: rgba(255,255,255,1);
 }
 
-#brand {
-  width: 180px;          
-  height: 100%;
-
-  display: flex;
-  align-items: center;   /* centro verticale */
-  padding-left: 20px;    /* respiro dal bordo */
-  box-sizing: border-box;
-
-  position: relative;
-  z-index: 3;
-}
-
-#brand img {
-  max-height: 30px;      /* coerente con l’altezza toolbar */
-  max-width: 100%;
-  object-fit: contain;
-  display: block;
-}
-
-/* ===== MAP STYLE SWITCHER (sotto + / -) ===== */
-.mapboxgl-ctrl.map-style-switcher {
-  box-shadow: none;
-}
-
-.map-style-switcher .mapboxgl-ctrl-group {
+.custom-coord-suggestion {
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+
+  font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  font-size: 14px;
 }
 
-.map-style-switcher button {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
+/* ============================= */
+/* MAP CONTROLS                  */
+/* ============================= */
 
-  background: #303030;
-  color: #ffffff;
-
-  border: 0;
-  cursor: pointer;
-
-  font: 600 12px/1 Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  letter-spacing: 0.04em;
-}
-
-.map-style-switcher button:hover {
-  filter: brightness(1.1);
-}
-
-.map-style-switcher button.is-active {
-  background: #9a0000;
-  color: #111111;
-}
-
-/* ===== Unico control: + / - / MAP / SAT ===== */
 .zoom-style-control {
   background: #303030;
   border-radius: 4px;
   overflow: hidden;
   box-shadow: none;
-  border: 1px solid rgba(255,255,255,0.5);  /* 👈 perimetro 50% */
+  border: 1px solid rgba(255,255,255,0.5);
 }
 
 .zoom-style-control button {
   width: 27px;
   height: 27px;
+
   display: grid;
   place-items: center;
 
@@ -548,20 +323,17 @@ html, body {
   border: 0;
   cursor: pointer;
 
-  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
 }
 
 .zoom-style-control button:hover {
   filter: brightness(1.1);
 }
 
-/* Bottoni zoom: un filo più grandi tipograficamente */
 .zoom-style-control button.mapboxgl-ctrl-icon {
   font-size: 18px;
-  line-height: 1;
 }
 
-/* Bottoni stile */
 .zoom-style-control .style-btn {
   font-size: 12px;
   font-weight: 600;
@@ -569,11 +341,10 @@ html, body {
 }
 
 .zoom-style-control .style-btn.is-active {
-  background: #ffffff;
-  color: #111111;
+  background: #fff;
+  color: #111;
 }
 
-/* Separatore tra zoom e stile */
 .zoom-style-divider {
   width: 100%;
   height: 1px;
@@ -585,29 +356,25 @@ html, body {
   transform: translateY(-50%);
 }
 
-/* ===== DUAL SCALE – versione pulita/corretta (solo blocco scale) ===== */
+/* ============================= */
+/* DUAL SCALE                    */
+/* ============================= */
 
 .dual-scale-control {
   display: flex;
-  gap: 4px;              /* km più vicino a mi */
-  background: transparent;
-  box-shadow: none;
-  padding: 0;
+  gap: 4px;
 }
 
-.dual-scale-item:nth-child(2) {
-  margin-left: -10px;   /* prova -4 / -6 / -8 */
-}
-
-/* colonna per ciascuna scala (barra + testo ruotato) */
 .dual-scale-item {
   position: relative;
   width: 22px;
-  height: 110px;         /* ERA 50px: troppo basso e creava “random” */
-  overflow: visible;
+  height: 110px;
 }
 
-/* barra (usiamo la scale Mapbox solo per la lunghezza) */
+.dual-scale-item:nth-child(2) {
+  margin-left: -10px;
+}
+
 .dual-scale-item .mapboxgl-ctrl-scale {
   position: absolute;
   left: 0;
@@ -623,33 +390,28 @@ html, body {
 
   height: 0 !important;
   line-height: 0 !important;
-  font-size: 0 !important;       /* nasconde testo originale Mapbox */
+  font-size: 0 !important;
   color: transparent !important;
 
-  border-top: 4px solid #303030 !important; /* spessore barra */
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.5); 
+  border-top: 4px solid #303030 !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.5);
 }
 
 .dual-scale-item .dual-scale-label {
   position: absolute;
-  right: 0;            /* ✅ ancora a destra */
+  right: 0;
   bottom: 0;
 
-  /* ✅ pivot sul lato destro (che diventa "alto" dopo la rotazione) */
   transform-origin: right bottom;
-
-  /* mantieni i tuoi numeri, poi li micro-ritocchiamo se serve */
   transform: rotate(-90deg) translateX(100px) translateY(-16px);
 
   white-space: nowrap;
-  line-height: 1;
-  text-align: right;   /* ✅ utile quando cambia la lunghezza */
 
-  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #303030;
- 
+
   text-shadow:
     1px 0 0 rgba(255,255,255,0.5),
    -1px 0 0 rgba(255,255,255,0.5),
@@ -657,26 +419,25 @@ html, body {
     0 -1px 0 rgba(255,255,255,0.5);
 }
 
-/* wrapper del controllo (resta dentro i controls Mapbox) */
 .dual-scale-box {
   position: relative;
-  margin-left: 0px;     
+  margin-left: 0;
   pointer-events: none;
 }
 
-/* centratura verticale “semplice come a destra” */
 .mapboxgl-ctrl-top-left {
-  left: 18px !important; 
+  left: 18px !important;
   top: calc(50% + 70px) !important;
   transform: translateY(-50%);
 }
 
-/* elimina margini default dei controls Mapbox (stabilità su resize) */
 .mapboxgl-ctrl-top-left .mapboxgl-ctrl {
   margin: 0 !important;
 }
 
-/* ===== PANEL STRIP 5 CARDS ===== */
+/* ============================= */
+/* PANEL STRIP                   */
+/* ============================= */
 
 #panel {
   position: fixed;
@@ -684,10 +445,10 @@ html, body {
   left: 0;
   width: 100%;
 
-  height: calc(var(--card-h) + 20px); /* 10 top + 10 bottom */
+  height: calc(var(--card-h) + 20px);
 
   background: #303030;
-  color: #ffffff;
+  color: #fff;
 
   display: flex;
   align-items: center;
@@ -696,26 +457,31 @@ html, body {
   padding: 10px 0;
   box-sizing: border-box;
 
-  overflow: hidden; /* utile per evitare sbordi */
-
+  overflow: hidden;
 }
 
 #panel-strip {
   display: flex;
-  gap: 10px;              /* resta SEMPRE 10px */
+  gap: 10px;
+
   align-items: center;
   justify-content: center;
 
   max-width: 100%;
-  padding: 0 10px;        /* respiro laterale */
-  box-sizing: border-box;
-  opacity: 0;                
+  padding: 0 10px;
+
+  opacity: 0;
   transition: opacity 0.35s;
 }
+
+/* ============================= */
+/* PANEL CARDS                   */
+/* ============================= */
 
 .panel-card {
   width: var(--card-w);
   height: var(--card-h);
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -727,10 +493,10 @@ html, body {
   height: var(--card-h);
 }
 
-/* immagine full card */
 .panel-card .panel-image {
   width: 100%;
   height: 100%;
+
   object-fit: cover;
   object-position: center;
 
@@ -744,12 +510,22 @@ html, body {
   opacity: 1;
 }
 
-/* overlay come prima, ma scoped alla card */
+.panel-card .image-wrapper.empty {
+  background: rgba(255,255,255,0.06);
+  border: 1px dashed rgba(255,255,255,0.25);
+  border-radius: 4px;
+}
+
+/* ============================= */
+/* CARD OVERLAY                  */
+/* ============================= */
+
 .panel-card .image-overlay {
   position: absolute;
   inset: 5px;
-  background: rgba(0, 0, 0, 0.66);
-  color: #ffffff;
+
+  background: rgba(0,0,0,0.66);
+  color: #fff;
 
   display: flex;
   align-items: flex-start;
@@ -760,8 +536,10 @@ html, body {
   letter-spacing: 0.05em;
 
   opacity: 0;
-  pointer-events: auto;   /* ← questa è la chiave */
+  pointer-events: auto;
+
   transition: opacity 0.25s ease;
+
   cursor: pointer;
 }
 
@@ -769,20 +547,70 @@ html, body {
   opacity: 1;
 }
 
-/* placeholder vuoti (visivamente) */
-.panel-card .image-wrapper.empty {
-  background: rgba(255,255,255,0.06);
-  border: 1px dashed rgba(255,255,255,0.25);
-  border-radius: 4px;
+.image-overlay button {
+  cursor: default;
 }
 
-/* ===== COPY BUTTONS (ripristino stile originale) ===== */
+/* ============================= */
+/* OVERLAY TEXT                  */
+/* ============================= */
+
+.overlay-text {
+  text-align: left;
+  padding: 10px;
+
+  width: 100%;
+  box-sizing: border-box;
+
+  font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+}
+
+.overlay-text h3 {
+  margin: 0 0 6px 0;
+
+  font-weight: 400;
+  line-height: 1.2;
+
+  font-size: clamp(10px, calc(28px * var(--card-scale)), 28px);
+}
+
+.overlay-description {
+  margin: 0 0 5px 0;
+
+  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+  line-height: 1.35;
+  font-size: clamp(8px, calc(20px * var(--card-scale)), 20px);
+}
+
+.overlay-coordinates {
+  font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  font-size: clamp(8px, calc(12px * var(--card-scale)), 12px);
+
+  opacity: 0.75;
+}
+
+.overlay-bottom {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+}
+
+/* ============================= */
+/* COPY BUTTONS                  */
+/* ============================= */
 
 .panel-card .title-copy,
 .panel-card .coords-copy {
   background: none;
   border: none;
   padding: 0;
+
   margin-left: calc(4px * var(--card-scale));
 
   color: inherit;
@@ -804,32 +632,4 @@ html, body {
 .panel-card .title-copy:hover,
 .panel-card .coords-copy:hover {
   opacity: 1;
-}
-
-/* ===== Overlay font: proporzionali alla scala card ===== */
-
-.panel-card .overlay-text h3 {
-  font-size: clamp(10px, calc(28px * var(--card-scale)), 28px);
-}
-
-.panel-card .overlay-description {
-  font-size: clamp(8px, calc(20px * var(--card-scale)), 20px);
-}
-
-.panel-card .overlay-coordinates {
-  font-size: clamp(8px, calc(12px * var(--card-scale)), 12px);
-}
-
-#search-container .custom-coord-suggestion {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 400;
-}
-
-#brand {
-  cursor: pointer;
 }
