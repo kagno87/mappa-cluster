@@ -294,7 +294,11 @@ function refreshCrosshair() {
 
 function refreshBestCrosshairAfterMove() {
   if (!activeHoverTarget) return;
-  showBestCrosshairForTarget(activeHoverTarget);
+
+  requestAnimationFrame(() => {
+    if (!activeHoverTarget) return;
+    showBestCrosshairForTarget(activeHoverTarget);
+  });
 }
 
 function areSameCoordinates(aLon, aLat, bLon, bLat, tolerance = 1e-7) {
@@ -1116,6 +1120,17 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
   if (!isNaN(lon) && !isNaN(lat)) {
     const currentZoom = map.getZoom();
     const nextZoom = Math.min(currentZoom + 2, 14);
+
+    // nasconde subito il mirino corrente ma mantiene il target hover attivo
+    activeCrosshair = null;
+    crosshairRequestToken += 1;
+
+    if (map.getSource('hover-crosshair')) {
+      map.getSource('hover-crosshair').setData({
+        type: 'FeatureCollection',
+        features: []
+      });
+    }
 
     map.easeTo({
       center: [lon, lat],
