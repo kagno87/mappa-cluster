@@ -220,16 +220,179 @@ function setupGeocoderOnce() {
     typeof MapboxGeocoder !== 'undefined' &&
     !searchContainer.querySelector('.mapboxgl-ctrl-geocoder')
   ) {
+
+    // --- Helpers parse coordinate input (decimal + NSEW + DMS) ---
+    function dmsToDecimal(deg, min, sec, hemi) {
+      const d = Math.abs(Number(deg)) + (Number(min) || 0) / 60 + (Number(sec) || 0) / 3600;
+      const sign = (hemi === 'S' || hemi === 'W') ? -1 : 1;
+      return sign * d;
+    }
+
+    function formatCoordPair(lat, lon) {
+      // tieni corto per evitare wrap nei suggerimenti
+      const latStr = Number(lat).toFixed(5);
+      const lonStr = Number(lon).toFixed(5);
+      return `${latStr}, ${lonStr}`;
+    }
+
+    function parseCoordQuery(raw) {
+      const q = raw.trim().toUpperCase();
+
+      // 1) DMS (due coordinate con simboli ° ' ")
+      // Esempi accettati: 45°27'51"N 9°11'24"E
+      //                 N45°27'51" E9°11'24"
+      const dmsRe = /([NSWE])?\s*(\d{1,3})\s*°\s*(\d{1,2})?\s*'?\s*(\d{1,2}(?:\.\d+)?)?\s*"?\s*([NSWE])?/g;
+      const dmsParts = [];
+      let m;
+      while ((m = dmsRe.exec(q)) !== null) {
+        const hemi = (m[1] || m[5] || '').trim();
+        if (!hemi) continue;
+
+        dmsParts.push({
+          hemi,
+          deg: m[2],
+          min: m[3] || 0,
+          sec: m[4] || 0
+        });
+        if (dmsParts.length === 2) break;
+      }
+
+      if (dmsParts.length === 2) {
+        const a = dmsToDecimal(dmsParts[0].deg, dmsParts[0].min, dmsParts[0].sec, dmsParts[0].hemi);
+        const b = dmsToDecimal(dmsParts[1].deg, dmsParts[1].min, dmsParts[1].sec, dmsParts[1].hemi);
+
+        // assegna lat/lon in base all'emisfero
+        let lat = null, lon = null;
+        [a, b].forEach((val, i) => {
+          const hemi = dmsParts[i].hemi;
+          if (hemi === 'N' || hemi === 'S') lat = val;
+          if (hemi === 'E' || hemi === 'W') lon = val;
+        });
+
+        if (lat !== null && lon !== null) return { lat, lon };
+      }
+
+      // 2) Decimali semplici "a, b" o "a b"
+      const simple = q.match(/^(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)$/);
+      if (simple) {
+        const a = parseFloat(simple[1]);
+        const b = parseFloat(simple[2]);
+
+        const isLat = (x) => x >= -90 && x <= 90;
+        const isLon = (x) => x >= -180 && x <= 180;
+
+        // prova lat,lon
+        if (isLat(a) && isLon(b)) return { lat: a, lon: b };
+        // prova lon,lat
+        if (isLon(a) && isLat(b)) return { lat: b, lon: a };
+
+        return null;
+      }
+
+      // 3) Decimali con N/S/E/W (prefisso o suffisso), separati da spazio/virgola
+      // Esempi: 45.46N 9.19E | N45.46 E9.19 | 45.46 N, 9.19 E
+      const tokenRe = /([NSWE])?\s*(-?\d+(?:\.\d+)?)\s*([NSWE])?/g;
+      const tokens = [];
+      let t;
+      while ((t = tokenRe.exec(q)) !== null) {
+        const hemi = (t[1] || t[3] || '').trim();
+        const num = parseFloat(t[2]);
+        if (!Number.isFinite(num)) continue;
+        if (!hemi) continue;
+        tokens.push({ hemi, num });
+        if (tokens.length === 2) break;
+      }
+
+      if (tokens.length === 2) {
+        let lat = null, lon = null;
+        for (const tok of tokens) {
+          if (tok.hemi === 'N' || tok.hemi === 'S') lat = (tok.hemi === 'S') ? -Math.abs(tok.num) : Math.abs(tok.num);
+          if (tok.hemi === 'E' || tok.hemi === 'W') lon = (tok.hemi === 'W') ? -Math.abs(tok.num) : Math.abs(tok.num);
+        }
+        if (lat !== null && lon !== null) return { lat, lon };
+      }
+
+      return null;
+    }
+
+
+
+
     const geocoder = new MapboxGeocoder({
       accessToken: mapboxgl.accessToken,
       mapboxgl: mapboxgl,
       marker: false,
       flyTo: { speed: 1.2 },
       language: 'en',
-      placeholder: 'Search for a place'
+      placeholder: 'Search for a place',
+
+      localGeocoder: (query) => {
+        const parsed = parseCoordQuery(query);
+        if (!parsed) return null;
+
+        const { lat, lon } = parsed;
+        const label = formatCoordPair(lat, lon);
+
+        return [{
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [lon, lat]
+          },
+          place_name: label,
+          text: label,
+          center: [lon, lat],
+          place_type: ['coordinate'],
+          properties: {
+            kind: 'coords'
+          }
+        }];
+      },
+
+      render: (item) => {
+        if (item.properties && item.properties.kind === 'coords') {
+          return `<div class="custom-coord-suggestion">${item.place_name}</div>`;
+        }
+
+        return `<div>${item.place_name}</div>`;
+      },
+
     });
 
     searchContainer.appendChild(geocoder.onAdd(map));
+
+    const input = searchContainer.querySelector('.mapboxgl-ctrl-geocoder--input');
+
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+
+        const query = input.value.trim();
+        const match = query.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
+        if (!match) return;
+
+        const a = parseFloat(match[1]);
+        const b = parseFloat(match[3]);
+
+        const isLat = (x) => x >= -90 && x <= 90;
+        const isLon = (x) => x >= -180 && x <= 180;
+
+        let coords = null;
+
+        if (isLat(a) && isLon(b)) coords = [b, a];
+        else if (isLon(a) && isLat(b)) coords = [a, b];
+
+        if (coords) {
+          e.preventDefault();
+
+          map.flyTo({
+            center: coords,
+            zoom: 12,
+            speed: 1.2
+          });
+        }
+      });
+    }
   }
 }
 

@@ -766,3 +766,13 @@ html, body {
 .panel-card .overlay-coordinates {
   font-size: clamp(8px, calc(12px * var(--card-scale)), 12px);
 }
+
+#search-container .custom-coord-suggestion {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  font-family: Calibri, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+}
