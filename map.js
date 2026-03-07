@@ -1139,7 +1139,19 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
     const currentZoom = map.getZoom();
     const nextZoom = Math.min(currentZoom + 2, 14);
 
-    hideCrosshair();
+    const target = buildTargetFromActiveCard();
+    if (target) {
+      activeHoverTarget = target;
+      hideCrosshairKeepTarget();
+    } else {
+      hideCrosshair();
+    }
+
+    map.once('moveend', () => {
+      if (activeHoverTarget) {
+        showBestCrosshairForTarget(activeHoverTarget);
+      }
+    });
 
     map.easeTo({
       center: [lon, lat],

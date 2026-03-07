@@ -24,6 +24,7 @@ html, body {
   width: 100%;
   height: calc(100% - var(--panel-height) - 48px);
   z-index: 1;
+  overflow: hidden;
 }
 
 #map {
