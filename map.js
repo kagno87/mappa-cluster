@@ -23,6 +23,7 @@ let currentBaseStyleKey = 'light';
 let startupRandomShown = false;
 let activeCrosshair = null;
 let crosshairRequestToken = 0;
+let activeHoverTarget = null;
 
 /* ========= PANEL HEIGHT ========= */
 function updatePanelHeight() {
@@ -271,6 +272,7 @@ function renderCrosshair(lon, lat, sizeValue) {
 
 function hideCrosshair() {
   activeCrosshair = null;
+  activeHoverTarget = null;
   crosshairRequestToken += 1;
 
   if (!map.getSource('hover-crosshair')) return;
@@ -288,6 +290,11 @@ function refreshCrosshair() {
   map.getSource('hover-crosshair').setData(
     buildCrosshairFeature(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size)
   );
+}
+
+function refreshBestCrosshairAfterMove() {
+  if (!activeHoverTarget) return;
+  showBestCrosshairForTarget(activeHoverTarget);
 }
 
 function areSameCoordinates(aLon, aLat, bLon, bLat, tolerance = 1e-7) {
@@ -378,23 +385,34 @@ async function getRenderedClusterMatch(target) {
 async function showBestCrosshairForTarget(target) {
   if (!target || !target.sourceKey) return;
 
+  activeHoverTarget = {
+    lon: Number(target.lon),
+    lat: Number(target.lat),
+    size: Number(target.size) || 1,
+    sourceKey: target.sourceKey
+  };
+
   const requestToken = ++crosshairRequestToken;
 
-  const renderedPoint = getRenderedPointMatch(target);
+  const renderedPoint = getRenderedPointMatch(activeHoverTarget);
   if (requestToken !== crosshairRequestToken) return;
   if (renderedPoint) {
     renderCrosshair(renderedPoint.lon, renderedPoint.lat, renderedPoint.size);
     return;
   }
 
-  const renderedCluster = await getRenderedClusterMatch(target);
+  const renderedCluster = await getRenderedClusterMatch(activeHoverTarget);
   if (requestToken !== crosshairRequestToken) return;
   if (renderedCluster) {
     renderCrosshair(renderedCluster.lon, renderedCluster.lat, renderedCluster.size);
     return;
   }
 
-  renderCrosshair(target.lon, target.lat, target.size || 1);
+  renderCrosshair(
+    activeHoverTarget.lon,
+    activeHoverTarget.lat,
+    activeHoverTarget.size || 1
+  );
 }
 
 function buildTargetFromFeature(feature, sourceKey) {
@@ -815,8 +833,13 @@ function bindMapInteractions() {
 
   map.off('move', refreshCrosshair);
   map.off('zoom', refreshCrosshair);
+  map.off('moveend', refreshBestCrosshairAfterMove);
+  map.off('zoomend', refreshBestCrosshairAfterMove);
+
   map.on('move', refreshCrosshair);
   map.on('zoom', refreshCrosshair);
+  map.on('moveend', refreshBestCrosshairAfterMove);
+  map.on('zoomend', refreshBestCrosshairAfterMove);
 }
 
 function onClickClusterNero(e) {
@@ -1103,20 +1126,26 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 });
 
 /* ========= CARD HOVER -> CROSSHAIR ========= */
-document.getElementById('panel')?.addEventListener('mouseenter', (e) => {
-  const overlay = e.target.closest('.panel-card.is-active .image-overlay');
-  if (!overlay) return;
+document.getElementById('panel')?.addEventListener('mouseover', (e) => {
+  const wrapper = e.target.closest('.panel-card.is-active .image-wrapper');
+  if (!wrapper) return;
+
+  // se stai solo passando tra figli interni della stessa wrapper, non rifare nulla
+  if (wrapper.contains(e.relatedTarget)) return;
 
   const target = buildTargetFromActiveCard();
   if (target) showBestCrosshairForTarget(target);
-}, true);
+});
 
-document.getElementById('panel')?.addEventListener('mouseleave', (e) => {
-  const overlay = e.target.closest('.panel-card.is-active .image-overlay');
-  if (!overlay) return;
+document.getElementById('panel')?.addEventListener('mouseout', (e) => {
+  const wrapper = e.target.closest('.panel-card.is-active .image-wrapper');
+  if (!wrapper) return;
+
+  // se stai ancora restando dentro la stessa wrapper, non nascondere nulla
+  if (wrapper.contains(e.relatedTarget)) return;
 
   hideCrosshair();
-}, true);
+});
 
 /* ========= TOOLTIP LAYER INFO ========= */
 const layerInfo = document.getElementById('layer-info');

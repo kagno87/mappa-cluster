@@ -706,14 +706,13 @@ html, body {
   letter-spacing: 0.05em;
 
   opacity: 0;
-  pointer-events: none;
+  pointer-events: auto;   /* ← questa è la chiave */
   transition: opacity 0.25s ease;
   cursor: pointer;
 }
 
 .panel-card .image-wrapper:hover .image-overlay {
   opacity: 1;
-  pointer-events: auto;
 }
 
 /* placeholder vuoti (visivamente) */
