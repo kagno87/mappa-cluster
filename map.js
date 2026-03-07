@@ -24,6 +24,7 @@ let startupRandomShown = false;
 let activeCrosshair = null;
 let crosshairRequestToken = 0;
 let activeHoverTarget = null;
+let crosshairIdlePending = false;
 
 /* ========= PANEL HEIGHT ========= */
 function updatePanelHeight() {
@@ -294,8 +295,22 @@ function refreshCrosshair() {
 
 function refreshBestCrosshairAfterMove() {
   if (!activeHoverTarget) return;
+  if (crosshairIdlePending) return;
 
-  requestAnimationFrame(() => {
+  crosshairIdlePending = true;
+
+  map.once('idle', () => {
+    crosshairIdlePending = false;
+
+    if (!activeHoverTarget) return;
+    showBestCrosshairForTarget(activeHoverTarget);
+  });
+}
+
+function refreshBestCrosshairAfterMove() {
+  if (!activeHoverTarget) return;
+
+  map.once('idle', () => {
     if (!activeHoverTarget) return;
     showBestCrosshairForTarget(activeHoverTarget);
   });
