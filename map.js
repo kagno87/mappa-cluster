@@ -662,6 +662,15 @@ async function showRandomSize2OnStartup() {
   }
 }
 
+async function refreshRandomSize2() {
+  try {
+    const f = await pickRandomSize2FromBothLayers();
+    if (f) updatePanel(f);
+  } catch (e) {
+    console.warn('Random refresh failed:', e);
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   showRandomSize2OnStartup();
 });
@@ -800,7 +809,7 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
   }
 });
 
-/* ========= OVERLAY CLICK -> FLYTO ========= */
+/* ========= OVERLAY CLICK -> INCREMENTAL FLYTO ========= */
 document.getElementById('panel')?.addEventListener('click', (e) => {
   const overlay = e.target.closest('.image-overlay');
   if (!overlay) return;
@@ -811,7 +820,14 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
   const lat = parseFloat(overlay.dataset.lat);
 
   if (!isNaN(lon) && !isNaN(lat)) {
-    map.easeTo({ center: [lon, lat], duration: 800 });
+    const currentZoom = map.getZoom();
+    const nextZoom = Math.min(currentZoom + 2, 14);
+
+    map.easeTo({
+      center: [lon, lat],
+      zoom: nextZoom,
+      duration: 800
+    });
   }
 });
 
@@ -926,3 +942,7 @@ function lockZenithNorth() {
   map.on('pitchend', snapBack);
 }
 
+/* ========= LOGO CLICK -> RANDOM CARD ========= */
+document.getElementById('brand')?.addEventListener('click', () => {
+  refreshRandomSize2();
+});
