@@ -318,6 +318,31 @@ function hideCrosshair() {
   }, 120);
 }
 
+function fadeOutCrosshairVisual() {
+  activeCrosshair = null;
+  crosshairRequestToken += 1;
+
+  if (map.getLayer('hover-crosshair-outline')) {
+    map.setPaintProperty('hover-crosshair-outline', 'line-opacity', 0);
+  }
+
+  if (map.getLayer('hover-crosshair-lines')) {
+    map.setPaintProperty('hover-crosshair-lines', 'line-opacity', 0);
+  }
+
+  if (!map.getSource('hover-crosshair')) return;
+
+  setTimeout(() => {
+    if (!map.getSource('hover-crosshair')) return;
+    if (activeCrosshair) return;
+
+    map.getSource('hover-crosshair').setData({
+      type: 'FeatureCollection',
+      features: []
+    });
+  }, 120);
+}
+
 function refreshCrosshair() {
   if (!activeCrosshair) return;
   if (!map.getSource('hover-crosshair')) return;
@@ -435,6 +460,9 @@ async function showBestCrosshairForTarget(target) {
     size: Number(target.size) || 1,
     sourceKey: target.sourceKey
   };
+
+  // nasconde subito l'eventuale crosshair vecchio
+  fadeOutCrosshairVisual();
 
   const requestToken = ++crosshairRequestToken;
 
