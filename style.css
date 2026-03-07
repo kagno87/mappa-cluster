@@ -14,13 +14,67 @@ html, body {
   --card-scale: 1;
 }
 
-#map {
+#map-wrap {
   position: absolute;
-  top: 48px; /* altezza topbar */
+  top: 48px;
   left: 0;
   width: 100%;
   height: calc(100% - var(--panel-height) - 48px);
   z-index: 1;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+#crosshair-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20; /* sopra tutto il canvas Mapbox */
+}
+
+.crosshair-html {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair-html .arm {
+  position: absolute;
+  background: #000000;
+  border-radius: 999px;
+}
+
+.crosshair-html .arm.outline {
+  background: #ffffff;
+  opacity: 0.6;
+}
+
+.crosshair-html .arm.left.main,
+.crosshair-html .arm.right.main {
+  height: 2.5px;
+}
+
+.crosshair-html .arm.top.main,
+.crosshair-html .arm.bottom.main {
+  width: 2.5px;
+}
+
+.crosshair-html .arm.left.outline,
+.crosshair-html .arm.right.outline {
+  height: 5px;
+}
+
+.crosshair-html .arm.top.outline,
+.crosshair-html .arm.bottom.outline {
+  width: 5px;
 }
 
 

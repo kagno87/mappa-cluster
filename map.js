@@ -218,6 +218,97 @@ function getCrosshairMetrics(sizeValue) {
   }
 }
 
+function getCrosshairOverlayEl() {
+  return document.getElementById('crosshair-overlay');
+}
+
+function ensureHtmlCrosshair() {
+  const overlay = getCrosshairOverlayEl();
+  if (!overlay) return null;
+
+  let el = overlay.querySelector('.crosshair-html');
+  if (el) return el;
+
+  el = document.createElement('div');
+  el.className = 'crosshair-html';
+
+  const parts = [
+    'left outline', 'right outline', 'top outline', 'bottom outline',
+    'left main', 'right main', 'top main', 'bottom main'
+  ];
+
+  parts.forEach((cls) => {
+    const arm = document.createElement('div');
+    arm.className = `arm ${cls}`;
+    el.appendChild(arm);
+  });
+
+  overlay.appendChild(el);
+  return el;
+}
+
+function positionCrosshairArms(container, metrics) {
+  const { gap, arm, stroke } = metrics;
+
+  const leftMain = container.querySelector('.arm.left.main');
+  const rightMain = container.querySelector('.arm.right.main');
+  const topMain = container.querySelector('.arm.top.main');
+  const bottomMain = container.querySelector('.arm.bottom.main');
+
+  const leftOutline = container.querySelector('.arm.left.outline');
+  const rightOutline = container.querySelector('.arm.right.outline');
+  const topOutline = container.querySelector('.arm.top.outline');
+  const bottomOutline = container.querySelector('.arm.bottom.outline');
+
+  function setBox(el, x, y, w, h) {
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+  }
+
+  setBox(leftOutline, -(gap + arm), -2.5, arm, 5);
+  setBox(rightOutline, gap, -2.5, arm, 5);
+  setBox(topOutline, -2.5, -(gap + arm), 5, arm);
+  setBox(bottomOutline, -2.5, gap, 5, arm);
+
+  setBox(leftMain, -(gap + arm), -(stroke / 2), arm, stroke);
+  setBox(rightMain, gap, -(stroke / 2), arm, stroke);
+  setBox(topMain, -(stroke / 2), -(gap + arm), stroke, arm);
+  setBox(bottomMain, -(stroke / 2), gap, stroke, arm);
+}
+
+function renderHtmlCrosshair(lon, lat, sizeValue) {
+  const el = ensureHtmlCrosshair();
+  if (!el) return;
+
+  const p = map.project([lon, lat]);
+  const metrics = getCrosshairMetrics(sizeValue);
+
+  el.style.left = `${p.x}px`;
+  el.style.top = `${p.y}px`;
+  el.style.opacity = '1';
+  el.style.display = 'block';
+
+  positionCrosshairArms(el, metrics);
+}
+
+function hideHtmlCrosshair() {
+  const overlay = getCrosshairOverlayEl();
+  if (!overlay) return;
+
+  const el = overlay.querySelector('.crosshair-html');
+  if (!el) return;
+
+  el.style.opacity = '0';
+  el.style.display = 'none';
+}
+
+function refreshHtmlCrosshair() {
+  if (!activeCrosshair) return;
+  renderHtmlCrosshair(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size);
+}
+
 function buildCrosshairFeature(lon, lat, sizeValue) {
   const metrics = getCrosshairMetrics(sizeValue);
   const center = map.project([lon, lat]);
@@ -271,85 +362,34 @@ function buildCrosshairFeature(lon, lat, sizeValue) {
 }
 
 function renderCrosshair(lon, lat, sizeValue) {
-  if (!map.getSource('hover-crosshair')) return;
-
   activeCrosshair = {
     lon: Number(lon),
     lat: Number(lat),
     size: Number(sizeValue) || 1
   };
 
-  map.getSource('hover-crosshair').setData(
-    buildCrosshairFeature(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size)
+  renderHtmlCrosshair(
+    activeCrosshair.lon,
+    activeCrosshair.lat,
+    activeCrosshair.size
   );
-
-  if (map.getLayer('hover-crosshair-outline')) {
-    map.setPaintProperty('hover-crosshair-outline', 'line-opacity', 0.6);
-  }
-
-  if (map.getLayer('hover-crosshair-lines')) {
-    map.setPaintProperty('hover-crosshair-lines', 'line-opacity', 1);
-  }
 }
 
 function hideCrosshair() {
   activeCrosshair = null;
   activeHoverTarget = null;
   crosshairRequestToken += 1;
-
-  if (map.getLayer('hover-crosshair-outline')) {
-    map.setPaintProperty('hover-crosshair-outline', 'line-opacity', 0);
-  }
-
-  if (map.getLayer('hover-crosshair-lines')) {
-    map.setPaintProperty('hover-crosshair-lines', 'line-opacity', 0);
-  }
-
-  if (!map.getSource('hover-crosshair')) return;
-
-  setTimeout(() => {
-    if (!map.getSource('hover-crosshair')) return;
-    if (activeCrosshair || activeHoverTarget) return;
-
-    map.getSource('hover-crosshair').setData({
-      type: 'FeatureCollection',
-      features: []
-    });
-  }, 120);
+  hideHtmlCrosshair();
 }
 
 function fadeOutCrosshairVisual() {
   activeCrosshair = null;
   crosshairRequestToken += 1;
-
-  if (map.getLayer('hover-crosshair-outline')) {
-    map.setPaintProperty('hover-crosshair-outline', 'line-opacity', 0);
-  }
-
-  if (map.getLayer('hover-crosshair-lines')) {
-    map.setPaintProperty('hover-crosshair-lines', 'line-opacity', 0);
-  }
-
-  if (!map.getSource('hover-crosshair')) return;
-
-  setTimeout(() => {
-    if (!map.getSource('hover-crosshair')) return;
-    if (activeCrosshair) return;
-
-    map.getSource('hover-crosshair').setData({
-      type: 'FeatureCollection',
-      features: []
-    });
-  }, 120);
+  hideHtmlCrosshair();
 }
 
 function refreshCrosshair() {
-  if (!activeCrosshair) return;
-  if (!map.getSource('hover-crosshair')) return;
-
-  map.getSource('hover-crosshair').setData(
-    buildCrosshairFeature(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size)
-  );
+  refreshHtmlCrosshair();
 }
 
 function refreshBestCrosshairAfterMove() {
@@ -728,6 +768,7 @@ function applyLayerToggleState() {
 function initDataLayersAndHandlers() {
   addSourcesIfMissing();
   addLayersIfMissing();
+  ensureCrosshairOnTop();
   applyLayerToggleState();
   bindMapInteractions();
   updatePanelHeight();
@@ -906,6 +947,16 @@ function addLayersIfMissing() {
         }
       }
     });
+  }
+}
+
+function ensureCrosshairOnTop() {
+  if (map.getLayer('hover-crosshair-outline')) {
+    map.moveLayer('hover-crosshair-outline');
+  }
+
+  if (map.getLayer('hover-crosshair-lines')) {
+    map.moveLayer('hover-crosshair-lines');
   }
 }
 
@@ -1218,24 +1269,7 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 
     activeCrosshair = null;
     crosshairRequestToken += 1;
-
-    if (map.getLayer('hover-crosshair-outline')) {
-      map.setPaintProperty('hover-crosshair-outline', 'line-opacity', 0);
-    }
-
-    if (map.getLayer('hover-crosshair-lines')) {
-      map.setPaintProperty('hover-crosshair-lines', 'line-opacity', 0);
-    }
-
-    setTimeout(() => {
-      if (!map.getSource('hover-crosshair')) return;
-      if (activeCrosshair) return;
-
-      map.getSource('hover-crosshair').setData({
-        type: 'FeatureCollection',
-        features: []
-      });
-    }, 120);
+    hideHtmlCrosshair();
 
     map.easeTo({
       center: [lon, lat],
@@ -1321,6 +1355,7 @@ map.on('load', () => {
 /* ========= STYLE LOAD ========= */
 map.on('style.load', () => {
   initDataLayersAndHandlers();
+  ensureCrosshairOnTop();
   lockZenithNorth();
 });
 
