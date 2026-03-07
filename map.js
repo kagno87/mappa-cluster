@@ -21,17 +21,22 @@ const BASE_STYLES = {
 
 let currentBaseStyleKey = 'light';
 let startupRandomShown = false;
+let activeCrosshair = null;
+let crosshairRequestToken = 0;
 
 /* ========= PANEL HEIGHT ========= */
 function updatePanelHeight() {
   const strip = document.getElementById('panel-strip');
   if (strip) strip.style.opacity = 1;
 
+  const panel = document.getElementById('panel');
+  if (!panel) return;
+
   const height = panel.offsetHeight;
 
   document.documentElement.style.setProperty('--panel-height', `${height}px`);
 
-    requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
     map.resize();
 
     map.setPadding({
@@ -60,10 +65,7 @@ function updatePanelScale() {
 
   document.documentElement.style.setProperty('--card-w', `${baseW * scale}px`);
   document.documentElement.style.setProperty('--card-h', `${baseH * scale}px`);
-
   document.documentElement.style.setProperty('--card-scale', scale.toFixed(3));
-
-  
 }
 
 /* ========= CONTROLLO SWITCHER MAP/SAT ========= */
@@ -98,8 +100,6 @@ class ZoomAndStyleControl {
     btnSat.type = 'button';
     btnSat.className = 'style-btn';
     btnSat.innerHTML = `<img src="icosat.png" alt="SAT">`;
-
-
 
     const setActiveUI = () => {
       btnMap.classList.toggle('is-active', currentBaseStyleKey === 'light');
@@ -141,39 +141,33 @@ class ZoomAndStyleControl {
   }
 }
 
-/* ========= DUAL SCALE (km + mi) – slim + rotated label ========= */
+/* ========= DUAL SCALE (km + mi) ========= */
 class DualScaleControl {
   onAdd(mapInstance) {
     this.map = mapInstance;
 
-    // BOX esterno (posizionamento gestito via CSS)
     const box = document.createElement('div');
     box.className = 'mapboxgl-ctrl dual-scale-box';
 
-    // Container interno (layout delle due scale affiancate)
     const container = document.createElement('div');
     container.className = 'dual-scale-control';
 
-    // Crea 2 “items” (barra + label)
     const makeItem = (unit) => {
       const item = document.createElement('div');
       item.className = 'dual-scale-item';
 
       const sc = new mapboxgl.ScaleControl({ maxWidth: 110, unit });
-      const scEl = sc.onAdd(mapInstance); // <div class="mapboxgl-ctrl-scale">
+      const scEl = sc.onAdd(mapInstance);
 
-      // Label separata (ruotata via CSS)
       const label = document.createElement('div');
       label.className = 'dual-scale-label';
       label.textContent = scEl.textContent || '';
 
-      // Sync label quando Mapbox aggiorna la scala (zoom)
       const obs = new MutationObserver(() => {
         label.textContent = scEl.textContent || '';
       });
       obs.observe(scEl, { childList: true, characterData: true, subtree: true });
 
-      // Salvataggio riferimenti per cleanup
       this._items = this._items || [];
       this._items.push({ sc, obs });
 
@@ -186,10 +180,8 @@ class DualScaleControl {
     container.appendChild(makeItem('metric'));
     container.appendChild(makeItem('imperial'));
 
-    // Montaggio finale
     box.appendChild(container);
 
-    // Riferimenti per onRemove
     this.container = box;
     this.inner = container;
 
@@ -209,7 +201,232 @@ class DualScaleControl {
   }
 }
 
+/* ========= HOVER CROSSHAIR ========= */
+function getCrosshairMetrics(sizeValue) {
+  const size = Number(sizeValue) || 1;
 
+  switch (size) {
+    case 1:
+      return { gap: 10, arm: 8, stroke: 3 };
+    case 2:
+      return { gap: 14, arm: 10, stroke: 4 };
+    case 3:
+      return { gap: 18, arm: 12, stroke: 4 };
+    default:
+      return { gap: 10, arm: 8, stroke: 3 };
+  }
+}
+
+function buildCrosshairFeature(lon, lat, sizeValue) {
+  const metrics = getCrosshairMetrics(sizeValue);
+  const center = map.project([lon, lat]);
+
+  const leftOuter = map.unproject([center.x - (metrics.gap + metrics.arm), center.y]);
+  const leftInner = map.unproject([center.x - metrics.gap, center.y]);
+
+  const rightInner = map.unproject([center.x + metrics.gap, center.y]);
+  const rightOuter = map.unproject([center.x + metrics.gap + metrics.arm, center.y]);
+
+  const topOuter = map.unproject([center.x, center.y - (metrics.gap + metrics.arm)]);
+  const topInner = map.unproject([center.x, center.y - metrics.gap]);
+
+  const bottomInner = map.unproject([center.x, center.y + metrics.gap]);
+  const bottomOuter = map.unproject([center.x, center.y + metrics.gap + metrics.arm]);
+
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: {
+          strokeWidth: metrics.stroke
+        },
+        geometry: {
+          type: 'MultiLineString',
+          coordinates: [
+            [[leftOuter.lng, leftOuter.lat], [leftInner.lng, leftInner.lat]],
+            [[rightInner.lng, rightInner.lat], [rightOuter.lng, rightOuter.lat]],
+            [[topOuter.lng, topOuter.lat], [topInner.lng, topInner.lat]],
+            [[bottomInner.lng, bottomInner.lat], [bottomOuter.lng, bottomOuter.lat]]
+          ]
+        }
+      }
+    ]
+  };
+}
+
+function renderCrosshair(lon, lat, sizeValue) {
+  if (!map.getSource('hover-crosshair')) return;
+
+  activeCrosshair = {
+    lon: Number(lon),
+    lat: Number(lat),
+    size: Number(sizeValue) || 1
+  };
+
+  map.getSource('hover-crosshair').setData(
+    buildCrosshairFeature(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size)
+  );
+}
+
+function hideCrosshair() {
+  activeCrosshair = null;
+  crosshairRequestToken += 1;
+
+  if (!map.getSource('hover-crosshair')) return;
+
+  map.getSource('hover-crosshair').setData({
+    type: 'FeatureCollection',
+    features: []
+  });
+}
+
+function refreshCrosshair() {
+  if (!activeCrosshair) return;
+  if (!map.getSource('hover-crosshair')) return;
+
+  map.getSource('hover-crosshair').setData(
+    buildCrosshairFeature(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size)
+  );
+}
+
+function areSameCoordinates(aLon, aLat, bLon, bLat, tolerance = 1e-7) {
+  return (
+    Math.abs(Number(aLon) - Number(bLon)) <= tolerance &&
+    Math.abs(Number(aLat) - Number(bLat)) <= tolerance
+  );
+}
+
+function getPointLayerIdForSource(sourceKey) {
+  return sourceKey === 'nero' ? 'nero-points' : 'unclustered-point-bianco';
+}
+
+function getClusterLayerIdForSource(sourceKey) {
+  return sourceKey === 'nero' ? 'clusters-nero' : 'clusters-bianco';
+}
+
+function getRenderedPointMatch(target) {
+  const pointLayerId = getPointLayerIdForSource(target.sourceKey);
+  if (!map.getLayer(pointLayerId)) return null;
+
+  const rendered = map.queryRenderedFeatures({ layers: [pointLayerId] });
+
+  for (const feature of rendered) {
+    if (!feature.geometry || feature.geometry.type !== 'Point') continue;
+
+    const [lon, lat] = feature.geometry.coordinates;
+    if (areSameCoordinates(lon, lat, target.lon, target.lat)) {
+      return {
+        lon,
+        lat,
+        size: Number(feature.properties?.size) || target.size || 1
+      };
+    }
+  }
+
+  return null;
+}
+
+function clusterContainsTarget(source, clusterId, target) {
+  return new Promise((resolve) => {
+    source.getClusterLeaves(clusterId, 1000, 0, (err, leaves) => {
+      if (err || !Array.isArray(leaves)) {
+        resolve(false);
+        return;
+      }
+
+      const found = leaves.some((leaf) => {
+        if (!leaf.geometry || leaf.geometry.type !== 'Point') return false;
+        const [lon, lat] = leaf.geometry.coordinates;
+        return areSameCoordinates(lon, lat, target.lon, target.lat);
+      });
+
+      resolve(found);
+    });
+  });
+}
+
+async function getRenderedClusterMatch(target) {
+  const clusterLayerId = getClusterLayerIdForSource(target.sourceKey);
+  const source = map.getSource(target.sourceKey);
+
+  if (!map.getLayer(clusterLayerId) || !source) return null;
+
+  const renderedClusters = map.queryRenderedFeatures({ layers: [clusterLayerId] });
+
+  for (const feature of renderedClusters) {
+    const clusterId = feature.properties?.cluster_id;
+    if (clusterId === undefined || clusterId === null) continue;
+
+    const containsTarget = await clusterContainsTarget(source, clusterId, target);
+    if (!containsTarget) continue;
+
+    if (!feature.geometry || feature.geometry.type !== 'Point') continue;
+
+    const [lon, lat] = feature.geometry.coordinates;
+
+    return {
+      lon,
+      lat,
+      size: Number(feature.properties?.maxSize) || target.size || 1
+    };
+  }
+
+  return null;
+}
+
+async function showBestCrosshairForTarget(target) {
+  if (!target || !target.sourceKey) return;
+
+  const requestToken = ++crosshairRequestToken;
+
+  const renderedPoint = getRenderedPointMatch(target);
+  if (requestToken !== crosshairRequestToken) return;
+  if (renderedPoint) {
+    renderCrosshair(renderedPoint.lon, renderedPoint.lat, renderedPoint.size);
+    return;
+  }
+
+  const renderedCluster = await getRenderedClusterMatch(target);
+  if (requestToken !== crosshairRequestToken) return;
+  if (renderedCluster) {
+    renderCrosshair(renderedCluster.lon, renderedCluster.lat, renderedCluster.size);
+    return;
+  }
+
+  renderCrosshair(target.lon, target.lat, target.size || 1);
+}
+
+function buildTargetFromFeature(feature, sourceKey) {
+  if (!feature?.geometry || feature.geometry.type !== 'Point') return null;
+
+  const [lon, lat] = feature.geometry.coordinates;
+  return {
+    lon: Number(lon),
+    lat: Number(lat),
+    size: Number(feature.properties?.size) || 1,
+    sourceKey
+  };
+}
+
+function buildTargetFromActiveCard() {
+  const overlay = document.querySelector('.panel-card.is-active .image-overlay');
+  if (!overlay) return null;
+
+  const lon = parseFloat(overlay.dataset.lon);
+  const lat = parseFloat(overlay.dataset.lat);
+  const size = parseFloat(overlay.dataset.size || '1');
+  const sourceKey = overlay.dataset.sourceKey;
+
+  if (isNaN(lon) || isNaN(lat) || !sourceKey) return null;
+
+  return {
+    lon,
+    lat,
+    size: Number(size) || 1,
+    sourceKey
+  };
+}
 
 /* ========= GEOCODER (solo una volta) ========= */
 function setupGeocoderOnce() {
@@ -220,8 +437,6 @@ function setupGeocoderOnce() {
     typeof MapboxGeocoder !== 'undefined' &&
     !searchContainer.querySelector('.mapboxgl-ctrl-geocoder')
   ) {
-
-    // --- Helpers parse coordinate input (decimal + NSEW + DMS) ---
     function dmsToDecimal(deg, min, sec, hemi) {
       const d = Math.abs(Number(deg)) + (Number(min) || 0) / 60 + (Number(sec) || 0) / 3600;
       const sign = (hemi === 'S' || hemi === 'W') ? -1 : 1;
@@ -229,7 +444,6 @@ function setupGeocoderOnce() {
     }
 
     function formatCoordPair(lat, lon) {
-      // tieni corto per evitare wrap nei suggerimenti
       const latStr = Number(lat).toFixed(5);
       const lonStr = Number(lon).toFixed(5);
       return `${latStr}, ${lonStr}`;
@@ -238,12 +452,10 @@ function setupGeocoderOnce() {
     function parseCoordQuery(raw) {
       const q = raw.trim().toUpperCase();
 
-      // 1) DMS (due coordinate con simboli ° ' ")
-      // Esempi accettati: 45°27'51"N 9°11'24"E
-      //                 N45°27'51" E9°11'24"
       const dmsRe = /([NSWE])?\s*(\d{1,3})\s*°\s*(\d{1,2})?\s*'?\s*(\d{1,2}(?:\.\d+)?)?\s*"?\s*([NSWE])?/g;
       const dmsParts = [];
       let m;
+
       while ((m = dmsRe.exec(q)) !== null) {
         const hemi = (m[1] || m[5] || '').trim();
         if (!hemi) continue;
@@ -254,6 +466,7 @@ function setupGeocoderOnce() {
           min: m[3] || 0,
           sec: m[4] || 0
         });
+
         if (dmsParts.length === 2) break;
       }
 
@@ -261,8 +474,9 @@ function setupGeocoderOnce() {
         const a = dmsToDecimal(dmsParts[0].deg, dmsParts[0].min, dmsParts[0].sec, dmsParts[0].hemi);
         const b = dmsToDecimal(dmsParts[1].deg, dmsParts[1].min, dmsParts[1].sec, dmsParts[1].hemi);
 
-        // assegna lat/lon in base all'emisfero
-        let lat = null, lon = null;
+        let lat = null;
+        let lon = null;
+
         [a, b].forEach((val, i) => {
           const hemi = dmsParts[i].hemi;
           if (hemi === 'N' || hemi === 'S') lat = val;
@@ -272,7 +486,6 @@ function setupGeocoderOnce() {
         if (lat !== null && lon !== null) return { lat, lon };
       }
 
-      // 2) Decimali semplici "a, b" o "a b"
       const simple = q.match(/^(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)$/);
       if (simple) {
         const a = parseFloat(simple[1]);
@@ -281,46 +494,47 @@ function setupGeocoderOnce() {
         const isLat = (x) => x >= -90 && x <= 90;
         const isLon = (x) => x >= -180 && x <= 180;
 
-        // prova lat,lon
         if (isLat(a) && isLon(b)) return { lat: a, lon: b };
-        // prova lon,lat
         if (isLon(a) && isLat(b)) return { lat: b, lon: a };
 
         return null;
       }
 
-      // 3) Decimali con N/S/E/W (prefisso o suffisso), separati da spazio/virgola
-      // Esempi: 45.46N 9.19E | N45.46 E9.19 | 45.46 N, 9.19 E
       const tokenRe = /([NSWE])?\s*(-?\d+(?:\.\d+)?)\s*([NSWE])?/g;
       const tokens = [];
       let t;
+
       while ((t = tokenRe.exec(q)) !== null) {
         const hemi = (t[1] || t[3] || '').trim();
         const num = parseFloat(t[2]);
-        if (!Number.isFinite(num)) continue;
-        if (!hemi) continue;
+        if (!Number.isFinite(num) || !hemi) continue;
+
         tokens.push({ hemi, num });
         if (tokens.length === 2) break;
       }
 
       if (tokens.length === 2) {
-        let lat = null, lon = null;
+        let lat = null;
+        let lon = null;
+
         for (const tok of tokens) {
-          if (tok.hemi === 'N' || tok.hemi === 'S') lat = (tok.hemi === 'S') ? -Math.abs(tok.num) : Math.abs(tok.num);
-          if (tok.hemi === 'E' || tok.hemi === 'W') lon = (tok.hemi === 'W') ? -Math.abs(tok.num) : Math.abs(tok.num);
+          if (tok.hemi === 'N' || tok.hemi === 'S') {
+            lat = tok.hemi === 'S' ? -Math.abs(tok.num) : Math.abs(tok.num);
+          }
+          if (tok.hemi === 'E' || tok.hemi === 'W') {
+            lon = tok.hemi === 'W' ? -Math.abs(tok.num) : Math.abs(tok.num);
+          }
         }
+
         if (lat !== null && lon !== null) return { lat, lon };
       }
 
       return null;
     }
 
-
-
-
     const geocoder = new MapboxGeocoder({
       accessToken: mapboxgl.accessToken,
-      mapboxgl: mapboxgl,
+      mapboxgl,
       marker: false,
       flyTo: { speed: 1.2 },
       language: 'en',
@@ -355,8 +569,7 @@ function setupGeocoderOnce() {
         }
 
         return `<div>${item.place_name}</div>`;
-      },
-
+      }
     });
 
     searchContainer.appendChild(geocoder.onAdd(map));
@@ -406,7 +619,7 @@ function setLayerGroupVisibility(group, visible) {
   const layers = layerGroups[group];
   if (!layers) return;
 
-  layers.forEach(id => {
+  layers.forEach((id) => {
     if (map.getLayer(id)) {
       map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
     }
@@ -414,20 +627,21 @@ function setLayerGroupVisibility(group, visible) {
 }
 
 function applyLayerToggleState() {
-  document.querySelectorAll('.layer-toggle').forEach(toggle => {
+  document.querySelectorAll('.layer-toggle').forEach((toggle) => {
     const layerKey = toggle.dataset.layer;
     const visible = toggle.classList.contains('active');
     setLayerGroupVisibility(layerKey, visible);
   });
 }
 
-/* ========= INIT DI SOURCES/LAYERS + HANDLERS ========= */
+/* ========= INIT ========= */
 function initDataLayersAndHandlers() {
   addSourcesIfMissing();
   addLayersIfMissing();
   applyLayerToggleState();
   bindMapInteractions();
   updatePanelHeight();
+  refreshCrosshair();
 }
 
 function addSourcesIfMissing() {
@@ -456,10 +670,19 @@ function addSourcesIfMissing() {
       }
     });
   }
+
+  if (!map.getSource('hover-crosshair')) {
+    map.addSource('hover-crosshair', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: []
+      }
+    });
+  }
 }
 
 function addLayersIfMissing() {
-  /* ========= CLUSTERS NERO ========= */
   if (!map.getLayer('clusters-nero')) {
     map.addLayer({
       id: 'clusters-nero',
@@ -507,7 +730,6 @@ function addLayersIfMissing() {
     });
   }
 
-  /* ========= CLUSTERS BIANCO ========= */
   if (!map.getLayer('clusters-bianco')) {
     map.addLayer({
       id: 'clusters-bianco',
@@ -553,31 +775,48 @@ function addLayersIfMissing() {
       }
     });
   }
+
+  if (!map.getLayer('hover-crosshair-lines')) {
+    map.addLayer({
+      id: 'hover-crosshair-lines',
+      type: 'line',
+      source: 'hover-crosshair',
+      layout: {
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': '#000000',
+        'line-width': ['coalesce', ['get', 'strokeWidth'], 3]
+      }
+    });
+  }
 }
 
-/* ========= HANDLERS MAP (riagganciati dopo setStyle) ========= */
+/* ========= HANDLERS MAP ========= */
 function bindMapInteractions() {
-  // Cluster click
   map.off('click', 'clusters-nero', onClickClusterNero);
   map.on('click', 'clusters-nero', onClickClusterNero);
 
   map.off('click', 'clusters-bianco', onClickClusterBianco);
   map.on('click', 'clusters-bianco', onClickClusterBianco);
 
-  // Cursore pointer
   const layers = ['clusters-nero', 'clusters-bianco', 'nero-points', 'unclustered-point-bianco'];
-  layers.forEach(layer => {
+  layers.forEach((layer) => {
     map.off('mouseenter', layer, onEnterPointer);
     map.off('mouseleave', layer, onLeavePointer);
     map.on('mouseenter', layer, onEnterPointer);
     map.on('mouseleave', layer, onLeavePointer);
   });
 
-  // Click pin
   map.off('click', 'nero-points', onClickNeroPoint);
   map.off('click', 'unclustered-point-bianco', onClickBiancoPoint);
   map.on('click', 'nero-points', onClickNeroPoint);
   map.on('click', 'unclustered-point-bianco', onClickBiancoPoint);
+
+  map.off('move', refreshCrosshair);
+  map.off('zoom', refreshCrosshair);
+  map.on('move', refreshCrosshair);
+  map.on('zoom', refreshCrosshair);
 }
 
 function onClickClusterNero(e) {
@@ -604,20 +843,40 @@ function onClickClusterBianco(e) {
   );
 }
 
-function onEnterPointer() {
+function onEnterPointer(e) {
   map.getCanvas().style.cursor = 'pointer';
+
+  const feature = e?.features?.[0];
+  if (!feature) return;
+
+  const layerId = e?.features?.[0]?.layer?.id || '';
+
+  if (layerId === 'nero-points') {
+    const target = buildTargetFromFeature(feature, 'nero');
+    if (target) showBestCrosshairForTarget(target);
+    return;
+  }
+
+  if (layerId === 'unclustered-point-bianco') {
+    const target = buildTargetFromFeature(feature, 'bianco');
+    if (target) showBestCrosshairForTarget(target);
+    return;
+  }
+
+  hideCrosshair();
 }
 
 function onLeavePointer() {
   map.getCanvas().style.cursor = '';
+  hideCrosshair();
 }
 
 function onClickNeroPoint(e) {
-  updatePanel(e.features[0]);
+  updatePanel(e.features[0], 'nero');
 }
 
 function onClickBiancoPoint(e) {
-  updatePanel(e.features[0]);
+  updatePanel(e.features[0], 'bianco');
 }
 
 /* ========= RANDOM IMAGE ========= */
@@ -629,21 +888,36 @@ async function loadGeoJSON(url) {
 
 function isSize2Feature(f) {
   const size = f?.properties?.size;
-  // size può arrivare come numero o stringa
   return Number(size) === 2 && f?.geometry?.type === 'Point';
 }
 
 async function pickRandomSize2FromBothLayers() {
   const [nero, bianco] = await Promise.all([
     loadGeoJSON('nero.geojson').catch(() => null),
-    loadGeoJSON('bianco.geojson').catch(() => null),
+    loadGeoJSON('bianco.geojson').catch(() => null)
   ]);
 
-  const candidates = [
-    ...(nero?.features || []).filter(isSize2Feature),
-    ...(bianco?.features || []).filter(isSize2Feature),
-  ];
+  const neroCandidates = (nero?.features || [])
+    .filter(isSize2Feature)
+    .map((f) => ({
+      ...f,
+      properties: {
+        ...(f.properties || {}),
+        __sourceKey: 'nero'
+      }
+    }));
 
+  const biancoCandidates = (bianco?.features || [])
+    .filter(isSize2Feature)
+    .map((f) => ({
+      ...f,
+      properties: {
+        ...(f.properties || {}),
+        __sourceKey: 'bianco'
+      }
+    }));
+
+  const candidates = [...neroCandidates, ...biancoCandidates];
   if (!candidates.length) return null;
 
   const idx = Math.floor(Math.random() * candidates.length);
@@ -656,7 +930,7 @@ async function showRandomSize2OnStartup() {
 
   try {
     const f = await pickRandomSize2FromBothLayers();
-    if (f) updatePanel(f);
+    if (f) updatePanel(f, f.properties?.__sourceKey || null);
   } catch (e) {
     console.warn('Startup random size=2 failed:', e);
   }
@@ -665,7 +939,7 @@ async function showRandomSize2OnStartup() {
 async function refreshRandomSize2() {
   try {
     const f = await pickRandomSize2FromBothLayers();
-    if (f) updatePanel(f);
+    if (f) updatePanel(f, f.properties?.__sourceKey || null);
   } catch (e) {
     console.warn('Random refresh failed:', e);
   }
@@ -676,18 +950,19 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ========= PANEL ========= */
-function updatePanel(feature) {
+function updatePanel(feature, sourceKey = null) {
   const properties = feature.properties || {};
 
-  /* ====== COORDINATE ====== */
   let coordsText = '';
+  let lon = null;
+  let lat = null;
 
   if (
     feature.geometry &&
     feature.geometry.type === 'Point' &&
     Array.isArray(feature.geometry.coordinates)
   ) {
-    const [lon, lat] = feature.geometry.coordinates;
+    [lon, lat] = feature.geometry.coordinates;
     coordsText = formatCoords(Number(lat), Number(lon));
   }
 
@@ -696,12 +971,13 @@ function updatePanel(feature) {
 
   const overlay = document.querySelector('.panel-card.is-active .image-overlay');
 
-  if (overlay && feature.geometry && feature.geometry.type === 'Point') {
-    overlay.dataset.lon = feature.geometry.coordinates[0];
-    overlay.dataset.lat = feature.geometry.coordinates[1];
+  if (overlay && lon !== null && lat !== null) {
+    overlay.dataset.lon = lon;
+    overlay.dataset.lat = lat;
+    overlay.dataset.size = Number(properties.size) || 1;
+    overlay.dataset.sourceKey = sourceKey || properties.__sourceKey || '';
   }
 
-  /* ====== TITOLO ====== */
   const title =
     (properties.name && properties.name.trim()) ||
     (properties.title && properties.title.trim()) ||
@@ -710,7 +986,6 @@ function updatePanel(feature) {
   const titleTextEl = document.querySelector('.panel-card.is-active .title-text');
   if (titleTextEl) titleTextEl.textContent = title;
 
-  /* ====== DESCRIPTION NORMALIZZATA ====== */
   let htmlContent = '';
 
   if (properties.description) {
@@ -729,7 +1004,6 @@ function updatePanel(feature) {
     }
   }
 
-  /* ====== IMMAGINE ====== */
   let imageUrl = null;
 
   const imgMatch = htmlContent.match(/<img[^>]+src="([^">]+)"/);
@@ -743,11 +1017,12 @@ function updatePanel(feature) {
 
   if (imgEl && imageUrl) {
     const proxiedUrl =
-      'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' + encodeURIComponent(imageUrl);
+      'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' +
+      encodeURIComponent(imageUrl);
 
-    console.log("PROXY IMG →", proxiedUrl);
+    console.log('PROXY IMG →', proxiedUrl);
 
-    preloadImage(proxiedUrl, loadedUrl => {
+    preloadImage(proxiedUrl, (loadedUrl) => {
       if (loadedUrl) {
         imgEl.src = loadedUrl;
         imgEl.style.display = 'block';
@@ -760,9 +1035,7 @@ function updatePanel(feature) {
     imgEl.style.display = 'none';
   }
 
-  /* ====== COUNTRY ====== */
   const country = (properties.country && properties.country.trim()) || '';
-
   const overlayDescEl = document.querySelector('.panel-card.is-active .overlay-description');
   if (overlayDescEl) overlayDescEl.textContent = country;
 
@@ -792,7 +1065,6 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
   const card = e.target.closest('.panel-card');
   if (!card) return;
 
-  // copia coords
   if (e.target.closest('.coords-copy')) {
     e.stopPropagation();
     const text = card.querySelector('.coords-text')?.textContent;
@@ -800,7 +1072,6 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
     return;
   }
 
-  // copia titolo
   if (e.target.closest('.title-copy')) {
     e.stopPropagation();
     const text = card.querySelector('.title-text')?.textContent;
@@ -831,11 +1102,27 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
   }
 });
 
+/* ========= CARD HOVER -> CROSSHAIR ========= */
+document.getElementById('panel')?.addEventListener('mouseenter', (e) => {
+  const overlay = e.target.closest('.panel-card.is-active .image-overlay');
+  if (!overlay) return;
+
+  const target = buildTargetFromActiveCard();
+  if (target) showBestCrosshairForTarget(target);
+}, true);
+
+document.getElementById('panel')?.addEventListener('mouseleave', (e) => {
+  const overlay = e.target.closest('.panel-card.is-active .image-overlay');
+  if (!overlay) return;
+
+  hideCrosshair();
+}, true);
+
 /* ========= TOOLTIP LAYER INFO ========= */
 const layerInfo = document.getElementById('layer-info');
 const toggles = document.querySelectorAll('.layer-toggle');
 
-toggles.forEach(toggle => {
+toggles.forEach((toggle) => {
   toggle.addEventListener('mouseenter', () => {
     const rect = toggle.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
@@ -855,8 +1142,8 @@ toggles.forEach(toggle => {
   });
 });
 
-/* ========= TOGGLE UI CLICK (resta uguale ma ora funziona anche dopo setStyle) ========= */
-document.querySelectorAll('.layer-toggle').forEach(toggle => {
+/* ========= TOGGLE UI CLICK ========= */
+document.querySelectorAll('.layer-toggle').forEach((toggle) => {
   const layerKey = toggle.dataset.layer;
   let active = true;
 
@@ -864,33 +1151,27 @@ document.querySelectorAll('.layer-toggle').forEach(toggle => {
 
   toggle.addEventListener('click', () => {
     active = !active;
-
     toggle.classList.toggle('active', active);
     setLayerGroupVisibility(layerKey, active);
   });
 });
 
-/* ========= LOAD (prima volta) ========= */
+/* ========= LOAD ========= */
 map.on('load', () => {
   console.log('Mapbox caricato correttamente');
 
   updatePanelScale();
   updatePanelHeight();
 
-  // controlli
   map.addControl(new ZoomAndStyleControl(), 'top-right');
-
   map.addControl(new DualScaleControl(), 'top-left');
 
   setupGeocoderOnce();
-
-  // init per lo stile corrente
   initDataLayersAndHandlers();
   lockZenithNorth();
-
 });
 
-/* ========= OGNI VOLTA CHE CAMBI STILE ========= */
+/* ========= STYLE LOAD ========= */
 map.on('style.load', () => {
   initDataLayersAndHandlers();
   lockZenithNorth();
@@ -899,38 +1180,27 @@ map.on('style.load', () => {
 window.addEventListener('resize', () => {
   updatePanelScale();
   updatePanelHeight();
+  refreshCrosshair();
 });
 
 function lockZenithNorth() {
-  // 1) blocca tilt e rotazione a livello di camera
-  // (così anche se qualcosa prova a cambiare, non può superare 0)
   try {
     map.setMinPitch(0);
     map.setMaxPitch(0);
-  } catch (e) {
-    // alcune versioni possono non avere questi setter: in quel caso ci pensano i listener sotto
-  }
+  } catch (e) {}
 
-  // 2) disabilita le gesture che ruotano/tiltano
-  // Ctrl+drag / tasto destro drag / drag rotate
   map.dragRotate.disable();
-
-  // Touch: disabilita solo la rotazione (lo zoom pinch resta)
   map.touchZoomRotate.disableRotation();
 
-  // (opzionale) evita che la rotazione “trascini” anche il pitch
-  // Se disponibile nella tua versione, aiuta a prevenire tilt involontari
   try {
     map.setPitch(0, { animate: false });
     map.setBearing(0, { animate: false });
   } catch (e) {}
 
-  // 3) “cintura di sicurezza”: se per qualsiasi motivo pitch/bearing cambiano, li rimettiamo a 0
   const snapBack = () => {
     const b = map.getBearing();
     const p = map.getPitch();
 
-    // tolleranza minima per evitare loop/inseguimenti
     if (Math.abs(b) > 0.001) map.setBearing(0, { animate: false });
     if (Math.abs(p) > 0.001) map.setPitch(0, { animate: false });
   };
