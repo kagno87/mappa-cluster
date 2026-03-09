@@ -20,7 +20,9 @@ let activeCrosshair = null;
 let crosshairRequestToken = 0;
 let activeHoverTarget = null;
 let crosshairIdlePending = false;
-let selectedCrosshairTarget = null;
+
+const geojsonCache = {};
+let geojsonPreloadPromise = null;
 
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
@@ -963,9 +965,25 @@ async function onClickBiancoPoint(e) {
 
 /* ========= RANDOM FEATURE SIZE 2 ========= */
 async function loadGeoJSON(url) {
+  if (geojsonCache[url]) return geojsonCache[url];
+
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
-  return res.json();
+
+  const data = await res.json();
+  geojsonCache[url] = data;
+  return data;
+}
+
+function preloadGeoJSONs() {
+  if (geojsonPreloadPromise) return geojsonPreloadPromise;
+
+  geojsonPreloadPromise = Promise.all([
+    loadGeoJSON('nero.geojson').catch(() => null),
+    loadGeoJSON('bianco.geojson').catch(() => null)
+  ]);
+
+  return geojsonPreloadPromise;
 }
 
 async function resolveCanonicalFeature(feature, sourceKey) {
@@ -1026,10 +1044,10 @@ function isSize2Feature(f) {
 }
 
 async function pickRandomSize2FromBothLayers() {
-  const [nero, bianco] = await Promise.all([
-    loadGeoJSON('nero.geojson').catch(() => null),
-    loadGeoJSON('bianco.geojson').catch(() => null)
-  ]);
+  await preloadGeoJSONs();
+
+  const nero = geojsonCache['nero.geojson'] || null;
+  const bianco = geojsonCache['bianco.geojson'] || null;
 
   const neroCandidates = (nero?.features || [])
     .filter(isSize2Feature)
@@ -1063,6 +1081,8 @@ async function showRandomSize2OnStartup() {
   startupRandomShown = true;
 
   try {
+    await preloadGeoJSONs();
+
     const f = await pickRandomSize2FromBothLayers();
     if (f) updatePanel(f, f.properties?.__sourceKey || null);
   } catch (e) {
@@ -1309,6 +1329,7 @@ map.on('load', () => {
   map.addControl(new DualScaleControl(), 'top-left');
 
   setupGeocoderOnce();
+  preloadGeoJSONs();
   initDataLayers();
   bindMapInteractions();
   lockZenithNorth();
