@@ -281,10 +281,12 @@ function renderHtmlCrosshair(lon, lat, sizeValue) {
   if (!el) return;
 
   const p = map.project([lon, lat]);
+  const x = Math.round(p.x);
+  const y = Math.round(p.y);
   const metrics = getCrosshairMetrics(sizeValue);
 
-  el.style.left = `${p.x}px`;
-  el.style.top = `${p.y}px`;
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
   el.style.opacity = '1';
   el.style.display = 'block';
 
@@ -1004,6 +1006,15 @@ async function resolveCanonicalFeature(feature, sourceKey) {
     (feature.properties?.country && feature.properties.country.trim()) || '';
 
   const clickedSize = Number(feature.properties?.size) || 1;
+
+  const exactCoordinateMatch = raw.features.find((candidate) => {
+    if (!candidate?.geometry || candidate.geometry.type !== 'Point') return false;
+
+    const [lon, lat] = candidate.geometry.coordinates;
+    return areSameCoordinates(lon, lat, clickedLon, clickedLat, 1e-9);
+  });
+
+  if (exactCoordinateMatch) return exactCoordinateMatch;
 
   let bestMatch = null;
   let bestScore = Infinity;
