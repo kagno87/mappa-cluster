@@ -4,6 +4,7 @@ mapboxgl.accessToken = window.MAPBOX_TOKEN;
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/pingeo/cmle3qgj100br01s9fgb3gbo3',
+  projection: 'globe',
   center: [9.2, 45.5],
   zoom: 6
 });
@@ -20,6 +21,8 @@ let activeCrosshair = null;
 let crosshairRequestToken = 0;
 let activeHoverTarget = null;
 let crosshairIdlePending = false;
+let crosshairMarker = null;
+let selectedCrosshairTarget = null;
 
 const geojsonCache = {};
 let geojsonPreloadPromise = null;
@@ -221,27 +224,34 @@ function getCrosshairOverlayEl() {
 }
 
 function ensureHtmlCrosshair() {
-  const overlay = getCrosshairOverlayEl();
-  if (!overlay) return null;
+  if (crosshairMarker) {
+    return crosshairMarker.getElement();
+  }
 
-  let el = overlay.querySelector('.crosshair-html');
-  if (el) return el;
+  const el = document.createElement('div');
 
-  el = document.createElement('div');
-  el.className = 'crosshair-html';
+  el.style.width = '10px';
+  el.style.height = '10px';
+  el.style.borderRadius = '50%';
+  el.style.background = 'red';
+  el.style.border = '2px solid white';
+  el.style.boxSizing = 'border-box';
+  el.style.display = 'block';
+  el.style.margin = '0';
+  el.style.padding = '0';
+  el.style.transform = 'none';
+  el.style.position = 'relative';
+  el.style.left = '0';
+  el.style.top = '0';
+  el.style.pointerEvents = 'none';
 
-  const parts = [
-    'left outline', 'right outline', 'top outline', 'bottom outline',
-    'left main', 'right main', 'top main', 'bottom main'
-  ];
+  crosshairMarker = new mapboxgl.Marker({
+    element: el,
+    anchor: 'center'
+  })
+    .setLngLat([0, 0])
+    .addTo(map);
 
-  parts.forEach((cls) => {
-    const arm = document.createElement('div');
-    arm.className = `arm ${cls}`;
-    el.appendChild(arm);
-  });
-
-  overlay.appendChild(el);
   return el;
 }
 
@@ -280,24 +290,18 @@ function renderHtmlCrosshair(lon, lat, sizeValue) {
   const el = ensureHtmlCrosshair();
   if (!el) return;
 
-  const p = map.project([lon, lat]);
-  const x = Math.round(p.x);
-  const y = Math.round(p.y);
-  const metrics = getCrosshairMetrics(sizeValue);
+  if (crosshairMarker) {
+    crosshairMarker.setLngLat([lon, lat]);
+  }
 
-  el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
   el.style.opacity = '1';
   el.style.display = 'block';
-
-  positionCrosshairArms(el, metrics);
 }
 
 function hideHtmlCrosshair() {
-  const overlay = getCrosshairOverlayEl();
-  if (!overlay) return;
+  if (!crosshairMarker) return;
 
-  const el = overlay.querySelector('.crosshair-html');
+  const el = crosshairMarker.getElement();
   if (!el) return;
 
   el.style.opacity = '0';
@@ -316,11 +320,44 @@ function renderCrosshair(lon, lat, sizeValue) {
     size: Number(sizeValue) || 1
   };
 
+  const projected = map.project([activeCrosshair.lon, activeCrosshair.lat]);
+
   renderHtmlCrosshair(
     activeCrosshair.lon,
     activeCrosshair.lat,
     activeCrosshair.size
   );
+
+  requestAnimationFrame(() => {
+    let markerInfo = null;
+
+    if (crosshairMarker) {
+      const el = crosshairMarker.getElement();
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        markerInfo = {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+          centerX: rect.left + rect.width / 2,
+          centerY: rect.top + rect.height / 2
+        };
+      }
+    }
+
+    console.log('[CROSSHAIR PIXEL DEBUG]', {
+      lngLat: {
+        lon: activeCrosshair.lon,
+        lat: activeCrosshair.lat
+      },
+      projected: {
+        x: projected.x,
+        y: projected.y
+      },
+      marker: markerInfo
+    });
+  });
 }
 
 function hideCrosshair() {
@@ -328,6 +365,7 @@ function hideCrosshair() {
   activeHoverTarget = null;
   crosshairRequestToken += 1;
   hideHtmlCrosshair();
+  syncAdaptiveProjection();
 }
 
 function hideCrosshairKeepTarget() {
@@ -374,11 +412,96 @@ function getClusterLayerIdForSource(sourceKey) {
   return sourceKey === 'nero' ? 'clusters-nero' : 'clusters-bianco';
 }
 
+function getNearestRenderedFeatureForTarget(target, maxPixelDistance = 80) {
+  if (!target?.sourceKey) return null;
+
+  const pointLayerId = getPointLayerIdForSource(target.sourceKey);
+  const clusterLayerId = getClusterLayerIdForSource(target.sourceKey);
+
+  const layers = [];
+  if (map.getLayer(pointLayerId)) layers.push(pointLayerId);
+  if (map.getLayer(clusterLayerId)) layers.push(clusterLayerId);
+
+  if (!layers.length) return null;
+
+  const rendered = map.queryRenderedFeatures({ layers });
+  if (!rendered.length) return null;
+
+  const targetLon = Number(target.lon);
+  const targetLat = Number(target.lat);
+  const targetPixel = map.project([targetLon, targetLat]);
+
+  let best = null;
+  let bestDistSq = Infinity;
+
+  for (const feature of rendered) {
+    if (!feature?.geometry || feature.geometry.type !== 'Point') continue;
+
+    const [lon, lat] = feature.geometry.coordinates;
+    const pixel = map.project([lon, lat]);
+
+    const dx = pixel.x - targetPixel.x;
+    const dy = pixel.y - targetPixel.y;
+    const distSq = dx * dx + dy * dy;
+
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      best = {
+        lon,
+        lat,
+        size: Number(feature.properties?.maxSize ?? feature.properties?.size) || target.size || 1,
+        isCluster: Boolean(feature.properties?.cluster)
+      };
+    }
+  }
+
+  if (!best) return null;
+
+  const maxDistSq = maxPixelDistance * maxPixelDistance;
+  if (bestDistSq > maxDistSq) return null;
+
+  return best;
+}
+
 function getRenderedPointMatch(target) {
   const pointLayerId = getPointLayerIdForSource(target.sourceKey);
   if (!map.getLayer(pointLayerId)) return null;
 
   const rendered = map.queryRenderedFeatures({ layers: [pointLayerId] });
+
+  for (const feature of rendered) {
+    if (!feature.geometry || feature.geometry.type !== 'Point') continue;
+
+    const featureName =
+      (feature.properties?.name && feature.properties.name.trim()) ||
+      (feature.properties?.title && feature.properties.title.trim()) ||
+      '';
+
+    const featureCountry =
+      (feature.properties?.country && feature.properties.country.trim()) || '';
+
+    const featureMediaLink =
+      (feature.properties?.gx_media_links && String(feature.properties.gx_media_links).trim()) || '';
+
+    const featureDescription =
+      (feature.properties?.description && String(feature.properties.description).trim()) || '';
+
+    const sameIdentity =
+      featureName === (target.name || '') &&
+      featureCountry === (target.country || '') &&
+      featureMediaLink === (target.mediaLink || '') &&
+      featureDescription === (target.description || '') &&
+      (Number(feature.properties?.size) || 1) === (Number(target.size) || 1);
+
+    if (!sameIdentity) continue;
+
+    const [lon, lat] = feature.geometry.coordinates;
+    return {
+      lon,
+      lat,
+      size: Number(feature.properties?.size) || target.size || 1
+    };
+  }
 
   for (const feature of rendered) {
     if (!feature.geometry || feature.geometry.type !== 'Point') continue;
@@ -404,10 +527,13 @@ function clusterContainsTarget(source, clusterId, target, leafLimit = 1000) {
         return;
       }
 
+      const targetLon = Number(target.rawLon ?? target.lon);
+      const targetLat = Number(target.rawLat ?? target.lat);
+
       const found = leaves.some((leaf) => {
         if (!leaf.geometry || leaf.geometry.type !== 'Point') return false;
         const [lon, lat] = leaf.geometry.coordinates;
-        return areSameCoordinates(lon, lat, target.lon, target.lat);
+        return areSameCoordinates(lon, lat, targetLon, targetLat);
       });
 
       resolve(found);
@@ -417,80 +543,114 @@ function clusterContainsTarget(source, clusterId, target, leafLimit = 1000) {
 
 async function getRenderedClusterMatch(target) {
   const clusterLayerId = getClusterLayerIdForSource(target.sourceKey);
-  const source = map.getSource(target.sourceKey);
-
-  if (!map.getLayer(clusterLayerId) || !source) return null;
+  if (!map.getLayer(clusterLayerId)) return null;
 
   const renderedClusters = map.queryRenderedFeatures({ layers: [clusterLayerId] });
+  if (!renderedClusters.length) return null;
+
+  const targetLon = Number(target.lon);
+  const targetLat = Number(target.lat);
+  const targetPixel = map.project([targetLon, targetLat]);
+
+  let bestMatch = null;
+  let bestDistSq = Infinity;
 
   for (const feature of renderedClusters) {
-    const clusterId = feature.properties?.cluster_id;
-    if (clusterId === undefined || clusterId === null) continue;
-
-    const leafLimit = Number(feature.properties?.point_count) || 1000;
-    const containsTarget = await clusterContainsTarget(source, clusterId, target, leafLimit);
-    if (!containsTarget) continue;
-
     if (!feature.geometry || feature.geometry.type !== 'Point') continue;
 
     const [lon, lat] = feature.geometry.coordinates;
+    const pixel = map.project([lon, lat]);
 
-    return {
-      lon,
-      lat,
-      size: Number(feature.properties?.maxSize) || target.size || 1
-    };
+    const dx = pixel.x - targetPixel.x;
+    const dy = pixel.y - targetPixel.y;
+    const distSq = dx * dx + dy * dy;
+
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      bestMatch = {
+        lon,
+        lat,
+        size: Number(feature.properties?.maxSize) || target.size || 1
+      };
+    }
   }
 
-  return null;
+  return bestMatch;
 }
 
 async function showBestCrosshairForTarget(target) {
   if (!target || !target.sourceKey) return;
 
   activeHoverTarget = {
+    ...target,
     lon: Number(target.lon),
     lat: Number(target.lat),
+    rawLon: target.rawLon != null ? Number(target.rawLon) : undefined,
+    rawLat: target.rawLat != null ? Number(target.rawLat) : undefined,
     size: Number(target.size) || 1,
     sourceKey: target.sourceKey
   };
 
+  syncAdaptiveProjection();
   hideCrosshairKeepTarget();
 
   const requestToken = ++crosshairRequestToken;
 
-  const renderedPoint = getRenderedPointMatch(activeHoverTarget);
-  if (requestToken !== crosshairRequestToken) return;
+  requestAnimationFrame(() => {
+    if (requestToken !== crosshairRequestToken) return;
 
-  if (renderedPoint) {
-    renderCrosshair(renderedPoint.lon, renderedPoint.lat, renderedPoint.size);
-    return;
-  }
+    const nearest = getNearestRenderedFeatureForTarget(activeHoverTarget, 80);
+    if (requestToken !== crosshairRequestToken) return;
 
-  const renderedCluster = await getRenderedClusterMatch(activeHoverTarget);
-  if (requestToken !== crosshairRequestToken) return;
+    if (nearest) {
+      console.log('[CROSSHAIR MATCH]', {
+        kind: nearest.isCluster ? 'nearest-cluster-or-point' : 'nearest-point',
+        target: activeHoverTarget,
+        match: nearest
+      });
 
-  if (renderedCluster) {
-    renderCrosshair(renderedCluster.lon, renderedCluster.lat, renderedCluster.size);
-    return;
-  }
+      renderCrosshair(nearest.lon, nearest.lat, nearest.size);
+      return;
+    }
 
-  renderCrosshair(
-    activeHoverTarget.lon,
-    activeHoverTarget.lat,
-    activeHoverTarget.size || 1
-  );
+    console.log('[CROSSHAIR MATCH]', {
+      kind: 'none-near-enough',
+      target: activeHoverTarget
+    });
+
+    hideCrosshairKeepTarget();
+  });
 }
 
 function buildTargetFromFeature(feature, sourceKey) {
   if (!feature?.geometry || feature.geometry.type !== 'Point') return null;
 
-  const [lon, lat] = feature.geometry.coordinates;
+  const [rawLon, rawLat] = feature.geometry.coordinates;
+
+  const visualLon = Number(feature.properties?.__visualLon ?? rawLon);
+  const visualLat = Number(feature.properties?.__visualLat ?? rawLat);
+
   return {
-    lon: Number(lon),
-    lat: Number(lat),
+    lon: visualLon,
+    lat: visualLat,
+    rawLon: Number(rawLon),
+    rawLat: Number(rawLat),
     size: Number(feature.properties?.size) || 1,
-    sourceKey
+    sourceKey,
+
+    name:
+      (feature.properties?.name && feature.properties.name.trim()) ||
+      (feature.properties?.title && feature.properties.title.trim()) ||
+      '',
+
+    country:
+      (feature.properties?.country && feature.properties.country.trim()) || '',
+
+    mediaLink:
+      (feature.properties?.gx_media_links && String(feature.properties.gx_media_links).trim()) || '',
+
+    description:
+      (feature.properties?.description && String(feature.properties.description).trim()) || ''
   };
 }
 
@@ -500,6 +660,8 @@ function buildTargetFromActiveCard() {
 
   const lon = parseFloat(overlay.dataset.lon);
   const lat = parseFloat(overlay.dataset.lat);
+  const rawLon = parseFloat(overlay.dataset.rawLon);
+  const rawLat = parseFloat(overlay.dataset.rawLat);
   const size = parseFloat(overlay.dataset.size || '1');
   const sourceKey = overlay.dataset.sourceKey;
 
@@ -508,13 +670,54 @@ function buildTargetFromActiveCard() {
   return {
     lon,
     lat,
+    rawLon: !isNaN(rawLon) ? rawLon : lon,
+    rawLat: !isNaN(rawLat) ? rawLat : lat,
     size: Number(size) || 1,
-    sourceKey
+    sourceKey,
+
+    name: overlay.dataset.name || '',
+    country: overlay.dataset.country || '',
+    mediaLink: overlay.dataset.mediaLink || '',
+    description: overlay.dataset.description || ''
   };
 }
 
 function getCurrentCrosshairTarget() {
   return selectedCrosshairTarget || activeHoverTarget;
+}
+
+function getProjectionNameSafe() {
+  try {
+    const p = map.getProjection?.();
+    if (!p) return null;
+    if (typeof p === 'string') return p;
+    return p.name || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function syncAdaptiveProjection() {
+  const zoom = map.getZoom();
+  const hasCrosshairTarget = !!getCurrentCrosshairTarget();
+
+  // Soglia iniziale consigliata:
+  // sotto 5.8 = globe
+  // da 5.8 in su oppure con target attivo = mercator
+  const desiredProjection =
+    (zoom >= 5.8 || hasCrosshairTarget) ? 'mercator' : 'globe';
+
+  const currentProjection = getProjectionNameSafe();
+  if (currentProjection === desiredProjection) return;
+
+  map.setProjection(desiredProjection);
+
+  console.log('[PROJECTION SWITCH]', {
+    zoom,
+    hasCrosshairTarget,
+    from: currentProjection,
+    to: desiredProjection
+  });
 }
 
 /* ========= GEOCODER (solo una volta) ========= */
@@ -876,13 +1079,9 @@ function bindMapInteractions() {
   map.on('click', 'nero-points', onClickNeroPoint);
   map.on('click', 'unclustered-point-bianco', onClickBiancoPoint);
 
-  map.off('move', refreshCrosshair);
-  map.off('zoom', refreshCrosshair);
   map.off('moveend', refreshBestCrosshairAfterMove);
   map.off('zoomend', refreshBestCrosshairAfterMove);
 
-  map.on('move', refreshCrosshair);
-  map.on('zoom', refreshCrosshair);
   map.on('moveend', refreshBestCrosshairAfterMove);
   map.on('zoomend', refreshBestCrosshairAfterMove);
 }
@@ -953,6 +1152,7 @@ async function onClickNeroPoint(e) {
 
   updatePanel(canonicalFeature, 'nero');
   selectedCrosshairTarget = buildTargetFromFeature(canonicalFeature, 'nero');
+  syncAdaptiveProjection();
 }
 
 async function onClickBiancoPoint(e) {
@@ -963,6 +1163,7 @@ async function onClickBiancoPoint(e) {
 
   updatePanel(canonicalFeature, 'bianco');
   selectedCrosshairTarget = buildTargetFromFeature(canonicalFeature, 'bianco');
+  syncAdaptiveProjection();
 }
 
 /* ========= RANDOM FEATURE SIZE 2 ========= */
@@ -1007,6 +1208,64 @@ async function resolveCanonicalFeature(feature, sourceKey) {
 
   const clickedSize = Number(feature.properties?.size) || 1;
 
+  const clickedMediaLink =
+    (feature.properties?.gx_media_links && String(feature.properties.gx_media_links).trim()) || '';
+
+  const clickedDescription =
+    (feature.properties?.description && String(feature.properties.description).trim()) || '';
+
+  const exactPropertyMatch = raw.features.find((candidate) => {
+    if (!candidate?.geometry || candidate.geometry.type !== 'Point') return false;
+
+    const candidateName =
+      (candidate.properties?.name && candidate.properties.name.trim()) ||
+      (candidate.properties?.title && candidate.properties.title.trim()) ||
+      '';
+
+    const candidateCountry =
+      (candidate.properties?.country && candidate.properties.country.trim()) || '';
+
+    const candidateSize = Number(candidate.properties?.size) || 1;
+
+    const candidateMediaLink =
+      (candidate.properties?.gx_media_links && String(candidate.properties.gx_media_links).trim()) || '';
+
+    const candidateDescription =
+      (candidate.properties?.description && String(candidate.properties.description).trim()) || '';
+
+    return (
+      candidateName === clickedName &&
+      candidateCountry === clickedCountry &&
+      candidateSize === clickedSize &&
+      candidateMediaLink === clickedMediaLink &&
+      candidateDescription === clickedDescription
+    );
+  });
+
+  if (exactPropertyMatch) {
+    const [resolvedLon, resolvedLat] = exactPropertyMatch.geometry.coordinates;
+    const [clickedLon2, clickedLat2] = feature.geometry.coordinates;
+
+    console.log('[CANONICAL RESOLUTION]', {
+      sourceKey,
+      clicked: { lon: clickedLon2, lat: clickedLat2 },
+      resolved: { lon: resolvedLon, lat: resolvedLat },
+      sameExact: areSameCoordinates(clickedLon2, clickedLat2, resolvedLon, resolvedLat, 1e-9),
+      matchType: 'exact-properties'
+    });
+
+    const cloned = {
+      ...exactPropertyMatch,
+      properties: {
+        ...(exactPropertyMatch.properties || {}),
+        __visualLon: clickedLon2,
+        __visualLat: clickedLat2
+      }
+    };
+
+    return cloned;
+  }
+
   const exactCoordinateMatch = raw.features.find((candidate) => {
     if (!candidate?.geometry || candidate.geometry.type !== 'Point') return false;
 
@@ -1014,7 +1273,19 @@ async function resolveCanonicalFeature(feature, sourceKey) {
     return areSameCoordinates(lon, lat, clickedLon, clickedLat, 1e-9);
   });
 
-  if (exactCoordinateMatch) return exactCoordinateMatch;
+  if (exactCoordinateMatch) {
+    const [resolvedLon, resolvedLat] = exactCoordinateMatch.geometry.coordinates;
+    const [clickedLon2, clickedLat2] = feature.geometry.coordinates;
+
+    console.log('[CANONICAL RESOLUTION]', {
+      sourceKey,
+      clicked: { lon: clickedLon2, lat: clickedLat2 },
+      resolved: { lon: resolvedLon, lat: resolvedLat },
+      sameExact: true
+    });
+
+    return exactCoordinateMatch;
+  }
 
   let bestMatch = null;
   let bestScore = Infinity;
@@ -1046,7 +1317,30 @@ async function resolveCanonicalFeature(feature, sourceKey) {
     }
   }
 
-  return bestMatch || feature;
+  const resolved = bestMatch || feature;
+  const [clickedLon2, clickedLat2] = feature.geometry.coordinates;
+
+  if (resolved?.geometry?.type === 'Point') {
+    const [resolvedLon, resolvedLat] = resolved.geometry.coordinates;
+
+    console.log('[CANONICAL RESOLUTION]', {
+      sourceKey,
+      clicked: { lon: clickedLon2, lat: clickedLat2 },
+      resolved: { lon: resolvedLon, lat: resolvedLat },
+      sameExact: areSameCoordinates(clickedLon2, clickedLat2, resolvedLon, resolvedLat, 1e-9)
+    });
+  }
+
+  const cloned = {
+    ...resolved,
+    properties: {
+      ...(resolved.properties || {}),
+      __visualLon: clickedLon2,
+      __visualLat: clickedLat2
+    }
+  };
+
+  return cloned;
 }
 
 function isSize2Feature(f) {
@@ -1118,13 +1412,21 @@ function updatePanel(feature, sourceKey = null) {
   let lon = null;
   let lat = null;
 
-  if (
+  const rawCoords = (
     feature.geometry &&
     feature.geometry.type === 'Point' &&
     Array.isArray(feature.geometry.coordinates)
-  ) {
-    [lon, lat] = feature.geometry.coordinates;
-    coordsText = formatCoords(Number(lat), Number(lon));
+  )
+    ? feature.geometry.coordinates
+    : null;
+
+  const visualLon = Number(feature.properties?.__visualLon ?? rawCoords?.[0]);
+  const visualLat = Number(feature.properties?.__visualLat ?? rawCoords?.[1]);
+
+  if (rawCoords) {
+    lon = visualLon;
+    lat = visualLat;
+    coordsText = formatCoords(Number(visualLat), Number(visualLon));
   }
 
   const coordsTextEl = document.querySelector('.panel-card.is-active .coords-text');
@@ -1132,10 +1434,33 @@ function updatePanel(feature, sourceKey = null) {
 
   const overlay = document.querySelector('.panel-card.is-active .image-overlay');
   if (overlay && lon !== null && lat !== null) {
+    const rawLon = rawCoords ? Number(rawCoords[0]) : lon;
+    const rawLat = rawCoords ? Number(rawCoords[1]) : lat;
+
+    const titleValue =
+      (properties.name && properties.name.trim()) ||
+      (properties.title && properties.title.trim()) ||
+      '';
+
+    const countryValue =
+      (properties.country && properties.country.trim()) || '';
+
+    const mediaLinkValue =
+      (properties.gx_media_links && String(properties.gx_media_links).trim()) || '';
+
+    const descriptionValue =
+      (properties.description && String(properties.description).trim()) || '';
+
     overlay.dataset.lon = lon;
     overlay.dataset.lat = lat;
+    overlay.dataset.rawLon = rawLon;
+    overlay.dataset.rawLat = rawLat;
     overlay.dataset.size = Number(properties.size) || 1;
     overlay.dataset.sourceKey = sourceKey || properties.__sourceKey || '';
+    overlay.dataset.name = titleValue;
+    overlay.dataset.country = countryValue;
+    overlay.dataset.mediaLink = mediaLinkValue;
+    overlay.dataset.description = descriptionValue;
   }
 
   const title =
@@ -1344,12 +1669,16 @@ map.on('load', () => {
   initDataLayers();
   bindMapInteractions();
   lockZenithNorth();
+  syncAdaptiveProjection();
 });
+
+console.log('PROJECTION →', map.getProjection());
 
 /* ========= STYLE LOAD ========= */
 map.on('style.load', () => {
   initDataLayers();
   lockZenithNorth();
+  syncAdaptiveProjection();
 });
 
 window.addEventListener('resize', () => {
@@ -1357,6 +1686,9 @@ window.addEventListener('resize', () => {
   updatePanelHeight();
   refreshCrosshair();
 });
+
+map.on('zoomend', syncAdaptiveProjection);
+map.on('moveend', syncAdaptiveProjection);
 
 /* ========= LOCK NORTH / NO ROTATION ========= */
 function lockZenithNorth() {
