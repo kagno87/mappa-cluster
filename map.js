@@ -592,19 +592,15 @@ function showBestCrosshairForTarget(target) {
 }
 
 function buildTargetFromFeature(feature, sourceKey) {
-  if (!feature?.geometry || feature.geometry.type !== 'Point') return null;
-
-  const [rawLon, rawLat] = feature.geometry.coordinates;
-  const visualLon = Number(feature.properties?.__visualLon ?? rawLon);
-  const visualLat = Number(feature.properties?.__visualLat ?? rawLat);
-  const identity = getFeatureIdentity(feature);
+  const normalizedFeature = normalizeFeature(feature, sourceKey);
+  const { coords, identity } = normalizedFeature;
 
   return createCrosshairTarget({
-    lon: visualLon,
-    lat: visualLat,
-    rawLon,
-    rawLat,
-    sourceKey,
+    lon: coords.visualLon,
+    lat: coords.visualLat,
+    rawLon: coords.rawLon,
+    rawLat: coords.rawLat,
+    sourceKey: normalizedFeature.sourceKey,
     identity
   });
 }
@@ -685,8 +681,8 @@ function applyProjectionMode(mode) {
 function syncAdaptiveProjection() {
   const zoom = map.getZoom();
 
-  const ENTER_MERCATOR_ZOOM = 5.4;
-  const EXIT_MERCATOR_ZOOM = 5.0;
+  const ENTER_MERCATOR_ZOOM = 5.25;
+  const EXIT_MERCATOR_ZOOM = 4.9;
 
   let desiredMode = adaptiveProjectionMode;
 
@@ -1274,21 +1270,33 @@ function getFeatureDisplayCoordinates(feature) {
   };
 }
 
-function setActiveCardOverlayData(feature, sourceKey, coords) {
+function normalizeFeature(feature, sourceKey = null) {
+  const identity = getFeatureIdentity(feature);
+  const coords = getFeatureDisplayCoordinates(feature);
+
+  return {
+    feature,
+    sourceKey: sourceKey || feature?.properties?.__sourceKey || '',
+    identity,
+    coords
+  };
+}
+
+function setActiveCardOverlayData(normalizedFeature) {
   const overlay = document.querySelector('.panel-card.is-active .image-overlay');
   if (!overlay) return;
 
+  const { identity, coords, sourceKey } = normalizedFeature;
   const { visualLon, visualLat, rawLon, rawLat } = coords;
-  if (visualLon == null || visualLat == null) return;
 
-  const identity = getFeatureIdentity(feature);
+  if (visualLon == null || visualLat == null) return;
 
   overlay.dataset.lon = visualLon;
   overlay.dataset.lat = visualLat;
   overlay.dataset.rawLon = rawLon ?? visualLon;
   overlay.dataset.rawLat = rawLat ?? visualLat;
   overlay.dataset.size = identity.size;
-  overlay.dataset.sourceKey = sourceKey || feature?.properties?.__sourceKey || '';
+  overlay.dataset.sourceKey = sourceKey || '';
   overlay.dataset.name = identity.name;
   overlay.dataset.country = identity.country;
   overlay.dataset.mediaLink = identity.mediaLink;
@@ -1469,9 +1477,8 @@ async function refreshRandomSize2() {
 
 /* ========= PANEL ========= */
 function updatePanel(feature, sourceKey = null) {
-  const properties = feature.properties || {};
-  const identity = getFeatureIdentity(feature);
-  const coords = getFeatureDisplayCoordinates(feature);
+  const normalizedFeature = normalizeFeature(feature, sourceKey);
+  const { identity, coords } = normalizedFeature;
 
   const coordsText =
     coords.visualLon != null && coords.visualLat != null
@@ -1481,11 +1488,10 @@ function updatePanel(feature, sourceKey = null) {
   const coordsTextEl = document.querySelector('.panel-card.is-active .coords-text');
   if (coordsTextEl) coordsTextEl.textContent = coordsText;
 
-  setActiveCardOverlayData(feature, sourceKey, coords);
+  setActiveCardOverlayData(normalizedFeature);
 
-  const title = identity.name || 'Senza nome';
   const titleTextEl = document.querySelector('.panel-card.is-active .title-text');
-  if (titleTextEl) titleTextEl.textContent = title;
+  if (titleTextEl) titleTextEl.textContent = identity.name || 'Senza nome';
 
   const imageUrl = getFeatureImageUrl(feature);
   const imgEl = document.querySelector('.panel-card.is-active .panel-image');
