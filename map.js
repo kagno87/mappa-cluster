@@ -344,8 +344,7 @@ function refreshCrosshair() {
 }
 
 function refreshBestCrosshairAfterMove() {
-  const target = getCurrentCrosshairTarget();
-  if (!target) return;
+  if (!getCurrentCrosshairTarget()) return;
   if (crosshairIdlePending) return;
 
   crosshairIdlePending = true;
@@ -353,11 +352,7 @@ function refreshBestCrosshairAfterMove() {
   map.once('idle', () => {
     requestAnimationFrame(() => {
       crosshairIdlePending = false;
-
-      const target = getCurrentCrosshairTarget();
-      if (!target) return;
-
-      showBestCrosshairForTarget(target);
+      refreshCurrentCrosshairTarget();
     });
   });
 }
@@ -557,45 +552,37 @@ function getNearestRenderedFeatureForTarget(target, maxPixelDistance = 80) {
 }
 
 function showBestCrosshairForTarget(target) {
-  if (!target || !target.sourceKey) return;
+  const normalizedTarget = normalizeCrosshairTarget(target);
+  if (!normalizedTarget) return;
 
-  activeHoverTarget = {
-    ...target,
-    lon: Number(target.lon),
-    lat: Number(target.lat),
-    rawLon: target.rawLon != null ? Number(target.rawLon) : undefined,
-    rawLat: target.rawLat != null ? Number(target.rawLat) : undefined,
-    size: Number(target.size) || 1,
-    sourceKey: target.sourceKey
-  };
+  setHoverCrosshairTarget(normalizedTarget);
 
   syncAdaptiveProjection();
   hideCrosshairKeepTarget();
 
   const requestToken = ++crosshairRequestToken;
-  const crosshairTarget = activeHoverTarget;
 
   requestAnimationFrame(async () => {
     if (requestToken !== crosshairRequestToken) return;
 
-    const renderedPoint = getRenderedPointMatch(crosshairTarget);
-    if (renderedPoint) {
+    const pointMatch = getRenderedPointMatch(normalizedTarget);
+    if (pointMatch) {
       if (requestToken !== crosshairRequestToken) return;
-      renderCrosshair(renderedPoint.lon, renderedPoint.lat, renderedPoint.size);
+      renderCrosshair(pointMatch.lon, pointMatch.lat, pointMatch.size);
       return;
     }
 
-    const renderedCluster = await getRenderedClusterMatch(crosshairTarget);
-    if (renderedCluster) {
+    const clusterMatch = await getRenderedClusterMatch(normalizedTarget);
+    if (clusterMatch) {
       if (requestToken !== crosshairRequestToken) return;
-      renderCrosshair(renderedCluster.lon, renderedCluster.lat, renderedCluster.size);
+      renderCrosshair(clusterMatch.lon, clusterMatch.lat, clusterMatch.size);
       return;
     }
 
-    const nearest = getNearestRenderedFeatureForTarget(crosshairTarget, 80);
-    if (nearest) {
+    const fallbackMatch = getNearestRenderedFeatureForTarget(normalizedTarget, 80);
+    if (fallbackMatch) {
       if (requestToken !== crosshairRequestToken) return;
-      renderCrosshair(nearest.lon, nearest.lat, nearest.size);
+      renderCrosshair(fallbackMatch.lon, fallbackMatch.lat, fallbackMatch.size);
       return;
     }
 
@@ -608,32 +595,18 @@ function buildTargetFromFeature(feature, sourceKey) {
   if (!feature?.geometry || feature.geometry.type !== 'Point') return null;
 
   const [rawLon, rawLat] = feature.geometry.coordinates;
-
   const visualLon = Number(feature.properties?.__visualLon ?? rawLon);
   const visualLat = Number(feature.properties?.__visualLat ?? rawLat);
+  const identity = getFeatureIdentity(feature);
 
-  return {
+  return createCrosshairTarget({
     lon: visualLon,
     lat: visualLat,
-    rawLon: Number(rawLon),
-    rawLat: Number(rawLat),
-    size: Number(feature.properties?.size) || 1,
+    rawLon,
+    rawLat,
     sourceKey,
-
-    name:
-      (feature.properties?.name && feature.properties.name.trim()) ||
-      (feature.properties?.title && feature.properties.title.trim()) ||
-      '',
-
-    country:
-      (feature.properties?.country && feature.properties.country.trim()) || '',
-
-    mediaLink:
-      (feature.properties?.gx_media_links && String(feature.properties.gx_media_links).trim()) || '',
-
-    description:
-      (feature.properties?.description && String(feature.properties.description).trim()) || ''
-  };
+    identity
+  });
 }
 
 function buildTargetFromActiveCard() {
@@ -644,28 +617,50 @@ function buildTargetFromActiveCard() {
   const lat = parseFloat(overlay.dataset.lat);
   const rawLon = parseFloat(overlay.dataset.rawLon);
   const rawLat = parseFloat(overlay.dataset.rawLat);
-  const size = parseFloat(overlay.dataset.size || '1');
   const sourceKey = overlay.dataset.sourceKey;
+  const identity = getFeatureIdentityFromDataset(overlay.dataset);
 
-  if (isNaN(lon) || isNaN(lat) || !sourceKey) return null;
-
-  return {
+  return createCrosshairTarget({
     lon,
     lat,
     rawLon: !isNaN(rawLon) ? rawLon : lon,
     rawLat: !isNaN(rawLat) ? rawLat : lat,
-    size: Number(size) || 1,
     sourceKey,
-
-    name: overlay.dataset.name || '',
-    country: overlay.dataset.country || '',
-    mediaLink: overlay.dataset.mediaLink || '',
-    description: overlay.dataset.description || ''
-  };
+    identity
+  });
 }
 
 function getCurrentCrosshairTarget() {
   return selectedCrosshairTarget || activeHoverTarget;
+}
+
+function refreshCurrentCrosshairTarget() {
+  const target = getCurrentCrosshairTarget();
+  if (!target) return;
+
+  showBestCrosshairForTarget(target);
+}
+
+function normalizeCrosshairTarget(target) {
+  if (!target || !target.sourceKey) return null;
+
+  return {
+    ...target,
+    lon: Number(target.lon),
+    lat: Number(target.lat),
+    rawLon: target.rawLon != null ? Number(target.rawLon) : undefined,
+    rawLat: target.rawLat != null ? Number(target.rawLat) : undefined,
+    size: Number(target.size) || 1,
+    sourceKey: target.sourceKey
+  };
+}
+
+function setHoverCrosshairTarget(target) {
+  activeHoverTarget = normalizeCrosshairTarget(target);
+}
+
+function setSelectedCrosshairTarget(target) {
+  selectedCrosshairTarget = normalizeCrosshairTarget(target);
 }
 
 function getProjectionNameSafe() {
@@ -679,12 +674,17 @@ function getProjectionNameSafe() {
   }
 }
 
+function applyProjectionMode(mode) {
+  const currentProjection = getProjectionNameSafe();
+  adaptiveProjectionMode = mode;
+
+  if (currentProjection === mode) return;
+  map.setProjection(mode);
+}
+
 function syncAdaptiveProjection() {
   const zoom = map.getZoom();
 
-  // Isteresi:
-  // - entra in mercator prima della fascia critica
-  // - torna a globe solo quando sei sceso davvero
   const ENTER_MERCATOR_ZOOM = 5.4;
   const EXIT_MERCATOR_ZOOM = 5.0;
 
@@ -697,13 +697,12 @@ function syncAdaptiveProjection() {
   }
 
   if (desiredMode === adaptiveProjectionMode) return;
+  applyProjectionMode(desiredMode);
+}
 
-  const currentProjection = getProjectionNameSafe();
-  adaptiveProjectionMode = desiredMode;
-
-  if (currentProjection === desiredMode) return;
-
-  map.setProjection(desiredMode);
+function initializeAdaptiveProjection(defaultMode = 'globe') {
+  adaptiveProjectionMode = getProjectionNameSafe() || defaultMode;
+  syncAdaptiveProjection();
 }
 
 /* ========= GEOCODER (solo una volta) ========= */
@@ -1137,7 +1136,7 @@ async function onClickNeroPoint(e) {
   const canonicalFeature = await resolveCanonicalFeature(feature, 'nero');
 
   updatePanel(canonicalFeature, 'nero');
-  selectedCrosshairTarget = buildTargetFromFeature(canonicalFeature, 'nero');
+  setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, 'nero'));
   syncAdaptiveProjection();
 }
 
@@ -1148,7 +1147,7 @@ async function onClickBiancoPoint(e) {
   const canonicalFeature = await resolveCanonicalFeature(feature, 'bianco');
 
   updatePanel(canonicalFeature, 'bianco');
-  selectedCrosshairTarget = buildTargetFromFeature(canonicalFeature, 'bianco');
+  setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, 'bianco'));
   syncAdaptiveProjection();
 }
 
@@ -1205,6 +1204,41 @@ function isSameFeatureIdentity(a, b) {
     a.mediaLink === b.mediaLink &&
     a.description === b.description
   );
+}
+
+function getFeatureIdentityFromDataset(dataset) {
+  return {
+    name: dataset.name || '',
+    country: dataset.country || '',
+    size: Number(dataset.size) || 1,
+    mediaLink: dataset.mediaLink || '',
+    description: dataset.description || ''
+  };
+}
+
+function createCrosshairTarget({
+  lon,
+  lat,
+  rawLon,
+  rawLat,
+  sourceKey,
+  identity
+}) {
+  if (!sourceKey) return null;
+  if (!Number.isFinite(Number(lon)) || !Number.isFinite(Number(lat))) return null;
+
+  return {
+    lon: Number(lon),
+    lat: Number(lat),
+    rawLon: rawLon != null ? Number(rawLon) : Number(lon),
+    rawLat: rawLat != null ? Number(rawLat) : Number(lat),
+    size: Number(identity?.size) || 1,
+    sourceKey,
+    name: identity?.name || '',
+    country: identity?.country || '',
+    mediaLink: identity?.mediaLink || '',
+    description: identity?.description || ''
+  };
 }
 
 async function resolveCanonicalFeature(feature, sourceKey) {
@@ -1379,31 +1413,18 @@ function updatePanel(feature, sourceKey = null) {
   if (overlay && lon !== null && lat !== null) {
     const rawLon = rawCoords ? Number(rawCoords[0]) : lon;
     const rawLat = rawCoords ? Number(rawCoords[1]) : lat;
-
-    const titleValue =
-      (properties.name && properties.name.trim()) ||
-      (properties.title && properties.title.trim()) ||
-      '';
-
-    const countryValue =
-      (properties.country && properties.country.trim()) || '';
-
-    const mediaLinkValue =
-      (properties.gx_media_links && String(properties.gx_media_links).trim()) || '';
-
-    const descriptionValue =
-      (properties.description && String(properties.description).trim()) || '';
+    const identity = getFeatureIdentity(feature);
 
     overlay.dataset.lon = lon;
     overlay.dataset.lat = lat;
     overlay.dataset.rawLon = rawLon;
     overlay.dataset.rawLat = rawLat;
-    overlay.dataset.size = Number(properties.size) || 1;
+    overlay.dataset.size = identity.size;
     overlay.dataset.sourceKey = sourceKey || properties.__sourceKey || '';
-    overlay.dataset.name = titleValue;
-    overlay.dataset.country = countryValue;
-    overlay.dataset.mediaLink = mediaLinkValue;
-    overlay.dataset.description = descriptionValue;
+    overlay.dataset.name = identity.name;
+    overlay.dataset.country = identity.country;
+    overlay.dataset.mediaLink = identity.mediaLink;
+    overlay.dataset.description = identity.description;
   }
 
   const title =
@@ -1520,16 +1541,14 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 
     const target = buildTargetFromActiveCard();
     if (target) {
-      activeHoverTarget = target;
+      setHoverCrosshairTarget(target);
       hideCrosshairKeepTarget();
     } else {
       hideCrosshair();
     }
 
     map.once('moveend', () => {
-      if (activeHoverTarget) {
-        showBestCrosshairForTarget(activeHoverTarget);
-      }
+      refreshCurrentCrosshairTarget();
     });
 
     map.easeTo({
@@ -1547,7 +1566,7 @@ document.getElementById('panel')?.addEventListener('mouseover', (e) => {
 
   if (wrapper.contains(e.relatedTarget)) return;
 
-  const target = buildTargetFromActiveCard();
+  const target = normalizeCrosshairTarget(buildTargetFromActiveCard());
   if (target) showBestCrosshairForTarget(target);
 });
 
@@ -1598,7 +1617,6 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
 
 /* ========= LOAD ========= */
 map.on('load', () => {
-  
   updatePanelScale();
   updatePanelHeight();
 
@@ -1610,16 +1628,14 @@ map.on('load', () => {
   initDataLayers();
   bindMapInteractions();
   lockZenithNorth();
-  adaptiveProjectionMode = 'globe';
-  syncAdaptiveProjection();
+  initializeAdaptiveProjection('globe');
 });
 
 /* ========= STYLE LOAD ========= */
 map.on('style.load', () => {
   initDataLayers();
   lockZenithNorth();
-  adaptiveProjectionMode = getProjectionNameSafe() || adaptiveProjectionMode;
-  syncAdaptiveProjection();
+  initializeAdaptiveProjection(adaptiveProjectionMode);
 });
 
 window.addEventListener('resize', () => {
@@ -1628,6 +1644,7 @@ window.addEventListener('resize', () => {
   refreshCrosshair();
 });
 
+/* ========= ADAPTIVE PROJECTION ========= */
 map.on('zoom', syncAdaptiveProjection);
 map.on('zoomend', syncAdaptiveProjection);
 map.on('moveend', syncAdaptiveProjection);
