@@ -1241,6 +1241,92 @@ function createCrosshairTarget({
   };
 }
 
+function getFeatureDisplayCoordinates(feature) {
+  const rawCoords = (
+    feature?.geometry &&
+    feature.geometry.type === 'Point' &&
+    Array.isArray(feature.geometry.coordinates)
+  )
+    ? feature.geometry.coordinates
+    : null;
+
+  if (!rawCoords) {
+    return {
+      rawCoords: null,
+      rawLon: null,
+      rawLat: null,
+      visualLon: null,
+      visualLat: null
+    };
+  }
+
+  const rawLon = Number(rawCoords[0]);
+  const rawLat = Number(rawCoords[1]);
+  const visualLon = Number(feature.properties?.__visualLon ?? rawLon);
+  const visualLat = Number(feature.properties?.__visualLat ?? rawLat);
+
+  return {
+    rawCoords,
+    rawLon,
+    rawLat,
+    visualLon,
+    visualLat
+  };
+}
+
+function setActiveCardOverlayData(feature, sourceKey, coords) {
+  const overlay = document.querySelector('.panel-card.is-active .image-overlay');
+  if (!overlay) return;
+
+  const { visualLon, visualLat, rawLon, rawLat } = coords;
+  if (visualLon == null || visualLat == null) return;
+
+  const identity = getFeatureIdentity(feature);
+
+  overlay.dataset.lon = visualLon;
+  overlay.dataset.lat = visualLat;
+  overlay.dataset.rawLon = rawLon ?? visualLon;
+  overlay.dataset.rawLat = rawLat ?? visualLat;
+  overlay.dataset.size = identity.size;
+  overlay.dataset.sourceKey = sourceKey || feature?.properties?.__sourceKey || '';
+  overlay.dataset.name = identity.name;
+  overlay.dataset.country = identity.country;
+  overlay.dataset.mediaLink = identity.mediaLink;
+  overlay.dataset.description = identity.description;
+}
+
+function getFeatureImageUrl(feature) {
+  const properties = feature?.properties || {};
+  let htmlContent = '';
+
+  if (properties.description) {
+    if (
+      typeof properties.description === 'string' &&
+      properties.description.trim().startsWith('{')
+    ) {
+      try {
+        const parsed = JSON.parse(properties.description);
+        htmlContent = parsed.value || '';
+      } catch (e) {
+        htmlContent = '';
+      }
+    } else {
+      htmlContent = properties.description;
+    }
+  }
+
+  const imgMatch = htmlContent.match(/<img[^>]+src="([^">]+)"/);
+  if (imgMatch && imgMatch[1]) {
+    return imgMatch[1];
+  }
+
+  if (properties.gx_media_links) {
+    return properties.gx_media_links;
+  }
+
+  return null;
+}
+
 async function resolveCanonicalFeature(feature, sourceKey) {
   if (!feature?.geometry || feature.geometry.type !== 'Point') return feature;
 
@@ -1384,91 +1470,30 @@ async function refreshRandomSize2() {
 /* ========= PANEL ========= */
 function updatePanel(feature, sourceKey = null) {
   const properties = feature.properties || {};
+  const identity = getFeatureIdentity(feature);
+  const coords = getFeatureDisplayCoordinates(feature);
 
-  let coordsText = '';
-  let lon = null;
-  let lat = null;
-
-  const rawCoords = (
-    feature.geometry &&
-    feature.geometry.type === 'Point' &&
-    Array.isArray(feature.geometry.coordinates)
-  )
-    ? feature.geometry.coordinates
-    : null;
-
-  const visualLon = Number(feature.properties?.__visualLon ?? rawCoords?.[0]);
-  const visualLat = Number(feature.properties?.__visualLat ?? rawCoords?.[1]);
-
-  if (rawCoords) {
-    lon = visualLon;
-    lat = visualLat;
-    coordsText = formatCoords(Number(visualLat), Number(visualLon));
-  }
+  const coordsText =
+    coords.visualLon != null && coords.visualLat != null
+      ? formatCoords(coords.visualLat, coords.visualLon)
+      : '';
 
   const coordsTextEl = document.querySelector('.panel-card.is-active .coords-text');
   if (coordsTextEl) coordsTextEl.textContent = coordsText;
 
-  const overlay = document.querySelector('.panel-card.is-active .image-overlay');
-  if (overlay && lon !== null && lat !== null) {
-    const rawLon = rawCoords ? Number(rawCoords[0]) : lon;
-    const rawLat = rawCoords ? Number(rawCoords[1]) : lat;
-    const identity = getFeatureIdentity(feature);
+  setActiveCardOverlayData(feature, sourceKey, coords);
 
-    overlay.dataset.lon = lon;
-    overlay.dataset.lat = lat;
-    overlay.dataset.rawLon = rawLon;
-    overlay.dataset.rawLat = rawLat;
-    overlay.dataset.size = identity.size;
-    overlay.dataset.sourceKey = sourceKey || properties.__sourceKey || '';
-    overlay.dataset.name = identity.name;
-    overlay.dataset.country = identity.country;
-    overlay.dataset.mediaLink = identity.mediaLink;
-    overlay.dataset.description = identity.description;
-  }
-
-  const title =
-    (properties.name && properties.name.trim()) ||
-    (properties.title && properties.title.trim()) ||
-    'Senza nome';
-
+  const title = identity.name || 'Senza nome';
   const titleTextEl = document.querySelector('.panel-card.is-active .title-text');
   if (titleTextEl) titleTextEl.textContent = title;
 
-  let htmlContent = '';
-
-  if (properties.description) {
-    if (
-      typeof properties.description === 'string' &&
-      properties.description.trim().startsWith('{')
-    ) {
-      try {
-        const parsed = JSON.parse(properties.description);
-        htmlContent = parsed.value || '';
-      } catch (e) {
-        htmlContent = '';
-      }
-    } else {
-      htmlContent = properties.description;
-    }
-  }
-
-  let imageUrl = null;
-
-  const imgMatch = htmlContent.match(/<img[^>]+src="([^">]+)"/);
-  if (imgMatch && imgMatch[1]) {
-    imageUrl = imgMatch[1];
-  } else if (properties.gx_media_links) {
-    imageUrl = properties.gx_media_links;
-  }
-
+  const imageUrl = getFeatureImageUrl(feature);
   const imgEl = document.querySelector('.panel-card.is-active .panel-image');
 
   if (imgEl && imageUrl) {
     const proxiedUrl =
       'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' +
       encodeURIComponent(imageUrl);
-
 
     preloadImage(proxiedUrl, (loadedUrl) => {
       if (loadedUrl) {
@@ -1480,9 +1505,8 @@ function updatePanel(feature, sourceKey = null) {
     imgEl.style.display = 'none';
   }
 
-  const country = (properties.country && properties.country.trim()) || '';
   const overlayDescEl = document.querySelector('.panel-card.is-active .overlay-description');
-  if (overlayDescEl) overlayDescEl.textContent = country;
+  if (overlayDescEl) overlayDescEl.textContent = identity.country;
 
   updatePanelScale();
   updatePanelHeight();
