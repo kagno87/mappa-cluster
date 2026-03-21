@@ -51,7 +51,6 @@ html, body {
   width: 0;
   height: 0;
   pointer-events: none;
-  transform: translate(-50%, -50%);
 }
 
 .crosshair-html .arm {

@@ -23,6 +23,7 @@ let activeHoverTarget = null;
 let crosshairIdlePending = false;
 let crosshairMarker = null;
 let selectedCrosshairTarget = null;
+let adaptiveProjectionMode = 'globe';
 
 const geojsonCache = {};
 let geojsonPreloadPromise = null;
@@ -229,21 +230,18 @@ function ensureHtmlCrosshair() {
   }
 
   const el = document.createElement('div');
+  el.className = 'crosshair-html';
 
-  el.style.width = '10px';
-  el.style.height = '10px';
-  el.style.borderRadius = '50%';
-  el.style.background = 'red';
-  el.style.border = '2px solid white';
-  el.style.boxSizing = 'border-box';
-  el.style.display = 'block';
-  el.style.margin = '0';
-  el.style.padding = '0';
-  el.style.transform = 'none';
-  el.style.position = 'relative';
-  el.style.left = '0';
-  el.style.top = '0';
-  el.style.pointerEvents = 'none';
+  const parts = [
+    'left outline', 'right outline', 'top outline', 'bottom outline',
+    'left main', 'right main', 'top main', 'bottom main'
+  ];
+
+  parts.forEach((cls) => {
+    const arm = document.createElement('div');
+    arm.className = `arm ${cls}`;
+    el.appendChild(arm);
+  });
 
   crosshairMarker = new mapboxgl.Marker({
     element: el,
@@ -290,12 +288,16 @@ function renderHtmlCrosshair(lon, lat, sizeValue) {
   const el = ensureHtmlCrosshair();
   if (!el) return;
 
+  const metrics = getCrosshairMetrics(sizeValue);
+
   if (crosshairMarker) {
     crosshairMarker.setLngLat([lon, lat]);
   }
 
   el.style.opacity = '1';
   el.style.display = 'block';
+
+  positionCrosshairArms(el, metrics);
 }
 
 function hideHtmlCrosshair() {
@@ -699,24 +701,34 @@ function getProjectionNameSafe() {
 
 function syncAdaptiveProjection() {
   const zoom = map.getZoom();
-  const hasCrosshairTarget = !!getCurrentCrosshairTarget();
 
-  // Soglia iniziale consigliata:
-  // sotto 5.8 = globe
-  // da 5.8 in su oppure con target attivo = mercator
-  const desiredProjection =
-    (zoom >= 5.8 || hasCrosshairTarget) ? 'mercator' : 'globe';
+  // Isteresi:
+  // - entra in mercator prima della fascia critica
+  // - torna a globe solo quando sei sceso davvero
+  const ENTER_MERCATOR_ZOOM = 5.4;
+  const EXIT_MERCATOR_ZOOM = 5.0;
+
+  let desiredMode = adaptiveProjectionMode;
+
+  if (adaptiveProjectionMode === 'globe' && zoom >= ENTER_MERCATOR_ZOOM) {
+    desiredMode = 'mercator';
+  } else if (adaptiveProjectionMode === 'mercator' && zoom <= EXIT_MERCATOR_ZOOM) {
+    desiredMode = 'globe';
+  }
+
+  if (desiredMode === adaptiveProjectionMode) return;
 
   const currentProjection = getProjectionNameSafe();
-  if (currentProjection === desiredProjection) return;
+  adaptiveProjectionMode = desiredMode;
 
-  map.setProjection(desiredProjection);
+  if (currentProjection === desiredMode) return;
+
+  map.setProjection(desiredMode);
 
   console.log('[PROJECTION SWITCH]', {
     zoom,
-    hasCrosshairTarget,
     from: currentProjection,
-    to: desiredProjection
+    to: desiredMode
   });
 }
 
@@ -1669,6 +1681,7 @@ map.on('load', () => {
   initDataLayers();
   bindMapInteractions();
   lockZenithNorth();
+  adaptiveProjectionMode = 'globe';
   syncAdaptiveProjection();
 });
 
@@ -1678,6 +1691,7 @@ console.log('PROJECTION →', map.getProjection());
 map.on('style.load', () => {
   initDataLayers();
   lockZenithNorth();
+  adaptiveProjectionMode = getProjectionNameSafe() || adaptiveProjectionMode;
   syncAdaptiveProjection();
 });
 
@@ -1687,6 +1701,7 @@ window.addEventListener('resize', () => {
   refreshCrosshair();
 });
 
+map.on('zoom', syncAdaptiveProjection);
 map.on('zoomend', syncAdaptiveProjection);
 map.on('moveend', syncAdaptiveProjection);
 
