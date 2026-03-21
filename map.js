@@ -220,10 +220,6 @@ function getCrosshairMetrics(sizeValue) {
   }
 }
 
-function getCrosshairOverlayEl() {
-  return document.getElementById('crosshair-overlay');
-}
-
 function ensureHtmlCrosshair() {
   if (crosshairMarker) {
     return crosshairMarker.getElement();
@@ -322,44 +318,12 @@ function renderCrosshair(lon, lat, sizeValue) {
     size: Number(sizeValue) || 1
   };
 
-  const projected = map.project([activeCrosshair.lon, activeCrosshair.lat]);
-
   renderHtmlCrosshair(
     activeCrosshair.lon,
     activeCrosshair.lat,
     activeCrosshair.size
   );
 
-  requestAnimationFrame(() => {
-    let markerInfo = null;
-
-    if (crosshairMarker) {
-      const el = crosshairMarker.getElement();
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        markerInfo = {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
-          centerX: rect.left + rect.width / 2,
-          centerY: rect.top + rect.height / 2
-        };
-      }
-    }
-
-    console.log('[CROSSHAIR PIXEL DEBUG]', {
-      lngLat: {
-        lon: activeCrosshair.lon,
-        lat: activeCrosshair.lat
-      },
-      projected: {
-        x: projected.x,
-        y: projected.y
-      },
-      marker: markerInfo
-    });
-  });
 }
 
 function hideCrosshair() {
@@ -414,6 +378,211 @@ function getClusterLayerIdForSource(sourceKey) {
   return sourceKey === 'nero' ? 'clusters-nero' : 'clusters-bianco';
 }
 
+function clusterContainsTarget(source, clusterId, target, leafLimit = 1000) {
+  return new Promise((resolve) => {
+    source.getClusterLeaves(clusterId, leafLimit, 0, (err, leaves) => {
+      if (err || !Array.isArray(leaves)) {
+        resolve(false);
+        return;
+      }
+
+      const targetLon = Number(target.rawLon ?? target.lon);
+      const targetLat = Number(target.rawLat ?? target.lat);
+
+      const found = leaves.some((leaf) => {
+        if (!leaf?.geometry || leaf.geometry.type !== 'Point') return false;
+
+        const leafName =
+          (leaf.properties?.name && leaf.properties.name.trim()) ||
+          (leaf.properties?.title && leaf.properties.title.trim()) ||
+          '';
+
+        const leafCountry =
+          (leaf.properties?.country && leaf.properties.country.trim()) || '';
+
+        const leafMediaLink =
+          (leaf.properties?.gx_media_links && String(leaf.properties.gx_media_links).trim()) || '';
+
+        const leafDescription =
+          (leaf.properties?.description && String(leaf.properties.description).trim()) || '';
+
+        const sameIdentity =
+          leafName === (target.name || '') &&
+          leafCountry === (target.country || '') &&
+          leafMediaLink === (target.mediaLink || '') &&
+          leafDescription === (target.description || '') &&
+          (Number(leaf.properties?.size) || 1) === (Number(target.size) || 1);
+
+        if (sameIdentity) return true;
+
+        const [lon, lat] = leaf.geometry.coordinates;
+
+        return (
+          Math.abs(Number(lon) - targetLon) <= 1e-5 &&
+          Math.abs(Number(lat) - targetLat) <= 1e-5
+        );
+      });
+
+      resolve(found);
+    });
+  });
+}
+
+async function getRenderedClusterMatch(target) {
+  const clusterLayerId = getClusterLayerIdForSource(target.sourceKey);
+  const source = map.getSource(target.sourceKey);
+
+  if (!map.getLayer(clusterLayerId) || !source) return null;
+
+  const renderedClusters = map.queryRenderedFeatures({ layers: [clusterLayerId] });
+  if (!renderedClusters.length) return null;
+
+  const targetPixel = map.project([Number(target.lon), Number(target.lat)]);
+  const matches = [];
+
+  for (const feature of renderedClusters) {
+    if (!feature?.geometry || feature.geometry.type !== 'Point') continue;
+
+    const clusterId = feature.properties?.cluster_id;
+    if (clusterId == null) continue;
+
+    const leafLimit = Number(feature.properties?.point_count) || 1000;
+    const containsTarget = await clusterContainsTarget(source, clusterId, target, leafLimit);
+    if (!containsTarget) continue;
+
+    const [lon, lat] = feature.geometry.coordinates;
+    const pixel = map.project([lon, lat]);
+
+    const dx = pixel.x - targetPixel.x;
+    const dy = pixel.y - targetPixel.y;
+    const distSq = dx * dx + dy * dy;
+
+    matches.push({
+      lon,
+      lat,
+      size: Number(feature.properties?.maxSize) || target.size || 1,
+      distSq
+    });
+  }
+
+  if (!matches.length) return null;
+
+  matches.sort((a, b) => a.distSq - b.distSq);
+  return matches[0];
+}
+
+function clusterContainsTarget(source, clusterId, target, leafLimit = 1000) {
+  return new Promise((resolve) => {
+    source.getClusterLeaves(clusterId, leafLimit, 0, (err, leaves) => {
+      if (err || !Array.isArray(leaves)) {
+        resolve(false);
+        return;
+      }
+
+      const targetLon = Number(target.rawLon ?? target.lon);
+      const targetLat = Number(target.rawLat ?? target.lat);
+
+      const found = leaves.some((leaf) => {
+        if (!leaf?.geometry || leaf.geometry.type !== 'Point') return false;
+
+        const leafName =
+          (leaf.properties?.name && leaf.properties.name.trim()) ||
+          (leaf.properties?.title && leaf.properties.title.trim()) ||
+          '';
+
+        const leafCountry =
+          (leaf.properties?.country && leaf.properties.country.trim()) || '';
+
+        const leafMediaLink =
+          (leaf.properties?.gx_media_links && String(leaf.properties.gx_media_links).trim()) || '';
+
+        const leafDescription =
+          (leaf.properties?.description && String(leaf.properties.description).trim()) || '';
+
+        const sameIdentity =
+          leafName === (target.name || '') &&
+          leafCountry === (target.country || '') &&
+          leafMediaLink === (target.mediaLink || '') &&
+          leafDescription === (target.description || '') &&
+          (Number(leaf.properties?.size) || 1) === (Number(target.size) || 1);
+
+        if (sameIdentity) return true;
+
+        const [lon, lat] = leaf.geometry.coordinates;
+
+        return (
+          Math.abs(Number(lon) - targetLon) <= 1e-5 &&
+          Math.abs(Number(lat) - targetLat) <= 1e-5
+        );
+      });
+
+      resolve(found);
+    });
+  });
+}
+
+function getRenderedPointMatch(target) {
+  const pointLayerId = getPointLayerIdForSource(target.sourceKey);
+  if (!map.getLayer(pointLayerId)) return null;
+
+  const rendered = map.queryRenderedFeatures({ layers: [pointLayerId] });
+
+  for (const feature of rendered) {
+    if (!feature?.geometry || feature.geometry.type !== 'Point') continue;
+
+    const featureName =
+      (feature.properties?.name && feature.properties.name.trim()) ||
+      (feature.properties?.title && feature.properties.title.trim()) ||
+      '';
+
+    const featureCountry =
+      (feature.properties?.country && feature.properties.country.trim()) || '';
+
+    const featureMediaLink =
+      (feature.properties?.gx_media_links && String(feature.properties.gx_media_links).trim()) || '';
+
+    const featureDescription =
+      (feature.properties?.description && String(feature.properties.description).trim()) || '';
+
+    const sameIdentity =
+      featureName === (target.name || '') &&
+      featureCountry === (target.country || '') &&
+      featureMediaLink === (target.mediaLink || '') &&
+      featureDescription === (target.description || '') &&
+      (Number(feature.properties?.size) || 1) === (Number(target.size) || 1);
+
+    if (!sameIdentity) continue;
+
+    const [lon, lat] = feature.geometry.coordinates;
+    return {
+      lon,
+      lat,
+      size: Number(feature.properties?.size) || target.size || 1
+    };
+  }
+
+  for (const feature of rendered) {
+    if (!feature?.geometry || feature.geometry.type !== 'Point') continue;
+
+    const [lon, lat] = feature.geometry.coordinates;
+    const rawLon = Number(target.rawLon ?? target.lon);
+    const rawLat = Number(target.rawLat ?? target.lat);
+
+    if (
+      Math.abs(Number(lon) - rawLon) <= 1e-5 &&
+      Math.abs(Number(lat) - rawLat) <= 1e-5
+    ) {
+      return {
+        lon,
+        lat,
+        size: Number(feature.properties?.size) || target.size || 1
+      };
+    }
+  }
+
+  return null;
+}
+
 function getNearestRenderedFeatureForTarget(target, maxPixelDistance = 80) {
   if (!target?.sourceKey) return null;
 
@@ -465,122 +634,7 @@ function getNearestRenderedFeatureForTarget(target, maxPixelDistance = 80) {
   return best;
 }
 
-function getRenderedPointMatch(target) {
-  const pointLayerId = getPointLayerIdForSource(target.sourceKey);
-  if (!map.getLayer(pointLayerId)) return null;
-
-  const rendered = map.queryRenderedFeatures({ layers: [pointLayerId] });
-
-  for (const feature of rendered) {
-    if (!feature.geometry || feature.geometry.type !== 'Point') continue;
-
-    const featureName =
-      (feature.properties?.name && feature.properties.name.trim()) ||
-      (feature.properties?.title && feature.properties.title.trim()) ||
-      '';
-
-    const featureCountry =
-      (feature.properties?.country && feature.properties.country.trim()) || '';
-
-    const featureMediaLink =
-      (feature.properties?.gx_media_links && String(feature.properties.gx_media_links).trim()) || '';
-
-    const featureDescription =
-      (feature.properties?.description && String(feature.properties.description).trim()) || '';
-
-    const sameIdentity =
-      featureName === (target.name || '') &&
-      featureCountry === (target.country || '') &&
-      featureMediaLink === (target.mediaLink || '') &&
-      featureDescription === (target.description || '') &&
-      (Number(feature.properties?.size) || 1) === (Number(target.size) || 1);
-
-    if (!sameIdentity) continue;
-
-    const [lon, lat] = feature.geometry.coordinates;
-    return {
-      lon,
-      lat,
-      size: Number(feature.properties?.size) || target.size || 1
-    };
-  }
-
-  for (const feature of rendered) {
-    if (!feature.geometry || feature.geometry.type !== 'Point') continue;
-
-    const [lon, lat] = feature.geometry.coordinates;
-    if (areSameCoordinates(lon, lat, target.lon, target.lat)) {
-      return {
-        lon,
-        lat,
-        size: Number(feature.properties?.size) || target.size || 1
-      };
-    }
-  }
-
-  return null;
-}
-
-function clusterContainsTarget(source, clusterId, target, leafLimit = 1000) {
-  return new Promise((resolve) => {
-    source.getClusterLeaves(clusterId, leafLimit, 0, (err, leaves) => {
-      if (err || !Array.isArray(leaves)) {
-        resolve(false);
-        return;
-      }
-
-      const targetLon = Number(target.rawLon ?? target.lon);
-      const targetLat = Number(target.rawLat ?? target.lat);
-
-      const found = leaves.some((leaf) => {
-        if (!leaf.geometry || leaf.geometry.type !== 'Point') return false;
-        const [lon, lat] = leaf.geometry.coordinates;
-        return areSameCoordinates(lon, lat, targetLon, targetLat);
-      });
-
-      resolve(found);
-    });
-  });
-}
-
-async function getRenderedClusterMatch(target) {
-  const clusterLayerId = getClusterLayerIdForSource(target.sourceKey);
-  if (!map.getLayer(clusterLayerId)) return null;
-
-  const renderedClusters = map.queryRenderedFeatures({ layers: [clusterLayerId] });
-  if (!renderedClusters.length) return null;
-
-  const targetLon = Number(target.lon);
-  const targetLat = Number(target.lat);
-  const targetPixel = map.project([targetLon, targetLat]);
-
-  let bestMatch = null;
-  let bestDistSq = Infinity;
-
-  for (const feature of renderedClusters) {
-    if (!feature.geometry || feature.geometry.type !== 'Point') continue;
-
-    const [lon, lat] = feature.geometry.coordinates;
-    const pixel = map.project([lon, lat]);
-
-    const dx = pixel.x - targetPixel.x;
-    const dy = pixel.y - targetPixel.y;
-    const distSq = dx * dx + dy * dy;
-
-    if (distSq < bestDistSq) {
-      bestDistSq = distSq;
-      bestMatch = {
-        lon,
-        lat,
-        size: Number(feature.properties?.maxSize) || target.size || 1
-      };
-    }
-  }
-
-  return bestMatch;
-}
-
-async function showBestCrosshairForTarget(target) {
+function showBestCrosshairForTarget(target) {
   if (!target || !target.sourceKey) return;
 
   activeHoverTarget = {
@@ -598,27 +652,32 @@ async function showBestCrosshairForTarget(target) {
 
   const requestToken = ++crosshairRequestToken;
 
-  requestAnimationFrame(() => {
+  requestAnimationFrame(async () => {
     if (requestToken !== crosshairRequestToken) return;
+
+    const renderedPoint = getRenderedPointMatch(activeHoverTarget);
+    if (requestToken !== crosshairRequestToken) return;
+
+    if (renderedPoint) {
+      renderCrosshair(renderedPoint.lon, renderedPoint.lat, renderedPoint.size);
+      return;
+    }
+
+    const renderedCluster = await getRenderedClusterMatch(activeHoverTarget);
+    if (requestToken !== crosshairRequestToken) return;
+
+    if (renderedCluster) {
+      renderCrosshair(renderedCluster.lon, renderedCluster.lat, renderedCluster.size);
+      return;
+    }
 
     const nearest = getNearestRenderedFeatureForTarget(activeHoverTarget, 80);
     if (requestToken !== crosshairRequestToken) return;
 
     if (nearest) {
-      console.log('[CROSSHAIR MATCH]', {
-        kind: nearest.isCluster ? 'nearest-cluster-or-point' : 'nearest-point',
-        target: activeHoverTarget,
-        match: nearest
-      });
-
       renderCrosshair(nearest.lon, nearest.lat, nearest.size);
       return;
     }
-
-    console.log('[CROSSHAIR MATCH]', {
-      kind: 'none-near-enough',
-      target: activeHoverTarget
-    });
 
     hideCrosshairKeepTarget();
   });
@@ -1684,8 +1743,6 @@ map.on('load', () => {
   adaptiveProjectionMode = 'globe';
   syncAdaptiveProjection();
 });
-
-console.log('PROJECTION →', map.getProjection());
 
 /* ========= STYLE LOAD ========= */
 map.on('style.load', () => {
