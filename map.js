@@ -343,6 +343,13 @@ function hideCrosshairKeepTarget() {
   hideHtmlCrosshair();
 }
 
+function hideHoverCrosshairOnly() {
+  activeCrosshair = null;
+  activeHoverTarget = null;
+  crosshairRequestToken += 1;
+  hideHtmlCrosshair();
+}
+
 function refreshCrosshair() {
   refreshHtmlCrosshair();
 }
@@ -628,6 +635,48 @@ function buildTargetFromActiveCard() {
     sourceKey,
     identity
   });
+}
+
+function setActiveCardOverlayForced(force) {
+  const wrapper = document.querySelector('.panel-card.is-active .image-wrapper');
+  const overlay = document.querySelector('.panel-card.is-active .image-overlay');
+
+  if (!wrapper || !overlay) return;
+
+  wrapper.classList.toggle('force-overlay', Boolean(force));
+  overlay.style.opacity = force ? '1' : '';
+}
+
+function isNormalizedFeatureSameAsActiveCard(normalizedFeature) {
+  const overlay = document.querySelector('.panel-card.is-active .image-overlay');
+  if (!overlay || !normalizedFeature) return false;
+
+  const activeSourceKey = overlay.dataset.sourceKey || '';
+  if (activeSourceKey !== (normalizedFeature.sourceKey || '')) return false;
+
+  const activeIdentity = getFeatureIdentityFromDataset(overlay.dataset);
+  const featureIdentity = normalizedFeature.identity;
+
+  if (isSameFeatureIdentity(activeIdentity, featureIdentity)) {
+    return true;
+  }
+
+  const activeRawLon = Number(overlay.dataset.rawLon ?? overlay.dataset.lon);
+  const activeRawLat = Number(overlay.dataset.rawLat ?? overlay.dataset.lat);
+  const featureRawLon = Number(normalizedFeature.coords.rawLon ?? normalizedFeature.coords.visualLon);
+  const featureRawLat = Number(normalizedFeature.coords.rawLat ?? normalizedFeature.coords.visualLat);
+
+  return areSameCoordinates(activeRawLon, activeRawLat, featureRawLon, featureRawLat);
+}
+
+function syncActiveCardOverlayWithFeature(feature, sourceKey) {
+  if (!feature || !sourceKey) {
+    setActiveCardOverlayForced(false);
+    return;
+  }
+
+  const normalizedFeature = normalizeFeature(feature, sourceKey);
+  setActiveCardOverlayForced(isNormalizedFeatureSameAsActiveCard(normalizedFeature));
 }
 
 function getCurrentCrosshairTarget() {
@@ -1124,28 +1173,78 @@ function onEnterPointer(e) {
 
   if (layerId === 'nero-points') {
     const target = buildTargetFromFeature(feature, 'nero');
-    if (target) showBestCrosshairForTarget(target);
+    if (target) {
+      showBestCrosshairForTarget(target);
+      syncActiveCardOverlayWithFeature(feature, 'nero');
+    }
     return;
   }
 
   if (layerId === 'unclustered-point-bianco') {
     const target = buildTargetFromFeature(feature, 'bianco');
-    if (target) showBestCrosshairForTarget(target);
+    if (target) {
+      showBestCrosshairForTarget(target);
+      syncActiveCardOverlayWithFeature(feature, 'bianco');
+    }
     return;
   }
 
+  if (layerId === 'clusters-nero') {
+    const coords = feature?.geometry?.coordinates;
+    if (!Array.isArray(coords)) return;
+
+    const target = createCrosshairTarget({
+      lon: coords[0],
+      lat: coords[1],
+      rawLon: coords[0],
+      rawLat: coords[1],
+      sourceKey: 'nero',
+      identity: {
+        size: Number(feature?.properties?.maxSize) || 1
+      }
+    });
+
+    if (target) {
+      setHoverCrosshairTarget(target);
+      renderCrosshair(target.lon, target.lat, target.size);
+    }
+
+    setActiveCardOverlayForced(false);
+    return;
+  }
+
+  if (layerId === 'clusters-bianco') {
+    const coords = feature?.geometry?.coordinates;
+    if (!Array.isArray(coords)) return;
+
+    const target = createCrosshairTarget({
+      lon: coords[0],
+      lat: coords[1],
+      rawLon: coords[0],
+      rawLat: coords[1],
+      sourceKey: 'bianco',
+      identity: {
+        size: Number(feature?.properties?.maxSize) || 1
+      }
+    });
+
+    if (target) {
+      setHoverCrosshairTarget(target);
+      renderCrosshair(target.lon, target.lat, target.size);
+    }
+
+    setActiveCardOverlayForced(false);
+    return;
+  }
+
+  setActiveCardOverlayForced(false);
   hideCrosshair();
 }
 
 function onLeavePointer() {
   map.getCanvas().style.cursor = '';
-
-  if (selectedCrosshairTarget) {
-    activeHoverTarget = null;
-    return;
-  }
-
-  hideCrosshair();
+  setActiveCardOverlayForced(false);
+  hideHoverCrosshairOnly();
 }
 
 async function onClickNeroPoint(e) {
@@ -1156,6 +1255,7 @@ async function onClickNeroPoint(e) {
 
   updatePanel(canonicalFeature, 'nero');
   setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, 'nero'));
+  setActiveCardOverlayForced(true);
   syncAdaptiveProjection();
 }
 
@@ -1167,6 +1267,7 @@ async function onClickBiancoPoint(e) {
 
   updatePanel(canonicalFeature, 'bianco');
   setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, 'bianco'));
+  setActiveCardOverlayForced(true);
   syncAdaptiveProjection();
 }
 
