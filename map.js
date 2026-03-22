@@ -392,6 +392,18 @@ function getClusterLayerIdForSource(sourceKey) {
   return `${sourceKey}-clusters`;
 }
 
+function getClusterRingLayerIdForSource(sourceKey) {
+  return `${sourceKey}-clusters-ring`;
+}
+
+function getLayerIdsForSource(sourceKey) {
+  return [
+    getClusterLayerIdForSource(sourceKey),
+    getClusterRingLayerIdForSource(sourceKey),
+    getPointLayerIdForSource(sourceKey)
+  ];
+}
+
 function clusterContainsTarget(source, clusterId, target, leafLimit = 1000) {
   return new Promise((resolve) => {
     source.getClusterLeaves(clusterId, leafLimit, 0, (err, leaves) => {
@@ -961,29 +973,30 @@ function setupGeocoderOnce() {
 }
 
 /* ========= LAYER ID ========= */
-const interactiveLayerConfig = [
-  { layerId: 'nero-clusters', type: 'cluster', sourceKey: 'nero', clickHandler: onClickClusterNero },
-  { layerId: 'bianco-clusters', type: 'cluster', sourceKey: 'bianco', clickHandler: onClickClusterBianco },
-  { layerId: 'nero-points', type: 'point', sourceKey: 'nero', clickHandler: onClickNeroPoint },
-  { layerId: 'bianco-points', type: 'point', sourceKey: 'bianco', clickHandler: onClickBiancoPoint }
-];
+const sourceKeys = ['nero', 'bianco'];
 
-const pointLayerSourceMap = {
-  'nero-points': 'nero',
-  'bianco-points': 'bianco'
-};
+const pointLayerSourceMap = Object.fromEntries(
+  sourceKeys.map((sourceKey) => [getPointLayerIdForSource(sourceKey), sourceKey])
+);
 
-const clusterLayerSourceMap = {
-  'nero-clusters': 'nero',
-  'bianco-clusters': 'bianco'
+const clusterLayerSourceMap = Object.fromEntries(
+  sourceKeys.map((sourceKey) => [getClusterLayerIdForSource(sourceKey), sourceKey])
+);
+
+const layerGroups = Object.fromEntries(
+  sourceKeys.map((sourceKey) => [sourceKey, getLayerIdsForSource(sourceKey)])
+);
+
+const sourceStyleConfig = {
+  nero: {
+    color: '#2c2c2c'
+  },
+  bianco: {
+    color: '#ffffff'
+  }
 };
 
 /* ========= TOGGLE LAYER ========= */
-const layerGroups = {
-  nero: ['nero-clusters', 'nero-clusters-ring', 'nero-points'],
-  bianco: ['bianco-clusters', 'bianco-clusters-ring', 'bianco-points']
-};
-
 function setLayerGroupVisibility(group, visible) {
   const layers = layerGroups[group];
   if (!layers) return;
@@ -1012,11 +1025,17 @@ function initDataLayers() {
   refreshCrosshair();
 }
 
+function getGeoJsonUrlForSource(sourceKey) {
+  return `${sourceKey}.geojson`;
+}
+
 function addSourcesIfMissing() {
-  if (!map.getSource('nero')) {
-    map.addSource('nero', {
+  sourceKeys.forEach((sourceKey) => {
+    if (map.getSource(sourceKey)) return;
+
+    map.addSource(sourceKey, {
       type: 'geojson',
-      data: 'nero.geojson',
+      data: getGeoJsonUrlForSource(sourceKey),
       cluster: true,
       clusterRadius: 70,
       clusterMaxZoom: 7,
@@ -1024,127 +1043,138 @@ function addSourcesIfMissing() {
         maxSize: ['max', ['get', 'size']]
       }
     });
+  });
+}
+
+function getPointRadiusExpression() {
+  return ['match', ['get', 'size'], 1, 5, 2, 10, 3, 15, 6];
+}
+
+function getClusterRadiusExpression() {
+  return ['match', ['get', 'maxSize'], 1, 5, 2, 10, 3, 15, 7];
+}
+
+function getClusterRingRadiusExpression() {
+  return ['match', ['get', 'maxSize'], 1, 8, 2, 13, 3, 18, 10];
+}
+
+function getPointPaint(color) {
+  return {
+    'circle-color': color,
+    'circle-radius': getPointRadiusExpression(),
+    'circle-stroke-width': 1.2,
+    'circle-stroke-color': '#000000'
+  };
+}
+
+function getClusterPaint(color) {
+  return {
+    'circle-color': color,
+    'circle-radius': getClusterRadiusExpression(),
+    'circle-stroke-width': 1.2,
+    'circle-stroke-color': '#000000'
+  };
+}
+
+function getClusterRingPaint() {
+  return {
+    'circle-color': 'rgba(0,0,0,0)',
+    'circle-radius': getClusterRingRadiusExpression(),
+    'circle-stroke-width': 1.2,
+    'circle-stroke-color': '#000000',
+    'circle-stroke-opacity': 0.5
+  };
+}
+
+function getSourceColor(sourceKey) {
+  return sourceStyleConfig[sourceKey]?.color || '#000000';
+}
+
+function addLayersForSource(sourceKey) {
+  const color = getSourceColor(sourceKey);
+
+  if (!map.getLayer(getClusterLayerIdForSource(sourceKey))) {
+    map.addLayer({
+      id: getClusterLayerIdForSource(sourceKey),
+      type: 'circle',
+      source: sourceKey,
+      filter: ['has', 'point_count'],
+      paint: {
+        ...getClusterPaint(color),
+        'circle-opacity': 1.0
+      }
+    });
   }
 
-  if (!map.getSource('bianco')) {
-    map.addSource('bianco', {
-      type: 'geojson',
-      data: 'bianco.geojson',
-      cluster: true,
-      clusterRadius: 70,
-      clusterMaxZoom: 7,
-      clusterProperties: {
-        maxSize: ['max', ['get', 'size']]
-      }
+  if (!map.getLayer(getClusterRingLayerIdForSource(sourceKey))) {
+    map.addLayer({
+      id: getClusterRingLayerIdForSource(sourceKey),
+      type: 'circle',
+      source: sourceKey,
+      filter: ['has', 'point_count'],
+      paint: getClusterRingPaint()
+    });
+  }
+
+  if (!map.getLayer(getPointLayerIdForSource(sourceKey))) {
+    map.addLayer({
+      id: getPointLayerIdForSource(sourceKey),
+      type: 'circle',
+      source: sourceKey,
+      filter: ['!', ['has', 'point_count']],
+      paint: getPointPaint(color)
     });
   }
 }
 
 function addLayersIfMissing() {
-  if (!map.getLayer('nero-clusters')) {
-    map.addLayer({
-      id: 'nero-clusters',
-      type: 'circle',
-      source: 'nero',
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': '#2c2c2c',
-        'circle-radius': ['match', ['get', 'maxSize'], 1, 5, 2, 10, 3, 15, 7],
-        'circle-opacity': 1.0,
-        'circle-stroke-width': 1.2,
-        'circle-stroke-color': '#000000'
-      }
-    });
-  }
-
-  if (!map.getLayer('nero-clusters-ring')) {
-    map.addLayer({
-      id: 'nero-clusters-ring',
-      type: 'circle',
-      source: 'nero',
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': 'rgba(0,0,0,0)',
-        'circle-radius': ['match', ['get', 'maxSize'], 1, 8, 2, 13, 3, 18, 10],
-        'circle-stroke-width': 1.2,
-        'circle-stroke-color': '#000000',
-        'circle-stroke-opacity': 0.5
-      }
-    });
-  }
-
-  if (!map.getLayer('nero-points')) {
-    map.addLayer({
-      id: 'nero-points',
-      type: 'circle',
-      source: 'nero',
-      filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-color': '#2c2c2c',
-        'circle-radius': ['match', ['get', 'size'], 1, 5, 2, 10, 3, 15, 6],
-        'circle-stroke-width': 1.2,
-        'circle-stroke-color': '#000000'
-      }
-    });
-  }
-
-  if (!map.getLayer('bianco-clusters')) {
-    map.addLayer({
-      id: 'bianco-clusters',
-      type: 'circle',
-      source: 'bianco',
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': '#ffffff',
-        'circle-radius': ['match', ['get', 'maxSize'], 1, 5, 2, 10, 3, 15, 7],
-        'circle-stroke-width': 1.2,
-        'circle-stroke-color': '#000000'
-      }
-    });
-  }
-
-  if (!map.getLayer('bianco-clusters-ring')) {
-    map.addLayer({
-      id: 'bianco-clusters-ring',
-      type: 'circle',
-      source: 'bianco',
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': 'rgba(0,0,0,0)',
-        'circle-radius': ['match', ['get', 'maxSize'], 1, 8, 2, 13, 3, 18, 10],
-        'circle-stroke-width': 1.2,
-        'circle-stroke-color': '#000000',
-        'circle-stroke-opacity': 0.5
-      }
-    });
-  }
-
-  if (!map.getLayer('bianco-points')) {
-    map.addLayer({
-      id: 'bianco-points',
-      type: 'circle',
-      source: 'bianco',
-      filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-color': '#ffffff',
-        'circle-radius': ['match', ['get', 'size'], 1, 5, 2, 10, 3, 15, 6],
-        'circle-stroke-width': 1.2,
-        'circle-stroke-color': '#000000'
-      }
-    });
-  }
+  sourceKeys.forEach((sourceKey) => {
+    addLayersForSource(sourceKey);
+  });
 }
 
 /* ========= HANDLERS MAP ========= */
+async function onClickPointGeneric(e) {
+  const feature = e?.features?.[0];
+  if (!feature) return;
+
+  const layerId = feature?.layer?.id || '';
+  const sourceKey = pointLayerSourceMap[layerId];
+  if (!sourceKey) return;
+
+  await handlePointClick(feature, sourceKey);
+}
+
+function onClickClusterGeneric(e) {
+  const feature = e?.features?.[0];
+  if (!feature) return;
+
+  const layerId = feature?.layer?.id || '';
+  const sourceKey = clusterLayerSourceMap[layerId];
+  if (!sourceKey) return;
+
+  handleClusterClick(feature, sourceKey);
+}
+
 function bindMapInteractions() {
-  interactiveLayerConfig.forEach(({ layerId, clickHandler }) => {
+  Object.keys(clusterLayerSourceMap).forEach((layerId) => {
     map.off('mouseenter', layerId, onEnterPointer);
     map.off('mouseleave', layerId, onLeavePointer);
+    map.off('click', layerId, onClickClusterGeneric);
+
     map.on('mouseenter', layerId, onEnterPointer);
     map.on('mouseleave', layerId, onLeavePointer);
+    map.on('click', layerId, onClickClusterGeneric);
+  });
 
-    map.off('click', layerId, clickHandler);
-    map.on('click', layerId, clickHandler);
+  Object.keys(pointLayerSourceMap).forEach((layerId) => {
+    map.off('mouseenter', layerId, onEnterPointer);
+    map.off('mouseleave', layerId, onLeavePointer);
+    map.off('click', layerId, onClickPointGeneric);
+
+    map.on('mouseenter', layerId, onEnterPointer);
+    map.on('mouseleave', layerId, onLeavePointer);
+    map.on('click', layerId, onClickPointGeneric);
   });
 
   map.off('movestart', clearAllCrosshairState);
@@ -1169,16 +1199,6 @@ function handleClusterClick(feature, sourceKey) {
       if (!err) map.easeTo({ center: feature.geometry.coordinates, zoom });
     }
   );
-}
-
-function onClickClusterNero(e) {
-  const feature = e?.features?.[0];
-  handleClusterClick(feature, 'nero');
-}
-
-function onClickClusterBianco(e) {
-  const feature = e?.features?.[0];
-  handleClusterClick(feature, 'bianco');
 }
 
 function showCrosshairForClusterFeature(feature, sourceKey) {
@@ -1249,16 +1269,6 @@ async function handlePointClick(feature, sourceKey) {
   syncAdaptiveProjection();
 }
 
-async function onClickNeroPoint(e) {
-  const feature = e?.features?.[0];
-  await handlePointClick(feature, 'nero');
-}
-
-async function onClickBiancoPoint(e) {
-  const feature = e?.features?.[0];
-  await handlePointClick(feature, 'bianco');
-}
-
 /* ========= RANDOM FEATURE SIZE 2 ========= */
 async function loadGeoJSON(url) {
   if (geojsonCache[url]) return geojsonCache[url];
@@ -1274,10 +1284,11 @@ async function loadGeoJSON(url) {
 function preloadGeoJSONs() {
   if (geojsonPreloadPromise) return geojsonPreloadPromise;
 
-  geojsonPreloadPromise = Promise.all([
-    loadGeoJSON('nero.geojson').catch(() => null),
-    loadGeoJSON('bianco.geojson').catch(() => null)
-  ]);
+  geojsonPreloadPromise = Promise.all(
+    sourceKeys.map((sourceKey) =>
+      loadGeoJSON(getGeoJsonUrlForSource(sourceKey)).catch(() => null)
+    )
+  );
 
   return geojsonPreloadPromise;
 }
@@ -1450,7 +1461,7 @@ function getFeatureImageUrl(feature) {
 async function resolveCanonicalFeature(feature, sourceKey) {
   if (!feature?.geometry || feature.geometry.type !== 'Point') return feature;
 
-  const url = sourceKey === 'nero' ? 'nero.geojson' : 'bianco.geojson';
+  const url = getGeoJsonUrlForSource(sourceKey);
   const raw = await loadGeoJSON(url).catch(() => null);
   if (!raw?.features?.length) return feature;
 
@@ -1531,33 +1542,23 @@ function isSize2Feature(f) {
   return Number(size) === 2 && f?.geometry?.type === 'Point';
 }
 
-async function pickRandomSize2FromBothLayers() {
+async function pickRandomSize2FromSources() {
   await preloadGeoJSONs();
 
-  const nero = geojsonCache['nero.geojson'] || null;
-  const bianco = geojsonCache['bianco.geojson'] || null;
+  const candidates = sourceKeys.flatMap((sourceKey) => {
+    const geojson = geojsonCache[getGeoJsonUrlForSource(sourceKey)] || null;
 
-  const neroCandidates = (nero?.features || [])
-    .filter(isSize2Feature)
-    .map((f) => ({
-      ...f,
-      properties: {
-        ...(f.properties || {}),
-        __sourceKey: 'nero'
-      }
-    }));
+    return (geojson?.features || [])
+      .filter(isSize2Feature)
+      .map((feature) => ({
+        ...feature,
+        properties: {
+          ...(feature.properties || {}),
+          __sourceKey: sourceKey
+        }
+      }));
+  });
 
-  const biancoCandidates = (bianco?.features || [])
-    .filter(isSize2Feature)
-    .map((f) => ({
-      ...f,
-      properties: {
-        ...(f.properties || {}),
-        __sourceKey: 'bianco'
-      }
-    }));
-
-  const candidates = [...neroCandidates, ...biancoCandidates];
   if (!candidates.length) return null;
 
   const idx = Math.floor(Math.random() * candidates.length);
@@ -1571,7 +1572,7 @@ async function showRandomSize2OnStartup() {
   try {
     await preloadGeoJSONs();
 
-    const f = await pickRandomSize2FromBothLayers();
+    const f = await pickRandomSize2FromSources();
     if (f) updatePanel(f, f.properties?.__sourceKey || null);
   } catch (e) {
     console.warn('Startup random size=2 failed:', e);
@@ -1580,7 +1581,7 @@ async function showRandomSize2OnStartup() {
 
 async function refreshRandomSize2() {
   try {
-    const f = await pickRandomSize2FromBothLayers();
+    const f = await pickRandomSize2FromSources();
     if (f) updatePanel(f, f.properties?.__sourceKey || null);
   } catch (e) {
     console.warn('Random refresh failed:', e);
