@@ -547,6 +547,10 @@ html, body {
   opacity: 1;
 }
 
+.panel-card .image-overlay.is-forced {
+  opacity: 1;
+}
+
 .image-overlay button {
   cursor: default;
 }

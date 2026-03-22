@@ -350,6 +350,15 @@ function hideHoverCrosshairOnly() {
   hideHtmlCrosshair();
 }
 
+function clearAllCrosshairState() {
+  activeCrosshair = null;
+  activeHoverTarget = null;
+  selectedCrosshairTarget = null;
+  crosshairRequestToken += 1;
+  hideHtmlCrosshair();
+  setActiveCardOverlayForced(false);
+}
+
 function refreshCrosshair() {
   refreshHtmlCrosshair();
 }
@@ -638,13 +647,10 @@ function buildTargetFromActiveCard() {
 }
 
 function setActiveCardOverlayForced(force) {
-  const wrapper = document.querySelector('.panel-card.is-active .image-wrapper');
   const overlay = document.querySelector('.panel-card.is-active .image-overlay');
+  if (!overlay) return;
 
-  if (!wrapper || !overlay) return;
-
-  wrapper.classList.toggle('force-overlay', Boolean(force));
-  overlay.style.opacity = force ? '1' : '';
+  overlay.classList.toggle('is-forced', Boolean(force));
 }
 
 function isNormalizedFeatureSameAsActiveCard(normalizedFeature) {
@@ -1132,8 +1138,14 @@ function bindMapInteractions() {
   map.on('click', 'nero-points', onClickNeroPoint);
   map.on('click', 'unclustered-point-bianco', onClickBiancoPoint);
 
+  map.off('movestart', clearAllCrosshairState);
+  map.off('zoomstart', clearAllCrosshairState);
+
   map.off('moveend', refreshBestCrosshairAfterMove);
   map.off('zoomend', refreshBestCrosshairAfterMove);
+
+  map.on('movestart', clearAllCrosshairState);
+  map.on('zoomstart', clearAllCrosshairState);
 
   map.on('moveend', refreshBestCrosshairAfterMove);
   map.on('zoomend', refreshBestCrosshairAfterMove);
@@ -1692,16 +1704,25 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
     const currentZoom = map.getZoom();
     const nextZoom = Math.min(currentZoom + 2, 14);
 
-    const target = buildTargetFromActiveCard();
-    if (target) {
-      setHoverCrosshairTarget(target);
-      hideCrosshairKeepTarget();
-    } else {
-      hideCrosshair();
+    const zoomChanged = Math.abs(nextZoom - currentZoom) > 0.001;
+
+    // 👉 Se lo zoom NON cambia, aggiorniamo subito senza animazione
+    if (!zoomChanged) {
+      const target = buildTargetFromActiveCard();
+      if (!target) return;
+
+      setSelectedCrosshairTarget(target);
+      showBestCrosshairForTarget(target);
+      return;
     }
 
+    // 👉 Se lo zoom cambia, comportamento standard
     map.once('moveend', () => {
-      refreshCurrentCrosshairTarget();
+      const target = buildTargetFromActiveCard();
+      if (!target) return;
+
+      setSelectedCrosshairTarget(target);
+      showBestCrosshairForTarget(target);
     });
 
     map.easeTo({
