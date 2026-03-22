@@ -1718,17 +1718,22 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 
     // 👉 Se lo zoom cambia, comportamento standard
     map.once('moveend', () => {
-      const target = buildTargetFromActiveCard();
-      if (!target) return;
+      map.once('idle', () => {
+        requestAnimationFrame(() => {
+          const target = buildTargetFromActiveCard();
+          if (!target) return;
 
-      setSelectedCrosshairTarget(target);
-      showBestCrosshairForTarget(target);
+          setSelectedCrosshairTarget(target);
+          showBestCrosshairForTarget(target);
+        });
+      });
     });
 
     map.easeTo({
       center: [lon, lat],
       zoom: nextZoom,
-      duration: 800
+      duration: 950,
+      easing: (t) => 1 - Math.pow(1 - t, 3)
     });
   }
 });
