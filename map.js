@@ -385,11 +385,11 @@ function areSameCoordinates(aLon, aLat, bLon, bLat, tolerance = 1e-5) {
 }
 
 function getPointLayerIdForSource(sourceKey) {
-  return sourceKey === 'nero' ? 'nero-points' : 'unclustered-point-bianco';
+  return `${sourceKey}-points`;
 }
 
 function getClusterLayerIdForSource(sourceKey) {
-  return sourceKey === 'nero' ? 'clusters-nero' : 'clusters-bianco';
+  return `${sourceKey}-clusters`;
 }
 
 function clusterContainsTarget(source, clusterId, target, leafLimit = 1000) {
@@ -960,10 +960,28 @@ function setupGeocoderOnce() {
   });
 }
 
+/* ========= LAYER ID ========= */
+const interactiveLayerConfig = [
+  { layerId: 'nero-clusters', type: 'cluster', sourceKey: 'nero', clickHandler: onClickClusterNero },
+  { layerId: 'bianco-clusters', type: 'cluster', sourceKey: 'bianco', clickHandler: onClickClusterBianco },
+  { layerId: 'nero-points', type: 'point', sourceKey: 'nero', clickHandler: onClickNeroPoint },
+  { layerId: 'bianco-points', type: 'point', sourceKey: 'bianco', clickHandler: onClickBiancoPoint }
+];
+
+const pointLayerSourceMap = {
+  'nero-points': 'nero',
+  'bianco-points': 'bianco'
+};
+
+const clusterLayerSourceMap = {
+  'nero-clusters': 'nero',
+  'bianco-clusters': 'bianco'
+};
+
 /* ========= TOGGLE LAYER ========= */
 const layerGroups = {
-  nero: ['clusters-nero', 'clusters-nero-ring', 'nero-points'],
-  bianco: ['clusters-bianco', 'clusters-bianco-ring', 'unclustered-point-bianco']
+  nero: ['nero-clusters', 'nero-clusters-ring', 'nero-points'],
+  bianco: ['bianco-clusters', 'bianco-clusters-ring', 'bianco-points']
 };
 
 function setLayerGroupVisibility(group, visible) {
@@ -1023,9 +1041,9 @@ function addSourcesIfMissing() {
 }
 
 function addLayersIfMissing() {
-  if (!map.getLayer('clusters-nero')) {
+  if (!map.getLayer('nero-clusters')) {
     map.addLayer({
-      id: 'clusters-nero',
+      id: 'nero-clusters',
       type: 'circle',
       source: 'nero',
       filter: ['has', 'point_count'],
@@ -1039,9 +1057,9 @@ function addLayersIfMissing() {
     });
   }
 
-  if (!map.getLayer('clusters-nero-ring')) {
+  if (!map.getLayer('nero-clusters-ring')) {
     map.addLayer({
-      id: 'clusters-nero-ring',
+      id: 'nero-clusters-ring',
       type: 'circle',
       source: 'nero',
       filter: ['has', 'point_count'],
@@ -1070,9 +1088,9 @@ function addLayersIfMissing() {
     });
   }
 
-  if (!map.getLayer('clusters-bianco')) {
+  if (!map.getLayer('bianco-clusters')) {
     map.addLayer({
-      id: 'clusters-bianco',
+      id: 'bianco-clusters',
       type: 'circle',
       source: 'bianco',
       filter: ['has', 'point_count'],
@@ -1085,9 +1103,9 @@ function addLayersIfMissing() {
     });
   }
 
-  if (!map.getLayer('clusters-bianco-ring')) {
+  if (!map.getLayer('bianco-clusters-ring')) {
     map.addLayer({
-      id: 'clusters-bianco-ring',
+      id: 'bianco-clusters-ring',
       type: 'circle',
       source: 'bianco',
       filter: ['has', 'point_count'],
@@ -1101,9 +1119,9 @@ function addLayersIfMissing() {
     });
   }
 
-  if (!map.getLayer('unclustered-point-bianco')) {
+  if (!map.getLayer('bianco-points')) {
     map.addLayer({
-      id: 'unclustered-point-bianco',
+      id: 'bianco-points',
       type: 'circle',
       source: 'bianco',
       filter: ['!', ['has', 'point_count']],
@@ -1119,24 +1137,15 @@ function addLayersIfMissing() {
 
 /* ========= HANDLERS MAP ========= */
 function bindMapInteractions() {
-  map.off('click', 'clusters-nero', onClickClusterNero);
-  map.on('click', 'clusters-nero', onClickClusterNero);
+  interactiveLayerConfig.forEach(({ layerId, clickHandler }) => {
+    map.off('mouseenter', layerId, onEnterPointer);
+    map.off('mouseleave', layerId, onLeavePointer);
+    map.on('mouseenter', layerId, onEnterPointer);
+    map.on('mouseleave', layerId, onLeavePointer);
 
-  map.off('click', 'clusters-bianco', onClickClusterBianco);
-  map.on('click', 'clusters-bianco', onClickClusterBianco);
-
-  const layers = ['clusters-nero', 'clusters-bianco', 'nero-points', 'unclustered-point-bianco'];
-  layers.forEach((layer) => {
-    map.off('mouseenter', layer, onEnterPointer);
-    map.off('mouseleave', layer, onLeavePointer);
-    map.on('mouseenter', layer, onEnterPointer);
-    map.on('mouseleave', layer, onLeavePointer);
+    map.off('click', layerId, clickHandler);
+    map.on('click', layerId, clickHandler);
   });
-
-  map.off('click', 'nero-points', onClickNeroPoint);
-  map.off('click', 'unclustered-point-bianco', onClickBiancoPoint);
-  map.on('click', 'nero-points', onClickNeroPoint);
-  map.on('click', 'unclustered-point-bianco', onClickBiancoPoint);
 
   map.off('movestart', clearAllCrosshairState);
   map.off('zoomstart', clearAllCrosshairState);
@@ -1151,28 +1160,48 @@ function bindMapInteractions() {
   map.on('zoomend', refreshBestCrosshairAfterMove);
 }
 
-function onClickClusterNero(e) {
-  const f = e.features && e.features[0];
-  if (!f) return;
+function handleClusterClick(feature, sourceKey) {
+  if (!feature) return;
 
-  map.getSource('nero').getClusterExpansionZoom(
-    f.properties.cluster_id,
+  map.getSource(sourceKey).getClusterExpansionZoom(
+    feature.properties.cluster_id,
     (err, zoom) => {
-      if (!err) map.easeTo({ center: f.geometry.coordinates, zoom });
+      if (!err) map.easeTo({ center: feature.geometry.coordinates, zoom });
     }
   );
 }
 
-function onClickClusterBianco(e) {
-  const f = e.features && e.features[0];
-  if (!f) return;
+function onClickClusterNero(e) {
+  const feature = e?.features?.[0];
+  handleClusterClick(feature, 'nero');
+}
 
-  map.getSource('bianco').getClusterExpansionZoom(
-    f.properties.cluster_id,
-    (err, zoom) => {
-      if (!err) map.easeTo({ center: f.geometry.coordinates, zoom });
+function onClickClusterBianco(e) {
+  const feature = e?.features?.[0];
+  handleClusterClick(feature, 'bianco');
+}
+
+function showCrosshairForClusterFeature(feature, sourceKey) {
+  const coords = feature?.geometry?.coordinates;
+  if (!Array.isArray(coords)) return;
+
+  const target = createCrosshairTarget({
+    lon: coords[0],
+    lat: coords[1],
+    rawLon: coords[0],
+    rawLat: coords[1],
+    sourceKey,
+    identity: {
+      size: Number(feature?.properties?.maxSize) || 1
     }
-  );
+  });
+
+  if (target) {
+    setHoverCrosshairTarget(target);
+    renderCrosshair(target.lon, target.lat, target.size);
+  }
+
+  setActiveCardOverlayForced(false);
 }
 
 function onEnterPointer(e) {
@@ -1183,69 +1212,19 @@ function onEnterPointer(e) {
 
   const layerId = feature?.layer?.id || '';
 
-  if (layerId === 'nero-points') {
-    const target = buildTargetFromFeature(feature, 'nero');
+  const pointSourceKey = pointLayerSourceMap[layerId];
+  if (pointSourceKey) {
+    const target = buildTargetFromFeature(feature, pointSourceKey);
     if (target) {
       showBestCrosshairForTarget(target);
-      syncActiveCardOverlayWithFeature(feature, 'nero');
+      syncActiveCardOverlayWithFeature(feature, pointSourceKey);
     }
     return;
   }
 
-  if (layerId === 'unclustered-point-bianco') {
-    const target = buildTargetFromFeature(feature, 'bianco');
-    if (target) {
-      showBestCrosshairForTarget(target);
-      syncActiveCardOverlayWithFeature(feature, 'bianco');
-    }
-    return;
-  }
-
-  if (layerId === 'clusters-nero') {
-    const coords = feature?.geometry?.coordinates;
-    if (!Array.isArray(coords)) return;
-
-    const target = createCrosshairTarget({
-      lon: coords[0],
-      lat: coords[1],
-      rawLon: coords[0],
-      rawLat: coords[1],
-      sourceKey: 'nero',
-      identity: {
-        size: Number(feature?.properties?.maxSize) || 1
-      }
-    });
-
-    if (target) {
-      setHoverCrosshairTarget(target);
-      renderCrosshair(target.lon, target.lat, target.size);
-    }
-
-    setActiveCardOverlayForced(false);
-    return;
-  }
-
-  if (layerId === 'clusters-bianco') {
-    const coords = feature?.geometry?.coordinates;
-    if (!Array.isArray(coords)) return;
-
-    const target = createCrosshairTarget({
-      lon: coords[0],
-      lat: coords[1],
-      rawLon: coords[0],
-      rawLat: coords[1],
-      sourceKey: 'bianco',
-      identity: {
-        size: Number(feature?.properties?.maxSize) || 1
-      }
-    });
-
-    if (target) {
-      setHoverCrosshairTarget(target);
-      renderCrosshair(target.lon, target.lat, target.size);
-    }
-
-    setActiveCardOverlayForced(false);
+  const clusterSourceKey = clusterLayerSourceMap[layerId];
+  if (clusterSourceKey) {
+    showCrosshairForClusterFeature(feature, clusterSourceKey);
     return;
   }
 
@@ -1259,28 +1238,25 @@ function onLeavePointer() {
   hideHoverCrosshairOnly();
 }
 
-async function onClickNeroPoint(e) {
-  const feature = e?.features?.[0];
+async function handlePointClick(feature, sourceKey) {
   if (!feature) return;
 
-  const canonicalFeature = await resolveCanonicalFeature(feature, 'nero');
+  const canonicalFeature = await resolveCanonicalFeature(feature, sourceKey);
 
-  updatePanel(canonicalFeature, 'nero');
-  setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, 'nero'));
+  updatePanel(canonicalFeature, sourceKey);
+  setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, sourceKey));
   setActiveCardOverlayForced(true);
   syncAdaptiveProjection();
 }
 
+async function onClickNeroPoint(e) {
+  const feature = e?.features?.[0];
+  await handlePointClick(feature, 'nero');
+}
+
 async function onClickBiancoPoint(e) {
   const feature = e?.features?.[0];
-  if (!feature) return;
-
-  const canonicalFeature = await resolveCanonicalFeature(feature, 'bianco');
-
-  updatePanel(canonicalFeature, 'bianco');
-  setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, 'bianco'));
-  setActiveCardOverlayForced(true);
-  syncAdaptiveProjection();
+  await handlePointClick(feature, 'bianco');
 }
 
 /* ========= RANDOM FEATURE SIZE 2 ========= */
