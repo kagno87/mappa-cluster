@@ -61,7 +61,7 @@ html, body {
 
 .crosshair-html .arm.outline {
   background: #fff;
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 .crosshair-html .arm.left.main,
@@ -76,12 +76,12 @@ html, body {
 
 .crosshair-html .arm.left.outline,
 .crosshair-html .arm.right.outline {
-  height: 5px;
+  height: 5.0px;
 }
 
 .crosshair-html .arm.top.outline,
 .crosshair-html .arm.bottom.outline {
-  width: 5px;
+  width: 5.0px;
 }
 
 /* ============================= */

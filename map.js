@@ -31,7 +31,7 @@ let geojsonPreloadPromise = null;
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
-  showRandomSize2OnStartup();
+  showStartupRandomSize2Card();
 });
 
 /* ========= PANEL HEIGHT / SCALE ========= */
@@ -214,13 +214,13 @@ function getCrosshairMetrics(sizeValue) {
 
   switch (size) {
     case 1:
-      return { gap: 13, arm: 8, stroke: 2.5 };
+      return { gap: 13, arm: 12, stroke: 2.5 }; 
     case 2:
-      return { gap: 17, arm: 10, stroke: 2.5 };
+      return { gap: 18, arm: 14, stroke: 2.5 }; 
     case 3:
-      return { gap: 21, arm: 12, stroke: 2.5 };
+      return { gap: 23, arm: 16, stroke: 2.5 }; 
     default:
-      return { gap: 13, arm: 8, stroke: 2.5 };
+      return { gap: 13, arm: 12, stroke: 2.5 };
   }
 }
 
@@ -273,11 +273,46 @@ function positionCrosshairArms(container, metrics) {
     el.style.height = `${h}px`;
   }
 
-  setBox(leftOutline, -(gap + arm), -2.5, arm, 5);
-  setBox(rightOutline, gap, -2.5, arm, 5);
-  setBox(topOutline, -2.5, -(gap + arm), 5, arm);
-  setBox(bottomOutline, -2.5, gap, 5, arm);
+  const outlineExtra = 1.5;
+  const outlineInset = outlineExtra / 2;
+  const outlineThickness = 4; // prova 4, poi 3.5 se la vuoi ancora più fine
+  const outlineOffset = outlineThickness / 2;
 
+  setBox(
+    leftOutline,
+    -(gap + arm) - outlineInset,
+    -outlineOffset,
+    arm + outlineExtra,
+    outlineThickness
+  );
+
+  setBox(
+    rightOutline,
+    gap - outlineInset,
+    -outlineOffset,
+    arm + outlineExtra,
+    outlineThickness
+  );
+
+  setBox(
+    topOutline,
+    -outlineOffset,
+    -(gap + arm) - outlineInset,
+    outlineThickness,
+    arm + outlineExtra
+  );
+
+  setBox(
+    bottomOutline,
+    -outlineOffset,
+    gap - outlineInset,
+    outlineThickness,
+    arm + outlineExtra
+  );
+
+  
+  
+  
   setBox(leftMain, -(gap + arm), -(stroke / 2), arm, stroke);
   setBox(rightMain, gap, -(stroke / 2), arm, stroke);
   setBox(topMain, -(stroke / 2), -(gap + arm), stroke, arm);
@@ -396,10 +431,25 @@ function getClusterRingLayerIdForSource(sourceKey) {
   return `${sourceKey}-clusters-ring`;
 }
 
+function getPointOutlineLayerIdForSource(sourceKey) {
+  return `${sourceKey}-points-outline`;
+}
+
+function getClusterOutlineLayerIdForSource(sourceKey) {
+  return `${sourceKey}-clusters-outline`;
+}
+
+function getClusterRingOutlineLayerIdForSource(sourceKey) {
+  return `${sourceKey}-clusters-ring-outline`;
+}
+
 function getLayerIdsForSource(sourceKey) {
   return [
+    getClusterOutlineLayerIdForSource(sourceKey),
     getClusterLayerIdForSource(sourceKey),
+    getClusterRingOutlineLayerIdForSource(sourceKey),
     getClusterRingLayerIdForSource(sourceKey),
+    getPointOutlineLayerIdForSource(sourceKey),
     getPointLayerIdForSource(sourceKey)
   ];
 }
@@ -1082,7 +1132,24 @@ function getClusterRingPaint() {
     'circle-radius': getClusterRingRadiusExpression(),
     'circle-stroke-width': 1.2,
     'circle-stroke-color': '#000000',
-    'circle-stroke-opacity': 0.5
+    'circle-stroke-opacity': 0.8
+  };
+}
+
+function getClusterRingOutlinePaint() {
+  return {
+    'circle-color': 'rgba(0,0,0,0)',
+    'circle-radius': [
+      'match',
+      ['get', 'maxSize'],
+      1, 9.1,
+      2, 14.1,
+      3, 19.1,
+      11.2
+    ],
+    'circle-stroke-width': 1.0,
+    'circle-stroke-color': '#ffffff',
+    'circle-stroke-opacity': 0.8
   };
 }
 
@@ -1090,8 +1157,34 @@ function getSourceColor(sourceKey) {
   return sourceStyleConfig[sourceKey]?.color || '#000000';
 }
 
+function getPointOutlinePaint() {
+  return {
+    'circle-color': '#ffffff',
+    'circle-radius': ['+', getPointRadiusExpression(), 2.0],
+    'circle-opacity': 0.8
+  };
+}
+
+function getClusterOutlinePaint() {
+  return {
+    'circle-color': '#ffffff',
+    'circle-radius': ['+', getClusterRadiusExpression(), 2.0],
+    'circle-opacity': 0.8
+  };
+}
+
 function addLayersForSource(sourceKey) {
   const color = getSourceColor(sourceKey);
+
+  if (!map.getLayer(getClusterOutlineLayerIdForSource(sourceKey))) {
+    map.addLayer({
+      id: getClusterOutlineLayerIdForSource(sourceKey),
+      type: 'circle',
+      source: sourceKey,
+      filter: ['has', 'point_count'],
+      paint: getClusterOutlinePaint()
+    });
+  }
 
   if (!map.getLayer(getClusterLayerIdForSource(sourceKey))) {
     map.addLayer({
@@ -1106,6 +1199,16 @@ function addLayersForSource(sourceKey) {
     });
   }
 
+    if (!map.getLayer(getClusterRingOutlineLayerIdForSource(sourceKey))) {
+    map.addLayer({
+      id: getClusterRingOutlineLayerIdForSource(sourceKey),
+      type: 'circle',
+      source: sourceKey,
+      filter: ['has', 'point_count'],
+      paint: getClusterRingOutlinePaint()
+    });
+  }
+
   if (!map.getLayer(getClusterRingLayerIdForSource(sourceKey))) {
     map.addLayer({
       id: getClusterRingLayerIdForSource(sourceKey),
@@ -1113,6 +1216,16 @@ function addLayersForSource(sourceKey) {
       source: sourceKey,
       filter: ['has', 'point_count'],
       paint: getClusterRingPaint()
+    });
+  }
+
+  if (!map.getLayer(getPointOutlineLayerIdForSource(sourceKey))) {
+    map.addLayer({
+      id: getPointOutlineLayerIdForSource(sourceKey),
+      type: 'circle',
+      source: sourceKey,
+      filter: ['!', ['has', 'point_count']],
+      paint: getPointOutlinePaint()
     });
   }
 
@@ -1565,7 +1678,7 @@ async function pickRandomSize2FromSources() {
   return candidates[idx];
 }
 
-async function showRandomSize2OnStartup() {
+async function showStartupRandomSize2Card() {
   if (startupRandomShown) return;
   startupRandomShown = true;
 
@@ -1579,7 +1692,7 @@ async function showRandomSize2OnStartup() {
   }
 }
 
-async function refreshRandomSize2() {
+async function showRandomSize2Card() {
   try {
     const f = await pickRandomSize2FromSources();
     if (f) updatePanel(f, f.properties?.__sourceKey || null);
@@ -1835,5 +1948,5 @@ function lockZenithNorth() {
 
 /* ========= LOGO CLICK -> RANDOM CARD ========= */
 document.getElementById('brand')?.addEventListener('click', () => {
-  refreshRandomSize2();
+  showRandomSize2Card();
 });
