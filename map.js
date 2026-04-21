@@ -1176,6 +1176,29 @@ function getClusterOutlinePaint() {
 function addLayersForSource(sourceKey) {
   const color = getSourceColor(sourceKey);
 
+  // 🔽 RING OUTLINE (più sotto di tutto)
+  if (!map.getLayer(getClusterRingOutlineLayerIdForSource(sourceKey))) {
+    map.addLayer({
+      id: getClusterRingOutlineLayerIdForSource(sourceKey),
+      type: 'circle',
+      source: sourceKey,
+      filter: ['has', 'point_count'],
+      paint: getClusterRingOutlinePaint()
+    });
+  }
+
+  // 🔽 RING
+  if (!map.getLayer(getClusterRingLayerIdForSource(sourceKey))) {
+    map.addLayer({
+      id: getClusterRingLayerIdForSource(sourceKey),
+      type: 'circle',
+      source: sourceKey,
+      filter: ['has', 'point_count'],
+      paint: getClusterRingPaint()
+    });
+  }
+
+  // 🔼 CLUSTER OUTLINE
   if (!map.getLayer(getClusterOutlineLayerIdForSource(sourceKey))) {
     map.addLayer({
       id: getClusterOutlineLayerIdForSource(sourceKey),
@@ -1186,6 +1209,7 @@ function addLayersForSource(sourceKey) {
     });
   }
 
+  // 🔼 CLUSTER
   if (!map.getLayer(getClusterLayerIdForSource(sourceKey))) {
     map.addLayer({
       id: getClusterLayerIdForSource(sourceKey),
@@ -1199,26 +1223,7 @@ function addLayersForSource(sourceKey) {
     });
   }
 
-    if (!map.getLayer(getClusterRingOutlineLayerIdForSource(sourceKey))) {
-    map.addLayer({
-      id: getClusterRingOutlineLayerIdForSource(sourceKey),
-      type: 'circle',
-      source: sourceKey,
-      filter: ['has', 'point_count'],
-      paint: getClusterRingOutlinePaint()
-    });
-  }
-
-  if (!map.getLayer(getClusterRingLayerIdForSource(sourceKey))) {
-    map.addLayer({
-      id: getClusterRingLayerIdForSource(sourceKey),
-      type: 'circle',
-      source: sourceKey,
-      filter: ['has', 'point_count'],
-      paint: getClusterRingPaint()
-    });
-  }
-
+  // 🔼 POINT OUTLINE
   if (!map.getLayer(getPointOutlineLayerIdForSource(sourceKey))) {
     map.addLayer({
       id: getPointOutlineLayerIdForSource(sourceKey),
@@ -1229,6 +1234,7 @@ function addLayersForSource(sourceKey) {
     });
   }
 
+  // 🔼 POINT (più sopra di tutto)
   if (!map.getLayer(getPointLayerIdForSource(sourceKey))) {
     map.addLayer({
       id: getPointLayerIdForSource(sourceKey),
@@ -1897,6 +1903,8 @@ map.on('load', () => {
   bindMapInteractions();
   lockZenithNorth();
   initializeAdaptiveProjection('globe');
+
+  map.setMinZoom(1.8);
 });
 
 /* ========= STYLE LOAD ========= */
