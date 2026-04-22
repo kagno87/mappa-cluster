@@ -28,6 +28,8 @@ let adaptiveProjectionMode = 'globe';
 const geojsonCache = {};
 let geojsonPreloadPromise = null;
 
+const superclusterIndex = {};
+
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
@@ -1305,7 +1307,16 @@ function bindMapInteractions() {
   map.on('movestart', clearAllCrosshairState);
   map.on('zoomstart', clearAllCrosshairState);
 
-  map.on('moveend', refreshBestCrosshairAfterMove);
+  map.on('moveend', () => {
+    refreshBestCrosshairAfterMove();
+
+    const neroClusters = getSuperclusterFeatures('nero');
+    const biancoClusters = getSuperclusterFeatures('bianco');
+
+    console.log('SC nero:', neroClusters.length);
+    console.log('SC bianco:', biancoClusters.length);
+  });
+
   map.on('zoomend', refreshBestCrosshairAfterMove);
 }
 
@@ -1410,6 +1421,59 @@ function preloadGeoJSONs() {
   );
 
   return geojsonPreloadPromise;
+}
+
+function buildSuperclusterIndex() {
+  sourceKeys.forEach((sourceKey) => {
+    const geojson = geojsonCache[getGeoJsonUrlForSource(sourceKey)];
+    if (!geojson) return;
+
+    const points = geojson.features
+      .filter(f => f.geometry?.type === 'Point')
+      .map(f => ({
+        type: 'Feature',
+        properties: {
+          ...f.properties,
+          sourceKey
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: f.geometry.coordinates
+        }
+      }));
+
+    const index = new Supercluster({
+      radius: 70,
+      maxZoom: 7
+    });
+
+    index.load(points);
+
+    superclusterIndex[sourceKey] = index;
+  });
+
+  console.log('Supercluster index ready:', superclusterIndex);
+}
+
+function getSuperclusterFeatures(sourceKey) {
+  const index = superclusterIndex[sourceKey];
+  if (!index) return [];
+
+  const bounds = map.getBounds();
+  if (!bounds) return [];
+
+  const bbox = [
+    bounds.getWest(),
+    bounds.getSouth(),
+    bounds.getEast(),
+    bounds.getNorth()
+  ];
+
+  const zoom = Math.round(map.getZoom());
+
+  const clusters = index.getClusters(bbox, zoom);
+
+  return clusters;
 }
 
 function getFeatureIdentity(feature) {
@@ -1898,7 +1962,9 @@ map.on('load', () => {
   map.addControl(new DualScaleControl(), 'top-left');
 
   setupGeocoderOnce();
-  preloadGeoJSONs();
+  preloadGeoJSONs().then(() => {
+    buildSuperclusterIndex();
+  });
   initDataLayers();
   bindMapInteractions();
   lockZenithNorth();
@@ -1958,3 +2024,5 @@ function lockZenithNorth() {
 document.getElementById('brand')?.addEventListener('click', () => {
   showRandomSize2Card();
 });
+
+console.log('Supercluster:', typeof Supercluster);
