@@ -388,12 +388,14 @@ function hideHoverCrosshairOnly() {
 }
 
 function clearAllCrosshairState() {
-  activeCrosshair = null;
-  activeHoverTarget = null;
-  selectedCrosshairTarget = null;
-  crosshairRequestToken += 1;
-  hideHtmlCrosshair();
-  setActiveCardOverlayForced(false);
+  if (!selectedCrosshairTarget) {
+    activeCrosshair = null;
+    activeHoverTarget = null;
+    crosshairRequestToken += 1;
+    hideHtmlCrosshair();
+
+    setActiveCardOverlayForced(false);
+  }
 }
 
 function refreshCrosshair() {
@@ -1032,7 +1034,12 @@ const pointLayerSourceMap = Object.fromEntries(
 );
 
 const clusterLayerSourceMap = Object.fromEntries(
-  sourceKeys.map((sourceKey) => [getClusterLayerIdForSource(sourceKey), sourceKey])
+  sourceKeys.flatMap((sourceKey) => [
+    [getClusterLayerIdForSource(sourceKey), sourceKey],
+    [getClusterOutlineLayerIdForSource(sourceKey), sourceKey],
+    [getClusterRingLayerIdForSource(sourceKey), sourceKey],
+    [getClusterRingOutlineLayerIdForSource(sourceKey), sourceKey]
+  ])
 );
 
 const layerGroups = Object.fromEntries(
@@ -1353,17 +1360,39 @@ function bindMapInteractions() {
 function handleClusterClick(feature, sourceKey) {
   if (!feature) return;
 
-  map.getSource(sourceKey).getClusterExpansionZoom(
-    feature.properties.cluster_id,
-    (err, zoom) => {
-      if (!err) map.easeTo({ center: feature.geometry.coordinates, zoom });
-    }
-  );
+  const clusterId = feature.properties?.cluster_id;
+  if (clusterId == null) return;
+
+  const sc = superclusterIndex[sourceKey];
+  if (!sc) return;
+
+  const expansionZoom = sc.getClusterExpansionZoom(clusterId);
+
+  const bestLeaf = getBestLeafFromCluster(sourceKey, feature);
+
+  if (bestLeaf) {
+    updatePanel(bestLeaf, sourceKey);
+
+    const target = buildTargetFromFeature(bestLeaf, sourceKey);
+    setSelectedCrosshairTarget(target);
+    setActiveCardOverlayForced(true);
+  }
+
+  map.easeTo({
+    center: feature.geometry.coordinates,
+    zoom: expansionZoom,
+    duration: 800,
+    easing: (t) => 1 - Math.pow(1 - t, 3)
+  });
 }
 
 function showCrosshairForClusterFeature(feature, sourceKey) {
-  const coords = feature?.geometry?.coordinates;
+  if (!feature || !feature.geometry) return;
+
+  const coords = feature.geometry.coordinates;
   if (!Array.isArray(coords)) return;
+
+  const props = feature.properties || {};
 
   const target = createCrosshairTarget({
     lon: coords[0],
@@ -1372,7 +1401,8 @@ function showCrosshairForClusterFeature(feature, sourceKey) {
     rawLat: coords[1],
     sourceKey,
     identity: {
-      size: Number(feature?.properties?.maxSize) || 1
+      size: Number(props.maxSize) || 1,
+      clusterId: props.cluster_id != null ? props.cluster_id : null
     }
   });
 
@@ -1387,11 +1417,12 @@ function showCrosshairForClusterFeature(feature, sourceKey) {
 function onEnterPointer(e) {
   map.getCanvas().style.cursor = 'pointer';
 
-  const feature = e?.features?.[0];
+  const feature = e && e.features && e.features[0];
   if (!feature) return;
 
-  const layerId = feature?.layer?.id || '';
+  const layerId = (feature.layer && feature.layer.id) || '';
 
+  // 🔹 POINT
   const pointSourceKey = pointLayerSourceMap[layerId];
   if (pointSourceKey) {
     const target = buildTargetFromFeature(feature, pointSourceKey);
@@ -1402,12 +1433,32 @@ function onEnterPointer(e) {
     return;
   }
 
+  // 🔹 CLUSTER
   const clusterSourceKey = clusterLayerSourceMap[layerId];
   if (clusterSourceKey) {
     showCrosshairForClusterFeature(feature, clusterSourceKey);
+
+    // 👉 se è lo stesso cluster già selezionato → ripristina la card
+    const currentTarget = getCurrentCrosshairTarget();
+    const hoveredClusterId = feature.properties && feature.properties.cluster_id;
+
+    if (
+      currentTarget &&
+      currentTarget.clusterId &&
+      hoveredClusterId === currentTarget.clusterId
+    ) {
+      const bestLeaf = getBestLeafFromCluster(clusterSourceKey, feature);
+
+      if (bestLeaf) {
+        updatePanel(bestLeaf, clusterSourceKey);
+        setActiveCardOverlayForced(true);
+      }
+    }
+
     return;
   }
 
+  // 🔹 fallback
   setActiveCardOverlayForced(false);
   hideCrosshair();
 }
@@ -1421,12 +1472,26 @@ function onLeavePointer() {
 async function handlePointClick(feature, sourceKey) {
   if (!feature) return;
 
+  const coords = feature.geometry && feature.geometry.coordinates;
+
   const canonicalFeature = await resolveCanonicalFeature(feature, sourceKey);
 
   updatePanel(canonicalFeature, sourceKey);
   setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, sourceKey));
   setActiveCardOverlayForced(true);
   syncAdaptiveProjection();
+
+  if (coords) {
+    const currentZoom = map.getZoom();
+    const nextZoom = Math.min(currentZoom + 2, 14); // 👈 aumenta 14 se vuoi più zoom
+
+    map.easeTo({
+      center: coords,
+      zoom: nextZoom,
+      duration: 800,
+      easing: (t) => 1 - Math.pow(1 - t, 3)
+    });
+  }
 }
 
 /* ========= RANDOM FEATURE SIZE 2 ========= */
@@ -1543,6 +1608,8 @@ function buildSuperclusterGeoJSON(sourceKey) {
       let lon = f.lon;
       let lat = f.lat;
 
+      const originalProps = (f.raw && f.raw.properties) ? f.raw.properties : {};
+
       // 🔹 Override posizione per cluster
       if (f.type === 'cluster' && f.clusterId != null) {
         const leaves = getClusterLeaves(sourceKey, f.clusterId);
@@ -1589,13 +1656,20 @@ function buildSuperclusterGeoJSON(sourceKey) {
 
       return {
         type: 'Feature',
+       
         properties: {
           size: f.size,
-          maxSize: f.size, // 👈 AGGIUNGI QUESTO
+          maxSize: f.size,
           cluster: f.type === 'cluster',
           point_count: f.type === 'cluster' ? f.pointCount : undefined,
           cluster_id: f.clusterId,
-          sourceKey
+          sourceKey,
+
+          // 👇 fondamentale per il matching
+          name: originalProps.name || '',
+          country: originalProps.country || '',
+          gx_media_links: originalProps.gx_media_links || '',
+          description: originalProps.description || ''
         },
         geometry: {
           type: 'Point',
@@ -1611,6 +1685,48 @@ function getClusterLeaves(sourceKey, clusterId) {
   if (!sc || clusterId == null) return [];
 
   return sc.getLeaves(clusterId, Infinity);
+}
+
+function getBestLeafFromCluster(sourceKey, clusterFeature) {
+  const clusterId = clusterFeature?.properties?.cluster_id;
+  if (clusterId == null) return null;
+
+  const leaves = getClusterLeaves(sourceKey, clusterId);
+  if (!leaves || !leaves.length) return null;
+
+  const [centerLon, centerLat] = clusterFeature.geometry.coordinates;
+
+  // 1. trova size max
+  let maxSize = 1;
+  leaves.forEach((leaf) => {
+    const s = leaf.properties?.size || 1;
+    if (s > maxSize) maxSize = s;
+  });
+
+  // 2. filtra candidati
+  const candidates = leaves.filter(
+    (leaf) => (leaf.properties?.size || 1) === maxSize
+  );
+
+  // 3. scegli il più vicino al centro
+  let best = null;
+  let bestDist = Infinity;
+
+  candidates.forEach((leaf) => {
+    const coords = leaf.geometry?.coordinates;
+    if (!coords) return;
+
+    const dx = coords[0] - centerLon;
+    const dy = coords[1] - centerLat;
+    const dist = dx * dx + dy * dy;
+
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = leaf;
+    }
+  });
+
+  return best;
 }
 
 function getFeatureIdentity(feature) {
@@ -1666,17 +1782,24 @@ function createCrosshairTarget({
   if (!sourceKey) return null;
   if (!Number.isFinite(Number(lon)) || !Number.isFinite(Number(lat))) return null;
 
+  const id = identity || {};
+
   return {
     lon: Number(lon),
     lat: Number(lat),
     rawLon: rawLon != null ? Number(rawLon) : Number(lon),
     rawLat: rawLat != null ? Number(rawLat) : Number(lat),
-    size: Number(identity?.size) || 1,
+
+    size: Number(id.size) || 1,
     sourceKey,
-    name: identity?.name || '',
-    country: identity?.country || '',
-    mediaLink: identity?.mediaLink || '',
-    description: identity?.description || ''
+
+    name: id.name || '',
+    country: id.country || '',
+    mediaLink: id.mediaLink || '',
+    description: id.description || '',
+
+    // 👉 fondamentale per riconoscere i cluster selezionati
+    clusterId: id.clusterId != null ? id.clusterId : null
   };
 }
 
