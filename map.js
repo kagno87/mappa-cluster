@@ -1453,7 +1453,18 @@ function buildSuperclusterIndex() {
 
     const index = new Supercluster({
       radius: 70,
-      maxZoom: 7
+      maxZoom: 7,
+
+      map: (props) => ({
+        maxSize: props.size || 1
+      }),
+
+      reduce: (accumulated, props) => {
+        accumulated.maxSize = Math.max(
+          accumulated.maxSize || 1,
+          props.maxSize || 1
+        );
+      }
     });
 
     index.load(points);
@@ -1559,8 +1570,9 @@ function buildSuperclusterGeoJSON(sourceKey) {
         type: 'Feature',
         properties: {
           size: f.size,
+          maxSize: f.size, // 👈 AGGIUNGI QUESTO
           cluster: f.type === 'cluster',
-          point_count: f.pointCount,
+          point_count: f.type === 'cluster' ? f.pointCount : undefined,
           cluster_id: f.clusterId,
           sourceKey
         },
