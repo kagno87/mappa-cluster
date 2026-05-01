@@ -1087,7 +1087,10 @@ function addSourcesIfMissing() {
 
     map.addSource(sourceKey, {
       type: 'geojson',
-      data: getGeoJsonUrlForSource(sourceKey)
+      data: {
+        type: 'FeatureCollection',
+        features: []
+      }
     });
   });
 }
@@ -1179,6 +1182,9 @@ function addLayersForSource(sourceKey) {
       type: 'circle',
       source: sourceKey,
       filter: ['has', 'point_count'],
+      layout: {
+       visibility: 'none'
+      },
       paint: getClusterRingOutlinePaint()
     });
   }
@@ -1190,6 +1196,9 @@ function addLayersForSource(sourceKey) {
       type: 'circle',
       source: sourceKey,
       filter: ['has', 'point_count'],
+      layout: {
+        visibility: 'none'
+      },
       paint: getClusterRingPaint()
     });
   }
@@ -1201,6 +1210,9 @@ function addLayersForSource(sourceKey) {
       type: 'circle',
       source: sourceKey,
       filter: ['has', 'point_count'],
+      layout: {
+        visibility: 'none'
+      },
       paint: getClusterOutlinePaint()
     });
   }
@@ -1212,6 +1224,9 @@ function addLayersForSource(sourceKey) {
       type: 'circle',
       source: sourceKey,
       filter: ['has', 'point_count'],
+      layout: {
+        visibility: 'none'
+      },
       paint: {
         ...getClusterPaint(color),
         'circle-opacity': 1.0
@@ -1226,6 +1241,9 @@ function addLayersForSource(sourceKey) {
       type: 'circle',
       source: sourceKey,
       filter: ['!', ['has', 'point_count']],
+      layout: {
+        visibility: 'none'
+      },
       paint: getPointOutlinePaint()
     });
   }
@@ -1237,6 +1255,9 @@ function addLayersForSource(sourceKey) {
       type: 'circle',
       source: sourceKey,
       filter: ['!', ['has', 'point_count']],
+      layout: {
+        visibility: 'none'
+      },
       paint: getPointPaint(color)
     });
   }
@@ -2087,6 +2108,16 @@ map.on('load', () => {
   initializeAdaptiveProjection('globe');
 
   map.setMinZoom(1.8);
+
+  map.once('idle', () => {
+    sourceKeys.forEach((sourceKey) => {
+      const source = map.getSource(sourceKey);
+      if (!source) return;
+
+      const geojson = buildSuperclusterGeoJSON(sourceKey);
+      source.setData(geojson);
+    });
+  });
 });
 
 /* ========= STYLE LOAD ========= */
