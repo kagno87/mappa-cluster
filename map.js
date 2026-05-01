@@ -1374,6 +1374,9 @@ function handleClusterClick(feature, sourceKey) {
     updatePanel(bestLeaf, sourceKey);
 
     const target = buildTargetFromFeature(bestLeaf, sourceKey);
+
+    target.clusterId = feature.properties?.cluster_id || null;
+
     setSelectedCrosshairTarget(target);
     setActiveCardOverlayForced(true);
   }
@@ -1442,17 +1445,16 @@ function onEnterPointer(e) {
     const currentTarget = getCurrentCrosshairTarget();
     const hoveredClusterId = feature.properties && feature.properties.cluster_id;
 
-    if (
-      currentTarget &&
-      currentTarget.clusterId &&
-      hoveredClusterId === currentTarget.clusterId
-    ) {
-      const bestLeaf = getBestLeafFromCluster(clusterSourceKey, feature);
+    if (!selectedCrosshairTarget) return;
 
-      if (bestLeaf) {
-        updatePanel(bestLeaf, clusterSourceKey);
-        setActiveCardOverlayForced(true);
-      }
+    const bestLeaf = getBestLeafFromCluster(clusterSourceKey, feature);
+    if (!bestLeaf) return;
+
+    // 👉 confronta il leaf con quello selezionato
+    const leafIdentity = getFeatureIdentity(bestLeaf);
+
+    if (isSameFeatureIdentity(leafIdentity, selectedCrosshairTarget)) {
+      setActiveCardOverlayForced(true);
     }
 
     return;
@@ -1465,7 +1467,10 @@ function onEnterPointer(e) {
 
 function onLeavePointer() {
   map.getCanvas().style.cursor = '';
+
+  // 👉 spegni overlay ma NON perdi selezione
   setActiveCardOverlayForced(false);
+
   hideHoverCrosshairOnly();
 }
 
