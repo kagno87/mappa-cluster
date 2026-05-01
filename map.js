@@ -1309,6 +1309,21 @@ function bindMapInteractions() {
 
     console.log('SC nero sample:', neroClusters[0]);
     console.log('SC bianco sample:', biancoClusters[0]);
+
+    const firstCluster = neroClusters.find(f => f.type === 'cluster');
+
+    if (firstCluster) {
+      const leaves = getClusterLeaves('nero', firstCluster.clusterId);
+      console.log('Cluster leaves sample:', leaves);
+    }
+
+    sourceKeys.forEach((sourceKey) => {
+      const source = map.getSource(sourceKey);
+      if (!source) return;
+
+      const geojson = buildSuperclusterGeoJSON(sourceKey);
+      source.setData(geojson);
+    });
   });
 
   map.on('zoomend', refreshBestCrosshairAfterMove);
@@ -1485,6 +1500,84 @@ function getSuperclusterFeatures(sourceKey) {
       raw: f
     };
   });
+}
+
+function buildSuperclusterGeoJSON(sourceKey) {
+  const features = getSuperclusterFeatures(sourceKey);
+
+  return {
+    type: 'FeatureCollection',
+    features: features.map(f => {
+      let lon = f.lon;
+      let lat = f.lat;
+
+      // 🔹 Override posizione per cluster
+      if (f.type === 'cluster' && f.clusterId != null) {
+        const leaves = getClusterLeaves(sourceKey, f.clusterId);
+
+        if (leaves.length > 0) {
+          let best = null;
+
+          // 1. trova size massima
+          let maxSize = 1;
+          leaves.forEach((leaf) => {
+            const s = leaf.properties?.size || 1;
+            if (s > maxSize) maxSize = s;
+          });
+
+          // 2. filtra candidati con size massima
+          const candidates = leaves.filter(
+            (leaf) => (leaf.properties?.size || 1) === maxSize
+          );
+
+          // 3. scegli il più vicino al centro cluster originale
+          let bestDist = Infinity;
+
+          candidates.forEach((leaf) => {
+            const coords = leaf.geometry?.coordinates;
+            if (!coords) return;
+
+            const dx = coords[0] - f.lon;
+            const dy = coords[1] - f.lat;
+            const dist = dx * dx + dy * dy;
+
+            if (dist < bestDist) {
+              bestDist = dist;
+              best = leaf;
+            }
+          });
+
+          // 4. applica coordinate
+          if (best?.geometry?.coordinates) {
+            lon = best.geometry.coordinates[0];
+            lat = best.geometry.coordinates[1];
+          }
+        }
+      }
+
+      return {
+        type: 'Feature',
+        properties: {
+          size: f.size,
+          cluster: f.type === 'cluster',
+          point_count: f.pointCount,
+          cluster_id: f.clusterId,
+          sourceKey
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: [lon, lat]
+        }
+      };
+    })
+  };
+}
+
+function getClusterLeaves(sourceKey, clusterId) {
+  const sc = superclusterIndex[sourceKey];
+  if (!sc || clusterId == null) return [];
+
+  return sc.getLeaves(clusterId, Infinity);
 }
 
 function getFeatureIdentity(feature) {
