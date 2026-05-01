@@ -1087,13 +1087,7 @@ function addSourcesIfMissing() {
 
     map.addSource(sourceKey, {
       type: 'geojson',
-      data: getGeoJsonUrlForSource(sourceKey),
-      cluster: true,
-      clusterRadius: 70,
-      clusterMaxZoom: 7,
-      clusterProperties: {
-        maxSize: ['max', ['get', 'size']]
-      }
+      data: getGeoJsonUrlForSource(sourceKey)
     });
   });
 }
@@ -1313,8 +1307,8 @@ function bindMapInteractions() {
     const neroClusters = getSuperclusterFeatures('nero');
     const biancoClusters = getSuperclusterFeatures('bianco');
 
-    console.log('SC nero:', neroClusters.length);
-    console.log('SC bianco:', biancoClusters.length);
+    console.log('SC nero sample:', neroClusters[0]);
+    console.log('SC bianco sample:', biancoClusters[0]);
   });
 
   map.on('zoomend', refreshBestCrosshairAfterMove);
@@ -1456,24 +1450,41 @@ function buildSuperclusterIndex() {
 }
 
 function getSuperclusterFeatures(sourceKey) {
-  const index = superclusterIndex[sourceKey];
-  if (!index) return [];
+  const sc = superclusterIndex[sourceKey];
+  if (!sc) return [];
 
   const bounds = map.getBounds();
-  if (!bounds) return [];
-
-  const bbox = [
-    bounds.getWest(),
-    bounds.getSouth(),
-    bounds.getEast(),
-    bounds.getNorth()
-  ];
-
   const zoom = Math.round(map.getZoom());
 
-  const clusters = index.getClusters(bbox, zoom);
+  const clusters = sc.getClusters(
+    [
+      bounds.getWest(),
+      bounds.getSouth(),
+      bounds.getEast(),
+      bounds.getNorth()
+    ],
+    zoom
+  );
 
-  return clusters;
+  return clusters.map(f => {
+    const isCluster = !!f.properties.cluster;
+
+    return {
+      type: isCluster ? 'cluster' : 'point',
+
+      lon: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1],
+
+      size: isCluster
+        ? f.properties.maxSize || 1
+        : f.properties.size || 1,
+
+      clusterId: f.properties.cluster_id || null,
+      pointCount: f.properties.point_count || 1,
+
+      raw: f
+    };
+  });
 }
 
 function getFeatureIdentity(feature) {
