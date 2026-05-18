@@ -30,6 +30,10 @@ let geojsonPreloadPromise = null;
 
 const superclusterIndex = {};
 
+const clusterLeavesCache = {};
+
+const clusterBestLeafCache = {};
+
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
@@ -1332,6 +1336,20 @@ function bindMapInteractions() {
   map.on('moveend', () => {
     refreshBestCrosshairAfterMove();
 
+    // 👉 1. svuota cache SUBITO
+    Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
+    Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
+
+    // 👉 2. aggiorna dati
+    sourceKeys.forEach((sourceKey) => {
+      const source = map.getSource(sourceKey);
+      if (!source) return;
+
+      const geojson = buildSuperclusterGeoJSON(sourceKey);
+      source.setData(geojson);
+    });
+
+    // 👉 3. debug (opzionale)
     const neroClusters = getSuperclusterFeatures('nero');
     const biancoClusters = getSuperclusterFeatures('bianco');
 
@@ -1344,14 +1362,6 @@ function bindMapInteractions() {
       const leaves = getClusterLeaves('nero', firstCluster.clusterId);
       console.log('Cluster leaves sample:', leaves);
     }
-
-    sourceKeys.forEach((sourceKey) => {
-      const source = map.getSource(sourceKey);
-      if (!source) return;
-
-      const geojson = buildSuperclusterGeoJSON(sourceKey);
-      source.setData(geojson);
-    });
   });
 
   map.on('zoomend', refreshBestCrosshairAfterMove);
@@ -1686,40 +1696,64 @@ function buildSuperclusterGeoJSON(sourceKey) {
 }
 
 function getClusterLeaves(sourceKey, clusterId) {
-  const sc = superclusterIndex[sourceKey];
-  if (!sc || clusterId == null) return [];
+  if (!clusterId && clusterId !== 0) return [];
 
-  return sc.getLeaves(clusterId, Infinity);
+  const key = sourceKey + '_' + clusterId;
+
+  if (clusterLeavesCache[key]) {
+    return clusterLeavesCache[key];
+  }
+
+  const sc = superclusterIndex[sourceKey];
+  if (!sc) return [];
+
+  const leaves = sc.getLeaves(clusterId, Infinity) || [];
+
+  clusterLeavesCache[key] = leaves;
+
+  return leaves;
 }
 
 function getBestLeafFromCluster(sourceKey, clusterFeature) {
-  const clusterId = clusterFeature?.properties?.cluster_id;
+  if (!clusterFeature || !clusterFeature.properties) return null;
+
+  const clusterId = clusterFeature.properties.cluster_id;
   if (clusterId == null) return null;
+
+  const key = sourceKey + '_' + clusterId;
+
+  // 👉 cache hit
+  if (clusterBestLeafCache[key]) {
+    return clusterBestLeafCache[key];
+  }
 
   const leaves = getClusterLeaves(sourceKey, clusterId);
   if (!leaves || !leaves.length) return null;
 
-  const [centerLon, centerLat] = clusterFeature.geometry.coordinates;
+  const center = clusterFeature.geometry && clusterFeature.geometry.coordinates;
+  if (!center) return null;
 
-  // 1. trova size max
+  const centerLon = center[0];
+  const centerLat = center[1];
+
+  // 👉 1. trova size max
   let maxSize = 1;
-  leaves.forEach((leaf) => {
-    const s = leaf.properties?.size || 1;
+  for (let i = 0; i < leaves.length; i++) {
+    const s = leaves[i].properties && leaves[i].properties.size || 1;
     if (s > maxSize) maxSize = s;
-  });
+  }
 
-  // 2. filtra candidati
-  const candidates = leaves.filter(
-    (leaf) => (leaf.properties?.size || 1) === maxSize
-  );
-
-  // 3. scegli il più vicino al centro
+  // 👉 2. trova il più vicino tra quelli con size max
   let best = null;
   let bestDist = Infinity;
 
-  candidates.forEach((leaf) => {
-    const coords = leaf.geometry?.coordinates;
-    if (!coords) return;
+  for (let i = 0; i < leaves.length; i++) {
+    const leaf = leaves[i];
+    const size = leaf.properties && leaf.properties.size || 1;
+    if (size !== maxSize) continue;
+
+    const coords = leaf.geometry && leaf.geometry.coordinates;
+    if (!coords) continue;
 
     const dx = coords[0] - centerLon;
     const dy = coords[1] - centerLat;
@@ -1729,7 +1763,12 @@ function getBestLeafFromCluster(sourceKey, clusterFeature) {
       bestDist = dist;
       best = leaf;
     }
-  });
+  }
+
+  // 👉 salva in cache
+  if (best) {
+    clusterBestLeafCache[key] = best;
+  }
 
   return best;
 }
@@ -2238,6 +2277,10 @@ map.on('load', () => {
   map.setMinZoom(1.8);
 
   map.once('idle', () => {
+
+    Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
+    Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
+    
     sourceKeys.forEach((sourceKey) => {
       const source = map.getSource(sourceKey);
       if (!source) return;
