@@ -1340,10 +1340,6 @@ function onEnterPointer(e) {
   if (clusterSourceKey) {
     showCrosshairForClusterFeature(feature, clusterSourceKey);
 
-    // 👉 se è lo stesso cluster già selezionato → ripristina la card
-    const currentTarget = getCurrentCrosshairTarget();
-    const hoveredClusterId = feature.properties && feature.properties.cluster_id;
-
     if (!selectedCrosshairTarget) return;
 
     const bestLeaf = getBestLeafFromCluster(clusterSourceKey, feature);
@@ -1387,7 +1383,7 @@ async function handlePointClick(feature, sourceKey) {
 
   if (coords) {
     const currentZoom = map.getZoom();
-    const nextZoom = Math.min(currentZoom + 2, 14); // 👈 aumenta 14 se vuoi più zoom
+    const nextZoom = Math.min(currentZoom + 2, 10);
 
     map.easeTo({
       center: coords,
@@ -1461,8 +1457,6 @@ function buildSuperclusterIndex() {
 
     superclusterIndex[sourceKey] = index;
   });
-
-  console.log('Supercluster index ready:', superclusterIndex);
 }
 
 function getSuperclusterFeatures(sourceKey) {
@@ -1516,45 +1510,11 @@ function buildSuperclusterGeoJSON(sourceKey) {
 
       // 🔹 Override posizione per cluster
       if (f.type === 'cluster' && f.clusterId != null) {
-        const leaves = getClusterLeaves(sourceKey, f.clusterId);
+        const best = getBestLeafFromCluster(sourceKey, f.raw);
 
-        if (leaves.length > 0) {
-          let best = null;
-
-          // 1. trova size massima
-          let maxSize = 1;
-          leaves.forEach((leaf) => {
-            const s = leaf.properties?.size || 1;
-            if (s > maxSize) maxSize = s;
-          });
-
-          // 2. filtra candidati con size massima
-          const candidates = leaves.filter(
-            (leaf) => (leaf.properties?.size || 1) === maxSize
-          );
-
-          // 3. scegli il più vicino al centro cluster originale
-          let bestDist = Infinity;
-
-          candidates.forEach((leaf) => {
-            const coords = leaf.geometry?.coordinates;
-            if (!coords) return;
-
-            const dx = coords[0] - f.lon;
-            const dy = coords[1] - f.lat;
-            const dist = dx * dx + dy * dy;
-
-            if (dist < bestDist) {
-              bestDist = dist;
-              best = leaf;
-            }
-          });
-
-          // 4. applica coordinate
-          if (best?.geometry?.coordinates) {
-            lon = best.geometry.coordinates[0];
-            lat = best.geometry.coordinates[1];
-          }
+        if (best?.geometry?.coordinates) {
+          lon = best.geometry.coordinates[0];
+          lat = best.geometry.coordinates[1];
         }
       }
 
@@ -2055,7 +2015,7 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 
   if (!isNaN(lon) && !isNaN(lat)) {
     const currentZoom = map.getZoom();
-    const nextZoom = Math.min(currentZoom + 2, 14);
+    const nextZoom = Math.min(currentZoom + 2, 10);
 
     const zoomChanged = Math.abs(nextZoom - currentZoom) > 0.001;
 
@@ -2194,7 +2154,6 @@ window.addEventListener('resize', () => {
 
 /* ========= ADAPTIVE PROJECTION ========= */
 map.on('zoom', syncAdaptiveProjection);
-map.on('zoomend', syncAdaptiveProjection);
 map.on('moveend', syncAdaptiveProjection);
 
 /* ========= LOCK NORTH / NO ROTATION ========= */
@@ -2231,5 +2190,3 @@ function lockZenithNorth() {
 document.getElementById('brand')?.addEventListener('click', () => {
   showRandomSize2Card();
 });
-
-console.log('Supercluster:', typeof Supercluster);
