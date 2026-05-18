@@ -215,19 +215,14 @@ class DualScaleControl {
 }
 
 /* ========= HOVER CROSSHAIR ========= */
-function getCrosshairMetrics(sizeValue) {
-  const size = Number(sizeValue) || 1;
+const CROSSHAIR_METRICS = {
+  1: { gap: 13, arm: 12, stroke: 2.5 },
+  2: { gap: 18, arm: 14, stroke: 2.5 },
+  3: { gap: 23, arm: 16, stroke: 2.5 }
+};
 
-  switch (size) {
-    case 1:
-      return { gap: 13, arm: 12, stroke: 2.5 }; 
-    case 2:
-      return { gap: 18, arm: 14, stroke: 2.5 }; 
-    case 3:
-      return { gap: 23, arm: 16, stroke: 2.5 }; 
-    default:
-      return { gap: 13, arm: 12, stroke: 2.5 };
-  }
+function getCrosshairMetrics(sizeValue) {
+  return CROSSHAIR_METRICS[Number(sizeValue)] || CROSSHAIR_METRICS[1];
 }
 
 function ensureHtmlCrosshair() {
@@ -243,11 +238,19 @@ function ensureHtmlCrosshair() {
     'left main', 'right main', 'top main', 'bottom main'
   ];
 
+  const arms = {};
+
   parts.forEach((cls) => {
     const arm = document.createElement('div');
     arm.className = `arm ${cls}`;
     el.appendChild(arm);
+
+    // 👉 cache DOM reference
+    arms[cls] = arm;
   });
+
+  // 👉 salva cache direttamente sull'elemento
+  el._arms = arms;
 
   crosshairMarker = new mapboxgl.Marker({
     element: el,
@@ -262,15 +265,18 @@ function ensureHtmlCrosshair() {
 function positionCrosshairArms(container, metrics) {
   const { gap, arm, stroke } = metrics;
 
-  const leftMain = container.querySelector('.arm.left.main');
-  const rightMain = container.querySelector('.arm.right.main');
-  const topMain = container.querySelector('.arm.top.main');
-  const bottomMain = container.querySelector('.arm.bottom.main');
+  const arms = container._arms;
+  if (!arms) return;
 
-  const leftOutline = container.querySelector('.arm.left.outline');
-  const rightOutline = container.querySelector('.arm.right.outline');
-  const topOutline = container.querySelector('.arm.top.outline');
-  const bottomOutline = container.querySelector('.arm.bottom.outline');
+  const leftMain = arms['left main'];
+  const rightMain = arms['right main'];
+  const topMain = arms['top main'];
+  const bottomMain = arms['bottom main'];
+
+  const leftOutline = arms['left outline'];
+  const rightOutline = arms['right outline'];
+  const topOutline = arms['top outline'];
+  const bottomOutline = arms['bottom outline'];
 
   function setBox(el, x, y, w, h) {
     el.style.left = `${x}px`;
@@ -281,44 +287,16 @@ function positionCrosshairArms(container, metrics) {
 
   const outlineExtra = 1.5;
   const outlineInset = outlineExtra / 2;
-  const outlineThickness = 4; // prova 4, poi 3.5 se la vuoi ancora più fine
+  const outlineThickness = 4;
   const outlineOffset = outlineThickness / 2;
 
-  setBox(
-    leftOutline,
-    -(gap + arm) - outlineInset,
-    -outlineOffset,
-    arm + outlineExtra,
-    outlineThickness
-  );
+  // outline
+  setBox(leftOutline, -(gap + arm) - outlineInset, -outlineOffset, arm + outlineExtra, outlineThickness);
+  setBox(rightOutline, gap - outlineInset, -outlineOffset, arm + outlineExtra, outlineThickness);
+  setBox(topOutline, -outlineOffset, -(gap + arm) - outlineInset, outlineThickness, arm + outlineExtra);
+  setBox(bottomOutline, -outlineOffset, gap - outlineInset, outlineThickness, arm + outlineExtra);
 
-  setBox(
-    rightOutline,
-    gap - outlineInset,
-    -outlineOffset,
-    arm + outlineExtra,
-    outlineThickness
-  );
-
-  setBox(
-    topOutline,
-    -outlineOffset,
-    -(gap + arm) - outlineInset,
-    outlineThickness,
-    arm + outlineExtra
-  );
-
-  setBox(
-    bottomOutline,
-    -outlineOffset,
-    gap - outlineInset,
-    outlineThickness,
-    arm + outlineExtra
-  );
-
-  
-  
-  
+  // main
   setBox(leftMain, -(gap + arm), -(stroke / 2), arm, stroke);
   setBox(rightMain, gap, -(stroke / 2), arm, stroke);
   setBox(topMain, -(stroke / 2), -(gap + arm), stroke, arm);
@@ -462,85 +440,6 @@ function getLayerIdsForSource(sourceKey) {
   ];
 }
 
-function clusterContainsTarget(source, clusterId, target, leafLimit = 1000) {
-  return new Promise((resolve) => {
-    source.getClusterLeaves(clusterId, leafLimit, 0, (err, leaves) => {
-      if (err || !Array.isArray(leaves)) {
-        resolve(false);
-        return;
-      }
-
-      const targetLon = Number(target.rawLon ?? target.lon);
-      const targetLat = Number(target.rawLat ?? target.lat);
-      const targetIdentity = {
-        name: target.name || '',
-        country: target.country || '',
-        size: Number(target.size) || 1,
-        mediaLink: target.mediaLink || '',
-        description: target.description || ''
-      };
-
-      const found = leaves.some((leaf) => {
-        if (!leaf?.geometry || leaf.geometry.type !== 'Point') return false;
-
-        const leafIdentity = getFeatureIdentity(leaf);
-        if (isSameFeatureIdentity(leafIdentity, targetIdentity)) return true;
-
-        const [lon, lat] = leaf.geometry.coordinates;
-        return (
-          Math.abs(Number(lon) - targetLon) <= 1e-5 &&
-          Math.abs(Number(lat) - targetLat) <= 1e-5
-        );
-      });
-
-      resolve(found);
-    });
-  });
-}
-
-async function getRenderedClusterMatch(target) {
-  const clusterLayerId = getClusterLayerIdForSource(target.sourceKey);
-  const source = map.getSource(target.sourceKey);
-
-  if (!map.getLayer(clusterLayerId) || !source) return null;
-
-  const renderedClusters = map.queryRenderedFeatures({ layers: [clusterLayerId] });
-  if (!renderedClusters.length) return null;
-
-  const targetPixel = map.project([Number(target.lon), Number(target.lat)]);
-  const matches = [];
-
-  for (const feature of renderedClusters) {
-    if (!feature?.geometry || feature.geometry.type !== 'Point') continue;
-
-    const clusterId = feature.properties?.cluster_id;
-    if (clusterId == null) continue;
-
-    const leafLimit = Number(feature.properties?.point_count) || 1000;
-    const containsTarget = await clusterContainsTarget(source, clusterId, target, leafLimit);
-    if (!containsTarget) continue;
-
-    const [lon, lat] = feature.geometry.coordinates;
-    const pixel = map.project([lon, lat]);
-
-    const dx = pixel.x - targetPixel.x;
-    const dy = pixel.y - targetPixel.y;
-    const distSq = dx * dx + dy * dy;
-
-    matches.push({
-      lon,
-      lat,
-      size: Number(feature.properties?.maxSize) || target.size || 1,
-      distSq
-    });
-  }
-
-  if (!matches.length) return null;
-
-  matches.sort((a, b) => a.distSq - b.distSq);
-  return matches[0];
-}
-
 function getRenderedPointMatch(target) {
   const pointLayerId = getPointLayerIdForSource(target.sourceKey);
   if (!map.getLayer(pointLayerId)) return null;
@@ -659,13 +558,6 @@ function showBestCrosshairForTarget(target) {
     if (pointMatch) {
       if (requestToken !== crosshairRequestToken) return;
       renderCrosshair(pointMatch.lon, pointMatch.lat, pointMatch.size);
-      return;
-    }
-
-    const clusterMatch = await getRenderedClusterMatch(normalizedTarget);
-    if (clusterMatch) {
-      if (requestToken !== crosshairRequestToken) return;
-      renderCrosshair(clusterMatch.lon, clusterMatch.lat, clusterMatch.size);
       return;
     }
 
@@ -1336,11 +1228,9 @@ function bindMapInteractions() {
   map.on('moveend', () => {
     refreshBestCrosshairAfterMove();
 
-    // 👉 1. svuota cache SUBITO
     Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
     Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
 
-    // 👉 2. aggiorna dati
     sourceKeys.forEach((sourceKey) => {
       const source = map.getSource(sourceKey);
       if (!source) return;
@@ -1348,23 +1238,22 @@ function bindMapInteractions() {
       const geojson = buildSuperclusterGeoJSON(sourceKey);
       source.setData(geojson);
     });
-
-    // 👉 3. debug (opzionale)
-    const neroClusters = getSuperclusterFeatures('nero');
-    const biancoClusters = getSuperclusterFeatures('bianco');
-
-    console.log('SC nero sample:', neroClusters[0]);
-    console.log('SC bianco sample:', biancoClusters[0]);
-
-    const firstCluster = neroClusters.find(f => f.type === 'cluster');
-
-    if (firstCluster) {
-      const leaves = getClusterLeaves('nero', firstCluster.clusterId);
-      console.log('Cluster leaves sample:', leaves);
-    }
   });
 
-  map.on('zoomend', refreshBestCrosshairAfterMove);
+  map.on('zoomend', () => {
+    refreshBestCrosshairAfterMove();
+
+    Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
+    Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
+
+    sourceKeys.forEach((sourceKey) => {
+      const source = map.getSource(sourceKey);
+      if (!source) return;
+
+      const geojson = buildSuperclusterGeoJSON(sourceKey);
+      source.setData(geojson);
+    });
+  });
 }
 
 function handleClusterClick(feature, sourceKey) {
