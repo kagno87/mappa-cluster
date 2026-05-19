@@ -85,6 +85,45 @@ html, body {
 }
 
 /* ============================= */
+/* PIN                           */
+/* ============================= */
+
+.pin {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+}
+
+.pin-outer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 50%;
+}
+
+.pin-inner {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #000000;
+  border-radius: 50%;
+}
+
+.pin-core {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+
+/* ============================= */
 /* TOP BAR                       */
 /* ============================= */
 

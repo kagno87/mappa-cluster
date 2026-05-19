@@ -34,6 +34,8 @@ const clusterLeavesCache = {};
 
 const clusterBestLeafCache = {};
 
+const htmlMarkers = new Map();
+
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
@@ -213,6 +215,29 @@ class DualScaleControl {
     this.map = undefined;
   }
 }
+
+/* ========= PIN ELEMENT ========= */
+function createPinElement(color) {
+  const el = document.createElement('div');
+  el.className = 'pin';
+
+  const outer = document.createElement('div');
+  outer.className = 'pin-outer';
+
+  const inner = document.createElement('div');
+  inner.className = 'pin-inner';
+
+  const core = document.createElement('div');
+  core.className = 'pin-core';
+  core.style.background = color;
+
+  el.appendChild(outer);
+  el.appendChild(inner);
+  el.appendChild(core);
+
+  return el;
+}
+
 
 /* ========= HOVER CROSSHAIR ========= */
 const CROSSHAIR_METRICS = {
@@ -1015,7 +1040,7 @@ function getPointPaint(color) {
     'circle-color': color,
     'circle-radius': getPointRadiusExpression(),
     'circle-stroke-width': 1.2,
-    'circle-stroke-color': '#000000'
+    'circle-stroke-color': '#000000',
   };
 }
 
@@ -1195,6 +1220,30 @@ function onClickClusterGeneric(e) {
   handleClusterClick(feature, sourceKey);
 }
 
+function updateMapSourcesAndMarkers() {
+  Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
+  Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
+
+  sourceKeys.forEach((sourceKey) => {
+    const source = map.getSource(sourceKey);
+    if (!source) return;
+
+    const geojson = buildSuperclusterGeoJSON(sourceKey);
+    source.setData(geojson);
+
+    // ❌ DISATTIVATO TEMPORANEAMENTE
+    /*
+    getLayerIdsForSource(sourceKey).forEach((id) => {
+      if (id.includes('points') && map.getLayer(id)) {
+        map.setLayoutProperty(id, 'visibility', 'none');
+      }
+    });
+    */
+  });
+
+  renderHtmlPoints();
+}
+
 function bindMapInteractions() {
   Object.keys(clusterLayerSourceMap).forEach((layerId) => {
     map.off('mouseenter', layerId, onEnterPointer);
@@ -1220,39 +1269,13 @@ function bindMapInteractions() {
   map.off('zoomstart', clearAllCrosshairState);
 
   map.off('moveend', refreshBestCrosshairAfterMove);
-  map.off('zoomend', refreshBestCrosshairAfterMove);
 
   map.on('movestart', clearAllCrosshairState);
   map.on('zoomstart', clearAllCrosshairState);
 
   map.on('moveend', () => {
     refreshBestCrosshairAfterMove();
-
-    Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
-    Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
-
-    sourceKeys.forEach((sourceKey) => {
-      const source = map.getSource(sourceKey);
-      if (!source) return;
-
-      const geojson = buildSuperclusterGeoJSON(sourceKey);
-      source.setData(geojson);
-    });
-  });
-
-  map.on('zoomend', () => {
-    refreshBestCrosshairAfterMove();
-
-    Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
-    Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
-
-    sourceKeys.forEach((sourceKey) => {
-      const source = map.getSource(sourceKey);
-      if (!source) return;
-
-      const geojson = buildSuperclusterGeoJSON(sourceKey);
-      source.setData(geojson);
-    });
+    updateMapSourcesAndMarkers();
   });
 }
 
@@ -1492,6 +1515,10 @@ function getSuperclusterFeatures(sourceKey) {
       clusterId: f.properties.cluster_id || null,
       pointCount: f.properties.point_count || 1,
 
+      id: isCluster
+        ? `cluster_${f.properties.cluster_id}`
+        : `${f.properties.name}_${f.properties.country}_${f.properties.size}`,
+
       raw: f
     };
   });
@@ -1662,6 +1689,38 @@ function getFeatureIdentityFromDataset(dataset) {
     mediaLink: dataset.mediaLink || '',
     description: dataset.description || ''
   };
+}
+
+function renderHtmlPoints() {
+  htmlMarkers.forEach(m => m.remove());
+  htmlMarkers.clear();
+
+  sourceKeys.forEach((sourceKey) => {
+    const layerId = getPointLayerIdForSource(sourceKey);
+
+    if (!map.getLayer(layerId)) return;
+
+    const features = map.queryRenderedFeatures({ layers: [layerId] });
+
+    features.forEach((feature) => {
+      if (!feature.geometry || feature.geometry.type !== 'Point') return;
+
+      const [lon, lat] = feature.geometry.coordinates;
+
+      const el = createPinElement(getSourceColor(sourceKey));
+
+      const marker = new mapboxgl.Marker({
+        element: el,
+        anchor: 'center'
+      })
+        .setLngLat([lon, lat])
+        .addTo(map);
+
+      // ID stabile (puoi migliorarlo dopo)
+      const id = `${lon}_${lat}_${sourceKey}`;
+      htmlMarkers.set(id, marker);
+    });
+  });
 }
 
 function createCrosshairTarget({
