@@ -417,25 +417,10 @@ function getClusterRingLayerIdForSource(sourceKey) {
   return `${sourceKey}-clusters-ring`;
 }
 
-function getPointOutlineLayerIdForSource(sourceKey) {
-  return `${sourceKey}-points-outline`;
-}
-
-function getClusterOutlineLayerIdForSource(sourceKey) {
-  return `${sourceKey}-clusters-outline`;
-}
-
-function getClusterRingOutlineLayerIdForSource(sourceKey) {
-  return `${sourceKey}-clusters-ring-outline`;
-}
-
 function getLayerIdsForSource(sourceKey) {
   return [
-    getClusterOutlineLayerIdForSource(sourceKey),
     getClusterLayerIdForSource(sourceKey),
-    getClusterRingOutlineLayerIdForSource(sourceKey),
     getClusterRingLayerIdForSource(sourceKey),
-    getPointOutlineLayerIdForSource(sourceKey),
     getPointLayerIdForSource(sourceKey)
   ];
 }
@@ -932,9 +917,7 @@ const pointLayerSourceMap = Object.fromEntries(
 const clusterLayerSourceMap = Object.fromEntries(
   sourceKeys.flatMap((sourceKey) => [
     [getClusterLayerIdForSource(sourceKey), sourceKey],
-    [getClusterOutlineLayerIdForSource(sourceKey), sourceKey],
     [getClusterRingLayerIdForSource(sourceKey), sourceKey],
-    [getClusterRingOutlineLayerIdForSource(sourceKey), sourceKey]
   ])
 );
 
@@ -944,7 +927,7 @@ const layerGroups = Object.fromEntries(
 
 const sourceStyleConfig = {
   nero: {
-    color: '#2c2c2c'
+    color: '#2d2d2d'
   },
   bianco: {
     color: '#ffffff'
@@ -1007,14 +990,19 @@ function getClusterRadiusExpression() {
 }
 
 function getClusterRingRadiusExpression() {
-  return ['match', ['get', 'maxSize'], 1, 8, 2, 13, 3, 18, 10];
+  return ['match', ['get', 'maxSize'],
+    1, 9,
+    2, 15,
+    3, 21,
+    12
+  ];
 }
 
 function getPointPaint(color) {
   return {
     'circle-color': color,
     'circle-radius': getPointRadiusExpression(),
-    'circle-stroke-width': 1.2,
+    'circle-stroke-width': 1.5,
     'circle-stroke-color': '#000000'
   };
 }
@@ -1023,7 +1011,7 @@ function getClusterPaint(color) {
   return {
     'circle-color': color,
     'circle-radius': getClusterRadiusExpression(),
-    'circle-stroke-width': 1.2,
+    'circle-stroke-width': 1.5,
     'circle-stroke-color': '#000000'
   };
 }
@@ -1032,25 +1020,8 @@ function getClusterRingPaint() {
   return {
     'circle-color': 'rgba(0,0,0,0)',
     'circle-radius': getClusterRingRadiusExpression(),
-    'circle-stroke-width': 1.2,
+    'circle-stroke-width': 1.5,
     'circle-stroke-color': '#000000',
-    'circle-stroke-opacity': 0.8
-  };
-}
-
-function getClusterRingOutlinePaint() {
-  return {
-    'circle-color': 'rgba(0,0,0,0)',
-    'circle-radius': [
-      'match',
-      ['get', 'maxSize'],
-      1, 9.1,
-      2, 14.1,
-      3, 19.1,
-      11.2
-    ],
-    'circle-stroke-width': 1.0,
-    'circle-stroke-color': '#ffffff',
     'circle-stroke-opacity': 0.8
   };
 }
@@ -1059,38 +1030,8 @@ function getSourceColor(sourceKey) {
   return sourceStyleConfig[sourceKey]?.color || '#000000';
 }
 
-function getPointOutlinePaint() {
-  return {
-    'circle-color': '#ffffff',
-    'circle-radius': ['+', getPointRadiusExpression(), 2.0],
-    'circle-opacity': 0.8
-  };
-}
-
-function getClusterOutlinePaint() {
-  return {
-    'circle-color': '#ffffff',
-    'circle-radius': ['+', getClusterRadiusExpression(), 2.0],
-    'circle-opacity': 0.8
-  };
-}
-
 function addLayersForSource(sourceKey) {
   const color = getSourceColor(sourceKey);
-
-  // 🔽 RING OUTLINE (più sotto di tutto)
-  if (!map.getLayer(getClusterRingOutlineLayerIdForSource(sourceKey))) {
-    map.addLayer({
-      id: getClusterRingOutlineLayerIdForSource(sourceKey),
-      type: 'circle',
-      source: sourceKey,
-      filter: ['has', 'point_count'],
-      layout: {
-       visibility: 'none'
-      },
-      paint: getClusterRingOutlinePaint()
-    });
-  }
 
   // 🔽 RING
   if (!map.getLayer(getClusterRingLayerIdForSource(sourceKey))) {
@@ -1103,20 +1044,6 @@ function addLayersForSource(sourceKey) {
         visibility: 'none'
       },
       paint: getClusterRingPaint()
-    });
-  }
-
-  // 🔼 CLUSTER OUTLINE
-  if (!map.getLayer(getClusterOutlineLayerIdForSource(sourceKey))) {
-    map.addLayer({
-      id: getClusterOutlineLayerIdForSource(sourceKey),
-      type: 'circle',
-      source: sourceKey,
-      filter: ['has', 'point_count'],
-      layout: {
-        visibility: 'none'
-      },
-      paint: getClusterOutlinePaint()
     });
   }
 
@@ -1134,20 +1061,6 @@ function addLayersForSource(sourceKey) {
         ...getClusterPaint(color),
         'circle-opacity': 1.0
       }
-    });
-  }
-
-  // 🔼 POINT OUTLINE
-  if (!map.getLayer(getPointOutlineLayerIdForSource(sourceKey))) {
-    map.addLayer({
-      id: getPointOutlineLayerIdForSource(sourceKey),
-      type: 'circle',
-      source: sourceKey,
-      filter: ['!', ['has', 'point_count']],
-      layout: {
-        visibility: 'none'
-      },
-      paint: getPointOutlinePaint()
     });
   }
 
