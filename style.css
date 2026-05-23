@@ -25,6 +25,7 @@ html, body {
   height: calc(100% - var(--panel-height) - 48px);
   z-index: 1;
   overflow: hidden;
+  background: #424242;
 }
 
 #map {
@@ -433,7 +434,7 @@ html, body {
 
 #panel {
   position: fixed;
-  bottom: 0;
+  bottom: 1px;
   left: 0;
   width: 100%;
 

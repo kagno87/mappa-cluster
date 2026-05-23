@@ -845,29 +845,82 @@ function setupGeocoderOnce() {
     marker: false,
     flyTo: { speed: 1.2 },
     language: 'en',
+    types: 'place,locality,region',
     placeholder: 'Search for a place',
+    localGeocoderOnly: false,
 
     localGeocoder: (query) => {
+      const results = [];
+
+      if (!query || query.length < 2) return results;
+
+      const q = query.toLowerCase();
+
+      // 🔹 1. coordinate
       const parsed = parseCoordQuery(query);
-      if (!parsed) return null;
+      if (parsed) {
+        const { lat, lon } = parsed;
+        const label = formatCoordPair(lat, lon);
 
-      const { lat, lon } = parsed;
-      const label = formatCoordPair(lat, lon);
+        results.push({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [lon, lat]
+          },
+          place_name: label,
+          text: label,
+          center: [lon, lat],
+          place_type: ['coordinate'],
+          properties: { kind: 'coords' }
+        });
+      }
 
-      return [{
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [lon, lat]
-        },
-        place_name: label,
-        text: label,
-        center: [lon, lat],
-        place_type: ['coordinate'],
-        properties: {
-          kind: 'coords'
-        }
-      }];
+      // 🔹 2. ricerca nei tuoi pin
+      sourceKeys.forEach((sourceKey) => {
+        const geojson = geojsonCache[getGeoJsonUrlForSource(sourceKey)];
+        if (!geojson || !geojson.features) return;
+
+        geojson.features.forEach((f) => {
+          if (!f.geometry || f.geometry.type !== 'Point') return;
+
+          const nameRaw = f.properties?.name || '';
+          const name = nameRaw.toLowerCase();
+          if (!name) return;
+
+          const coords = f.geometry.coordinates;
+          if (!coords || coords.length < 2) return;
+
+          const lon = coords[0];
+          const lat = coords[1];
+
+          const feature = {
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [lon, lat]
+            },
+            center: [lon, lat],
+            place_name: `${nameRaw} — ${f.properties?.country || ''}`,
+            text: nameRaw,
+            place_type: ['pingeo'],
+            properties: {
+              kind: 'pingeo',
+              sourceKey,
+              original: f
+            }
+          };
+
+          // 🔹 priorità match
+          if (name.startsWith(q)) {
+            results.unshift(feature);
+          } else if (name.includes(q)) {
+            results.push(feature);
+          }
+        });
+      });
+
+      return results;
     },
 
     render: (item) => {
@@ -875,7 +928,26 @@ function setupGeocoderOnce() {
         return `<div class="custom-coord-suggestion">${item.place_name}</div>`;
       }
 
-      return `<div>${item.place_name}</div>`;
+      if (item.properties && item.properties.kind === 'pingeo') {
+        return `
+          <div>
+            ${item.text}
+            <span style="opacity:0.6"> — ${item.properties.original?.properties?.country || ''}</span>
+          </div>
+        `;
+      }
+
+      const name = item.text || '';
+      const context = item.context
+        ? item.context.map(c => c.text).join(', ')
+        : '';
+
+      return `
+        <div>
+          ${name}
+          ${context ? `<span style="opacity:0.6"> — ${context}</span>` : ''}
+        </div>
+      `;
     }
   });
 
@@ -1296,8 +1368,12 @@ async function handlePointClick(feature, sourceKey) {
 
   if (coords) {
     const currentZoom = map.getZoom();
-    const nextZoom = Math.min(currentZoom + 2, 10);
+    const maxClickZoom = 10;
 
+    const nextZoom = currentZoom >= maxClickZoom
+      ? currentZoom
+      : Math.min(currentZoom + 2, maxClickZoom);
+      
     map.easeTo({
       center: coords,
       zoom: nextZoom,
