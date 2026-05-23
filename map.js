@@ -973,6 +973,14 @@ function setupGeocoderOnce() {
       const canonicalFeature = await resolveCanonicalFeature(originalFeature, sourceKey);
 
       updatePanel(canonicalFeature, sourceKey);
+
+      map.easeTo({
+        center: [canonicalFeature.geometry.coordinates[0], canonicalFeature.geometry.coordinates[1]],
+        zoom: Math.min(map.getZoom() + 1, 10), // 👈 più soft
+        duration: 800,
+        easing: (t) => 1 - Math.pow(1 - t, 3)
+      });
+
       setActiveCardOverlayForced(true);
       hideCrosshair();
       return;
@@ -986,6 +994,14 @@ function setupGeocoderOnce() {
       const canonicalFeature = await resolveCanonicalFeature(nearestFeature, sourceKey);
 
       updatePanel(canonicalFeature, sourceKey);
+
+      map.easeTo({
+        center: [canonicalFeature.geometry.coordinates[0], canonicalFeature.geometry.coordinates[1]],
+        zoom: Math.min(map.getZoom() + 1, 10), // 👈 più soft
+        duration: 800,
+       easing: (t) => 1 - Math.pow(1 - t, 3)
+      });
+
       setActiveCardOverlayForced(true);
       hideCrosshair();
       return;
