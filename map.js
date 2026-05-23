@@ -879,10 +879,10 @@ function setupGeocoderOnce() {
       // 🔹 2. ricerca nei tuoi pin
       sourceKeys.forEach((sourceKey) => {
         const geojson = geojsonCache[getGeoJsonUrlForSource(sourceKey)];
-        if (!geojson || !geojson.features) return;
+        if (!geojson?.features) return;
 
         geojson.features.forEach((f) => {
-          if (!f.geometry || f.geometry.type !== 'Point') return;
+          if (f.geometry?.type !== 'Point') return;
 
           const nameRaw = f.properties?.name || '';
           const name = nameRaw.toLowerCase();
@@ -911,7 +911,6 @@ function setupGeocoderOnce() {
             }
           };
 
-          // 🔹 priorità match
           if (name.startsWith(q)) {
             results.unshift(feature);
           } else if (name.includes(q)) {
@@ -924,11 +923,11 @@ function setupGeocoderOnce() {
     },
 
     render: (item) => {
-      if (item.properties && item.properties.kind === 'coords') {
+      if (item.properties?.kind === 'coords') {
         return `<div class="custom-coord-suggestion">${item.place_name}</div>`;
       }
 
-      if (item.properties && item.properties.kind === 'pingeo') {
+      if (item.properties?.kind === 'pingeo') {
         return `
           <div>
             ${item.text}
@@ -951,8 +950,56 @@ function setupGeocoderOnce() {
     }
   });
 
+  // 🔹 mount
   searchContainer.appendChild(geocoder.onAdd(map));
 
+  // 🔥 RESULT HANDLER (CUORE DELLA UX)
+  geocoder.on('result', async (e) => {
+    const feature = e.result;
+    if (!feature) return;
+
+    const coords = feature.center;
+    if (!coords) return;
+
+    const [lon, lat] = coords;
+
+    // ✅ CASO 1: pin tuo → diretto
+    if (feature.properties?.kind === 'pingeo') {
+      const sourceKey = feature.properties.sourceKey;
+      const originalFeature = feature.properties.original;
+
+      if (!sourceKey || !originalFeature) return;
+
+      const canonicalFeature = await resolveCanonicalFeature(originalFeature, sourceKey);
+
+      updatePanel(canonicalFeature, sourceKey);
+      setActiveCardOverlayForced(true);
+      hideCrosshair();
+      return;
+    }
+
+    // ✅ CASO 2: Mapbox → nearest
+    const nearest = findNearestGeojsonPoint(lon, lat);
+
+    if (nearest) {
+      const { feature: nearestFeature, sourceKey } = nearest;
+      const canonicalFeature = await resolveCanonicalFeature(nearestFeature, sourceKey);
+
+      updatePanel(canonicalFeature, sourceKey);
+      setActiveCardOverlayForced(true);
+      hideCrosshair();
+      return;
+    }
+
+    // 🔹 fallback
+    map.flyTo({
+      center: [lon, lat],
+      zoom: 10,
+      speed: 1.2
+    });
+  });
+
+  // 🔹 Enter su coordinate
   const input = searchContainer.querySelector('.mapboxgl-ctrl-geocoder--input');
   if (!input) return;
 
@@ -1631,6 +1678,36 @@ function getFeatureIdentity(feature) {
       (feature?.properties?.description &&
         String(feature.properties.description).trim()) || ''
   };
+}
+
+function findNearestGeojsonPoint(lon, lat, maxDistance = 1.5) {
+  let best = null;
+  let bestDist = Infinity;
+
+  sourceKeys.forEach((sourceKey) => {
+    const geojson = geojsonCache[getGeoJsonUrlForSource(sourceKey)];
+    if (!geojson?.features) return;
+
+    geojson.features.forEach((f) => {
+      if (f.geometry?.type !== 'Point') return;
+
+      const [flon, flat] = f.geometry.coordinates;
+
+      const dx = flon - lon;
+      const dy = flat - lat;
+      const dist = dx * dx + dy * dy;
+
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = { feature: f, sourceKey };
+      }
+    });
+  });
+
+  if (!best) return null;
+  if (bestDist > maxDistance * maxDistance) return null;
+
+  return best;
 }
 
 function isSameFeatureIdentity(a, b) {
