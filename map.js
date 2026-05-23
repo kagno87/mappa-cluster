@@ -843,7 +843,7 @@ function setupGeocoderOnce() {
     accessToken: mapboxgl.accessToken,
     mapboxgl,
     marker: false,
-    flyTo: { speed: 1.2 },
+    flyTo: false,
     language: 'en',
     types: 'place,locality,region',
     placeholder: 'Search for a place',
@@ -970,13 +970,16 @@ function setupGeocoderOnce() {
 
       if (!sourceKey || !originalFeature) return;
 
+      ensureLayerVisible(sourceKey);
+
       const canonicalFeature = await resolveCanonicalFeature(originalFeature, sourceKey);
 
       updatePanel(canonicalFeature, sourceKey);
 
+      map.stop();
       map.easeTo({
         center: [canonicalFeature.geometry.coordinates[0], canonicalFeature.geometry.coordinates[1]],
-        zoom: Math.min(map.getZoom() + 1, 10), // 👈 più soft
+        zoom: 10,
         duration: 800,
         easing: (t) => 1 - Math.pow(1 - t, 3)
       });
@@ -988,31 +991,25 @@ function setupGeocoderOnce() {
 
     // ✅ CASO 2: Mapbox → nearest
     const nearest = findNearestGeojsonPoint(lon, lat);
-
-    if (nearest) {
-      const { feature: nearestFeature, sourceKey } = nearest;
-      const canonicalFeature = await resolveCanonicalFeature(nearestFeature, sourceKey);
-
-      updatePanel(canonicalFeature, sourceKey);
-
-      map.easeTo({
-        center: [canonicalFeature.geometry.coordinates[0], canonicalFeature.geometry.coordinates[1]],
-        zoom: Math.min(map.getZoom() + 1, 10), // 👈 più soft
-        duration: 800,
-       easing: (t) => 1 - Math.pow(1 - t, 3)
-      });
-
-      setActiveCardOverlayForced(true);
-      hideCrosshair();
-      return;
-    }
-
-    // 🔹 fallback
+    
+    map.stop();
     map.flyTo({
       center: [lon, lat],
       zoom: 10,
       speed: 1.2
     });
+
+    if (nearest) {
+      const { feature: nearestFeature, sourceKey } = nearest;
+
+      const canonicalFeature = await resolveCanonicalFeature(nearestFeature, sourceKey);
+
+      updatePanel(canonicalFeature, sourceKey);
+
+      setActiveCardOverlayForced(false);
+
+      hideCrosshair();
+    }   
   });
 
   // 🔹 Enter su coordinate
@@ -1079,6 +1076,16 @@ function setLayerGroupVisibility(group, visible) {
       map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
     }
   });
+}
+
+function ensureLayerVisible(sourceKey) {
+  const toggle = document.querySelector(`.layer-toggle[data-layer="${sourceKey}"]`);
+  if (!toggle) return;
+
+  if (!toggle.classList.contains('active')) {
+    toggle.classList.add('active');
+    setLayerGroupVisibility(sourceKey, true);
+  }
 }
 
 function applyLayerToggleState() {
@@ -1700,7 +1707,10 @@ function findNearestGeojsonPoint(lon, lat, maxDistance = 1.5) {
   let best = null;
   let bestDist = Infinity;
 
-  sourceKeys.forEach((sourceKey) => {
+  const activeSources = getActiveSourceKeys();
+  if (!activeSources.length) return null;
+
+  activeSources.forEach((sourceKey) => {
     const geojson = geojsonCache[getGeoJsonUrlForSource(sourceKey)];
     if (!geojson?.features) return;
 
@@ -1724,6 +1734,12 @@ function findNearestGeojsonPoint(lon, lat, maxDistance = 1.5) {
   if (bestDist > maxDistance * maxDistance) return null;
 
   return best;
+}
+
+function getActiveSourceKeys() {
+  return Array.from(document.querySelectorAll('.layer-toggle.active'))
+    .map(el => el.dataset.layer)
+    .filter(Boolean);
 }
 
 function isSameFeatureIdentity(a, b) {
