@@ -976,16 +976,29 @@ function setupGeocoderOnce() {
 
       updatePanel(canonicalFeature, sourceKey);
 
+      // 🔹 flyTo
       map.stop();
       map.easeTo({
-        center: [canonicalFeature.geometry.coordinates[0], canonicalFeature.geometry.coordinates[1]],
+        center: [
+          canonicalFeature.geometry.coordinates[0],
+          canonicalFeature.geometry.coordinates[1]
+        ],
         zoom: 10,
         duration: 800,
         easing: (t) => 1 - Math.pow(1 - t, 3)
       });
 
+      // 🔹 overlay ON
       setActiveCardOverlayForced(true);
-      hideCrosshair();
+
+      // 🔹 crosshair ON
+      const target = buildTargetFromFeature(canonicalFeature, sourceKey);
+      setSelectedCrosshairTarget(target);
+      showBestCrosshairForTarget(target);
+
+      // 🔹 auto-clear al primo input utente
+      setupTransientHighlightClear();
+
       return;
     }
 
@@ -1094,6 +1107,32 @@ function applyLayerToggleState() {
     const visible = toggle.classList.contains('active');
     setLayerGroupVisibility(layerKey, visible);
   });
+}
+
+function setupTransientHighlightClear() {
+  const clear = () => {
+    setActiveCardOverlayForced(false);
+    hideCrosshair();
+
+    window.removeEventListener('mousemove', clear);
+    window.removeEventListener('mousedown', clear);
+    window.removeEventListener('touchstart', clear);
+    map.off('movestart', clear);
+    map.off('zoomstart', clear);
+    map.off('wheel', clear);
+  };
+
+  // 👇 eventi desktop
+  window.addEventListener('mousemove', clear, { once: true });
+  window.addEventListener('mousedown', clear, { once: true });
+  window.addEventListener('wheel', clear, { once: true });
+
+  // 👇 touch
+  window.addEventListener('touchstart', clear, { once: true });
+
+  // 👇 interazioni mappa
+  map.on('movestart', clear);
+  map.on('zoomstart', clear);
 }
 
 /* ========= INIT ========= */
@@ -1418,10 +1457,24 @@ function onEnterPointer(e) {
 function onLeavePointer() {
   map.getCanvas().style.cursor = '';
 
-  // 👉 spegni overlay ma NON perdi selezione
   setActiveCardOverlayForced(false);
-
   hideHoverCrosshairOnly();
+  setupTouchClearFallback();
+}
+
+function setupTouchClearFallback() {
+  const clear = () => {
+    setActiveCardOverlayForced(false);
+    hideCrosshair();
+
+    window.removeEventListener('touchstart', clear);
+    map.off('movestart', clear);
+    map.off('zoomstart', clear);
+  };
+
+  window.addEventListener('touchstart', clear, { once: true });
+  map.on('movestart', clear);
+  map.on('zoomstart', clear);
 }
 
 async function handlePointClick(feature, sourceKey) {
@@ -2167,6 +2220,7 @@ document.getElementById('panel')?.addEventListener('mouseout', (e) => {
   if (wrapper.contains(e.relatedTarget)) return;
 
   hideCrosshair();
+  setupTouchClearFallback();
 });
 
 /* ========= TOOLTIP LAYER INFO ========= */
