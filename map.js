@@ -24,6 +24,8 @@ let crosshairIdlePending = false;
 let crosshairMarker = null;
 let selectedCrosshairTarget = null;
 let adaptiveProjectionMode = 'globe';
+let isProgrammaticMove = false;
+let isClickInteraction = false;
 
 const geojsonCache = {};
 let geojsonPreloadPromise = null;
@@ -69,6 +71,9 @@ function clearInteraction({ keepSelection = false } = {}) {
   if (keepSelection) return;
 
   interactionState.mode = null;
+
+  selectedCrosshairTarget = null;
+  activeHoverTarget = null;
 
   setActiveCardOverlayForced(false);
   hideCrosshair();
@@ -341,6 +346,34 @@ function positionCrosshairArms(container, metrics) {
   setBox(rightMain, gap, -(stroke / 2), arm, stroke);
   setBox(topMain, -(stroke / 2), -(gap + arm), stroke, arm);
   setBox(bottomMain, -(stroke / 2), gap, stroke, arm);
+}
+
+function setupMapInteractionClear() {
+  const clear = () => {
+    if (isProgrammaticMove) return;
+    clearInteraction();
+  };
+
+  map.on('movestart', clear);
+}
+
+function setupUserInputClear() {
+  const clear = () => {
+    if (isClickInteraction) return;
+    clearInteraction();
+  };
+
+  // 🖱️ mouse wheel (zoom)
+  map.getCanvas().addEventListener('wheel', clear, { passive: true });
+
+  // ✋ touch pan
+  map.getCanvas().addEventListener('touchstart', clear, { passive: true });
+
+  // 🖱️ drag mouse
+  map.on('dragstart', clear);
+
+  // 🔍 pinch zoom
+  map.on('zoomstart', clear);
 }
 
 function renderHtmlCrosshair(lon, lat, sizeValue) {
@@ -1010,6 +1043,8 @@ function setupGeocoderOnce() {
       updatePanel(canonicalFeature, sourceKey);
 
       map.stop();
+
+      isProgrammaticMove = true;
       map.easeTo({
         center: canonicalFeature.geometry.coordinates,
         zoom: 10,
@@ -1025,6 +1060,8 @@ function setupGeocoderOnce() {
 
     // ✅ CASO 2: Mapbox → nearest
     map.stop();
+
+    isProgrammaticMove = true;
     map.flyTo({
       center: [lon, lat],
       zoom: 10,
@@ -1489,6 +1526,7 @@ function setupTouchClearFallback() {
 
 async function handlePointClick(feature, sourceKey) {
   if (!feature) return;
+  isClickInteraction = true;
 
   const coords = feature.geometry && feature.geometry.coordinates;
 
@@ -1511,11 +1549,17 @@ async function handlePointClick(feature, sourceKey) {
       : Math.min(currentZoom + 2, maxClickZoom);
 
     map.stop(); // 👈 importante per evitare conflitti
+
+    isProgrammaticMove = true;
     map.easeTo({
       center: coords,
       zoom: nextZoom,
       duration: 800,
       easing: (t) => 1 - Math.pow(1 - t, 3)
+    });
+
+    map.once('moveend', () => {
+      isClickInteraction = false;
     });
   }
 }
@@ -2281,6 +2325,8 @@ map.on('load', () => {
   map.addControl(new DualScaleControl(), 'top-left');
 
   setupGeocoderOnce();
+  setupMapInteractionClear();
+  setupUserInputClear();
   preloadGeoJSONs().then(() => {
     buildSuperclusterIndex();
   });
