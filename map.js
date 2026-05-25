@@ -34,6 +34,46 @@ const clusterLeavesCache = {};
 
 const clusterBestLeafCache = {};
 
+const interactionState = {
+  mode: null, // 'hover' | 'selected' | 'search'
+};
+
+/* ========= INTERACTION STATE ========= */
+function activateHover(target) {
+  interactionState.mode = 'hover';
+
+  setHoverCrosshairTarget(target);
+  showBestCrosshairForTarget(target);
+  setActiveCardOverlayForced(false);
+}
+
+function activateSelection(target) {
+  interactionState.mode = 'selected';
+
+  setSelectedCrosshairTarget(target);
+  showBestCrosshairForTarget(target);
+  setActiveCardOverlayForced(true);
+}
+
+function activateSearchHighlight(target) {
+  interactionState.mode = 'search';
+
+  setSelectedCrosshairTarget(target);
+  showBestCrosshairForTarget(target);
+  setActiveCardOverlayForced(true);
+
+  setupTransientHighlightClear();
+}
+
+function clearInteraction({ keepSelection = false } = {}) {
+  if (keepSelection) return;
+
+  interactionState.mode = null;
+
+  setActiveCardOverlayForced(false);
+  hideCrosshair();
+}
+
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
@@ -358,13 +398,6 @@ function hideCrosshair() {
 
 function hideCrosshairKeepTarget() {
   activeCrosshair = null;
-  crosshairRequestToken += 1;
-  hideHtmlCrosshair();
-}
-
-function hideHoverCrosshairOnly() {
-  activeCrosshair = null;
-  activeHoverTarget = null;
   crosshairRequestToken += 1;
   hideHtmlCrosshair();
 }
@@ -1382,34 +1415,6 @@ function handleClusterClick(feature, sourceKey) {
   });
 }
 
-function showCrosshairForClusterFeature(feature, sourceKey) {
-  if (!feature || !feature.geometry) return;
-
-  const coords = feature.geometry.coordinates;
-  if (!Array.isArray(coords)) return;
-
-  const props = feature.properties || {};
-
-  const target = createCrosshairTarget({
-    lon: coords[0],
-    lat: coords[1],
-    rawLon: coords[0],
-    rawLat: coords[1],
-    sourceKey,
-    identity: {
-      size: Number(props.maxSize) || 1,
-      clusterId: props.cluster_id != null ? props.cluster_id : null
-    }
-  });
-
-  if (target) {
-    setHoverCrosshairTarget(target);
-    renderCrosshair(target.lon, target.lat, target.size);
-  }
-
-  setActiveCardOverlayForced(false);
-}
-
 function onEnterPointer(e) {
   map.getCanvas().style.cursor = 'pointer';
 
@@ -1423,7 +1428,7 @@ function onEnterPointer(e) {
   if (pointSourceKey) {
     const target = buildTargetFromFeature(feature, pointSourceKey);
     if (target) {
-      showBestCrosshairForTarget(target);
+      activateHover(target);
       syncActiveCardOverlayWithFeature(feature, pointSourceKey);
     }
     return;
@@ -1432,34 +1437,48 @@ function onEnterPointer(e) {
   // 🔹 CLUSTER
   const clusterSourceKey = clusterLayerSourceMap[layerId];
   if (clusterSourceKey) {
-    showCrosshairForClusterFeature(feature, clusterSourceKey);
+    const coords = feature.geometry?.coordinates;
+    if (!coords) return;
 
-    if (!selectedCrosshairTarget) return;
+    const target = createCrosshairTarget({
+      lon: coords[0],
+      lat: coords[1],
+      rawLon: coords[0],
+      rawLat: coords[1],
+      sourceKey: clusterSourceKey,
+      identity: {
+        size: Number(feature.properties?.maxSize) || 1,
+        clusterId: feature.properties?.cluster_id || null
+      }
+    });
 
-    const bestLeaf = getBestLeafFromCluster(clusterSourceKey, feature);
-    if (!bestLeaf) return;
+    if (target) {
+      activateHover(target);
+    }
 
-    // 👉 confronta il leaf con quello selezionato
-    const leafIdentity = getFeatureIdentity(bestLeaf);
+    // 🔹 se il cluster contiene il punto selezionato → overlay ON
+    if (selectedCrosshairTarget) {
+      const bestLeaf = getBestLeafFromCluster(clusterSourceKey, feature);
+      if (!bestLeaf) return;
 
-    if (isSameFeatureIdentity(leafIdentity, selectedCrosshairTarget)) {
-      setActiveCardOverlayForced(true);
+      const leafIdentity = getFeatureIdentity(bestLeaf);
+
+      if (isSameFeatureIdentity(leafIdentity, selectedCrosshairTarget)) {
+        setActiveCardOverlayForced(true);
+      }
     }
 
     return;
   }
 
   // 🔹 fallback
-  setActiveCardOverlayForced(false);
-  hideCrosshair();
+  clearInteraction();
 }
 
 function onLeavePointer() {
   map.getCanvas().style.cursor = '';
 
-  setActiveCardOverlayForced(false);
-  hideHoverCrosshairOnly();
-  setupTouchClearFallback();
+  clearInteraction();
 }
 
 function setupTouchClearFallback() {
@@ -1487,8 +1506,11 @@ async function handlePointClick(feature, sourceKey) {
   const canonicalFeature = await resolveCanonicalFeature(feature, sourceKey);
 
   updatePanel(canonicalFeature, sourceKey);
-  setSelectedCrosshairTarget(buildTargetFromFeature(canonicalFeature, sourceKey));
-  setActiveCardOverlayForced(true);
+
+  // 🔹 nuova gestione unificata
+  const target = buildTargetFromFeature(canonicalFeature, sourceKey);
+  activateSelection(target);
+
   syncAdaptiveProjection();
 
   if (coords) {
@@ -1498,7 +1520,8 @@ async function handlePointClick(feature, sourceKey) {
     const nextZoom = currentZoom >= maxClickZoom
       ? currentZoom
       : Math.min(currentZoom + 2, maxClickZoom);
-      
+
+    map.stop(); // 👈 importante per evitare conflitti
     map.easeTo({
       center: coords,
       zoom: nextZoom,
