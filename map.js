@@ -1463,16 +1463,18 @@ function onLeavePointer() {
 }
 
 function setupTouchClearFallback() {
-  const clear = () => {
+  const clear = (e) => {
+    if (e.pointerType !== 'touch') return;
+
     setActiveCardOverlayForced(false);
     hideCrosshair();
 
-    window.removeEventListener('touchstart', clear);
+    window.removeEventListener('pointerdown', clear);
     map.off('movestart', clear);
     map.off('zoomstart', clear);
   };
 
-  window.addEventListener('touchstart', clear, { once: true });
+  window.addEventListener('pointerdown', clear, { once: true });
   map.on('movestart', clear);
   map.on('zoomstart', clear);
 }
