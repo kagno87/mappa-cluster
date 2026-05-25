@@ -2223,39 +2223,27 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
   const lat = parseFloat(overlay.dataset.lat);
 
   if (!isNaN(lon) && !isNaN(lat)) {
+    const target = buildTargetFromActiveCard();
+    if (!target) return;
+
     const currentZoom = map.getZoom();
-    const nextZoom = Math.min(currentZoom + 2, 10);
+    const maxZoom = 10;
+    const nextZoom = Math.min(currentZoom + 2, maxZoom);
 
-    const zoomChanged = Math.abs(nextZoom - currentZoom) > 0.001;
+    isClickInteraction = true;
 
-    // 👉 Se lo zoom NON cambia, aggiorniamo subito senza animazione
-    if (!zoomChanged) {
-      const target = buildTargetFromActiveCard();
-      if (!target) return;
-
-      setSelectedCrosshairTarget(target);
-      showBestCrosshairForTarget(target);
-      return;
-    }
-
-    // 👉 Se lo zoom cambia, comportamento standard
-    map.once('moveend', () => {
-      map.once('idle', () => {
-        requestAnimationFrame(() => {
-          const target = buildTargetFromActiveCard();
-          if (!target) return;
-
-          setSelectedCrosshairTarget(target);
-          showBestCrosshairForTarget(target);
-        });
-      });
-    });
-
+    map.stop();
     map.easeTo({
       center: [lon, lat],
       zoom: nextZoom,
       duration: 950,
       easing: (t) => 1 - Math.pow(1 - t, 3)
+    });
+
+    activateSelection(target);
+
+    map.once('moveend', () => {
+      isClickInteraction = false;
     });
   }
 });
