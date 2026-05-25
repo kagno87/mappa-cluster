@@ -986,7 +986,7 @@ function setupGeocoderOnce() {
   // 🔹 mount
   searchContainer.appendChild(geocoder.onAdd(map));
 
-  // 🔥 RESULT HANDLER (CUORE DELLA UX)
+  // 🔥 RESULT HANDLER (UNIFICATO)
   geocoder.on('result', async (e) => {
     const feature = e.result;
     if (!feature) return;
@@ -996,7 +996,7 @@ function setupGeocoderOnce() {
 
     const [lon, lat] = coords;
 
-    // ✅ CASO 1: pin tuo → diretto
+    // ✅ CASO 1: pin tuo
     if (feature.properties?.kind === 'pingeo') {
       const sourceKey = feature.properties.sourceKey;
       const originalFeature = feature.properties.original;
@@ -1009,35 +1009,21 @@ function setupGeocoderOnce() {
 
       updatePanel(canonicalFeature, sourceKey);
 
-      // 🔹 flyTo
       map.stop();
       map.easeTo({
-        center: [
-          canonicalFeature.geometry.coordinates[0],
-          canonicalFeature.geometry.coordinates[1]
-        ],
+        center: canonicalFeature.geometry.coordinates,
         zoom: 10,
         duration: 800,
         easing: (t) => 1 - Math.pow(1 - t, 3)
       });
 
-      // 🔹 overlay ON
-      setActiveCardOverlayForced(true);
-
-      // 🔹 crosshair ON
       const target = buildTargetFromFeature(canonicalFeature, sourceKey);
-      setSelectedCrosshairTarget(target);
-      showBestCrosshairForTarget(target);
-
-      // 🔹 auto-clear al primo input utente
-      setupTransientHighlightClear();
+      activateSearchHighlight(target);
 
       return;
     }
 
     // ✅ CASO 2: Mapbox → nearest
-    const nearest = findNearestGeojsonPoint(lon, lat);
-    
     map.stop();
     map.flyTo({
       center: [lon, lat],
@@ -1045,17 +1031,18 @@ function setupGeocoderOnce() {
       speed: 1.2
     });
 
+    const nearest = findNearestGeojsonPoint(lon, lat);
+
     if (nearest) {
       const { feature: nearestFeature, sourceKey } = nearest;
 
       const canonicalFeature = await resolveCanonicalFeature(nearestFeature, sourceKey);
 
       updatePanel(canonicalFeature, sourceKey);
+    }
 
-      setActiveCardOverlayForced(false);
-
-      hideCrosshair();
-    }   
+    // 🔹 niente overlay/crosshair
+    clearInteraction();
   });
 
   // 🔹 Enter su coordinate
@@ -1082,6 +1069,8 @@ function setupGeocoderOnce() {
       zoom: 12,
       speed: 1.2
     });
+
+    clearInteraction();
   });
 }
 
