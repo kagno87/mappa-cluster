@@ -1379,7 +1379,7 @@ function bindMapInteractions() {
   map.on('zoomstart', clearAllCrosshairState);
 
   map.on('moveend', () => {
-    refreshBestCrosshairAfterMove();
+        hideHtmlCrosshair();
 
     Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
     Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
@@ -1391,6 +1391,8 @@ function bindMapInteractions() {
       const geojson = buildSuperclusterGeoJSON(sourceKey);
       source.setData(geojson);
     });
+
+    refreshBestCrosshairAfterMove();
   });
 
   map.on('zoomend', () => {
