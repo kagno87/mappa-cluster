@@ -1379,7 +1379,18 @@ function bindMapInteractions() {
   map.on('zoomstart', clearAllCrosshairState);
 
   map.on('moveend', () => {
+    const currentTarget = getCurrentCrosshairTarget();
+
+    // 🔹 nascondi crosshair solo se il target
+    // non è più renderizzato stabilmente
+    if (currentTarget) {
+      const pointMatch =
+        getRenderedPointMatch(currentTarget);
+
+      if (!pointMatch) {
         hideHtmlCrosshair();
+      }
+    }
 
     Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
     Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
@@ -1388,7 +1399,9 @@ function bindMapInteractions() {
       const source = map.getSource(sourceKey);
       if (!source) return;
 
-      const geojson = buildSuperclusterGeoJSON(sourceKey);
+      const geojson =
+        buildSuperclusterGeoJSON(sourceKey);
+
       source.setData(geojson);
     });
 
