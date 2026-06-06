@@ -2280,6 +2280,8 @@ document.getElementById('panel')?.addEventListener('mouseout', (e) => {
 
   if (wrapper.contains(e.relatedTarget)) return;
 
+  setActiveCardOverlayForced(false);
+
   hideCrosshair();
   setupTouchClearFallback();
 });
