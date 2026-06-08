@@ -1623,8 +1623,8 @@ function buildSuperclusterIndex() {
       }));
 
     const index = new Supercluster({
-      radius: 70,
-      maxZoom: 7,
+      radius: 85,
+      maxZoom: 8,
 
       map: (props) => ({
         maxSize: props.size || 1
