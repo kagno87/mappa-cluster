@@ -1214,6 +1214,15 @@ function setupGeocoderOnce() {
         return;
       }
 
+      const input =
+        searchContainer.querySelector(
+          '.mapboxgl-ctrl-geocoder--input'
+        );
+
+      if (input) {
+        input.value = '';
+      }
+
       const coords =
         feature.center;
 
