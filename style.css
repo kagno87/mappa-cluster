@@ -291,6 +291,67 @@ html, body {
   font-size: 14px;
 }
 
+.custom-search-result {
+  display: flex;
+  align-items: center;
+
+  min-width: 0;
+}
+
+.search-result-marker {
+  width: 34px;
+  min-width: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 auto;
+
+  margin-left: -8px;
+}
+
+.search-result-dot {
+  position: relative;
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+  border: 1.5px solid #000;
+
+  box-sizing: border-box;
+}
+
+.search-result-dot.size-1 {
+  width: 10px;
+  height: 10px;
+}
+
+.search-result-dot.size-2 {
+  width: 14px;
+  height: 14px;
+}
+
+.search-result-dot.size-3 {
+  width: 18px;
+  height: 18px;
+}
+
+.search-result-dot.layer-nero {
+  background: #2d2d2d;
+}
+
+.search-result-dot.layer-bianco {
+  background: #ffffff;
+}
+
+.search-result-text {
+  min-width: 0;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ============================= */
 /* MAP CONTROLS                  */
 /* ============================= */

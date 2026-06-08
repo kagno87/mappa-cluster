@@ -895,220 +895,519 @@ function parseCoordQuery(raw) {
 }
 
 function setupGeocoderOnce() {
-  const searchContainer = document.getElementById('search-container');
+  const searchContainer =
+    document.getElementById(
+      'search-container'
+    );
 
   if (
     !searchContainer ||
-    typeof MapboxGeocoder === 'undefined' ||
-    searchContainer.querySelector('.mapboxgl-ctrl-geocoder')
+    typeof MapboxGeocoder ===
+      'undefined' ||
+    searchContainer.querySelector(
+      '.mapboxgl-ctrl-geocoder'
+    )
   ) {
     return;
   }
 
-  const geocoder = new MapboxGeocoder({
-    accessToken: mapboxgl.accessToken,
-    mapboxgl,
-    marker: false,
-    flyTo: false,
-    language: 'en',
-    types: 'place,locality,region',
-    placeholder: 'Search for a place',
-    localGeocoderOnly: false,
+  const geocoder =
+    new MapboxGeocoder({
+      accessToken:
+        mapboxgl.accessToken,
 
-    localGeocoder: (query) => {
-      const results = [];
+      mapboxgl,
+      marker: false,
+      flyTo: false,
 
-      if (!query || query.length < 2) return results;
+      language: 'en',
 
-      const q = query.toLowerCase();
+      types:
+        'place,locality,region',
 
-      // 🔹 1. coordinate
-      const parsed = parseCoordQuery(query);
-      if (parsed) {
-        const { lat, lon } = parsed;
-        const label = formatCoordPair(lat, lon);
+      placeholder:
+        'Search for a place',
 
-        results.push({
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: [lon, lat]
-          },
-          place_name: label,
-          text: label,
-          center: [lon, lat],
-          place_type: ['coordinate'],
-          properties: { kind: 'coords' }
-        });
-      }
+      localGeocoderOnly: false,
 
-      // 🔹 2. ricerca nei tuoi pin
-      sourceKeys.forEach((sourceKey) => {
-        const geojson = geojsonCache[getGeoJsonUrlForSource(sourceKey)];
-        if (!geojson?.features) return;
+      localGeocoder: (query) => {
+        const results = [];
 
-        geojson.features.forEach((f) => {
-          if (f.geometry?.type !== 'Point') return;
+        if (
+          !query ||
+          query.length < 2
+        ) {
+          return results;
+        }
 
-          const nameRaw = f.properties?.name || '';
-          const name = nameRaw.toLowerCase();
-          if (!name) return;
+        const q =
+          query.toLowerCase();
 
-          const coords = f.geometry.coordinates;
-          if (!coords || coords.length < 2) return;
+        // 🔹 1. coordinate
+        const parsed =
+          parseCoordQuery(query);
 
-          const lon = coords[0];
-          const lat = coords[1];
+        if (parsed) {
+          const { lat, lon } =
+            parsed;
 
-          const feature = {
+          const label =
+            formatCoordPair(
+              lat,
+              lon
+            );
+
+          results.push({
             type: 'Feature',
+
             geometry: {
               type: 'Point',
-              coordinates: [lon, lat]
+              coordinates: [
+                lon,
+                lat
+              ]
             },
+
+            place_name: label,
+            text: label,
             center: [lon, lat],
-            place_name: `${nameRaw} — ${f.properties?.country || ''}`,
-            text: nameRaw,
-            place_type: ['pingeo'],
+
+            place_type: [
+              'coordinate'
+            ],
+
             properties: {
-              kind: 'pingeo',
-              sourceKey,
-              original: f
+              kind: 'coords'
             }
-          };
+          });
+        }
 
-          if (name.startsWith(q)) {
-            results.unshift(feature);
-          } else if (name.includes(q)) {
-            results.push(feature);
+        // 🔹 2. ricerca nei tuoi pin
+        sourceKeys.forEach(
+          (sourceKey) => {
+            const geojson =
+              geojsonCache[
+                getGeoJsonUrlForSource(
+                  sourceKey
+                )
+              ];
+
+            if (
+              !geojson?.features
+            ) {
+              return;
+            }
+
+            geojson.features.forEach(
+              (f) => {
+                if (
+                  f.geometry
+                    ?.type !==
+                  'Point'
+                ) {
+                  return;
+                }
+
+                const nameRaw =
+                  f.properties
+                    ?.name || '';
+
+                const name =
+                  nameRaw.toLowerCase();
+
+                if (!name) {
+                  return;
+                }
+
+                const coords =
+                  f.geometry
+                    .coordinates;
+
+                if (
+                  !coords ||
+                  coords.length <
+                    2
+                ) {
+                  return;
+                }
+
+                const lon =
+                  coords[0];
+
+                const lat =
+                  coords[1];
+
+                const feature = {
+                  type:
+                    'Feature',
+
+                  geometry: {
+                    type:
+                      'Point',
+
+                    coordinates:
+                      [lon, lat]
+                  },
+
+                  center: [
+                    lon,
+                    lat
+                  ],
+
+                  place_name:
+                    `${nameRaw} — ${
+                      f.properties
+                        ?.country ||
+                      ''
+                    }`,
+
+                  text: nameRaw,
+
+                  place_type: [
+                    'pingeo'
+                  ],
+
+                  properties: {
+                    kind:
+                      'pingeo',
+
+                    sourceKey,
+
+                    original:
+                      f
+                  }
+                };
+
+                if (
+                  name.startsWith(
+                    q
+                  )
+                ) {
+                  results.unshift(
+                    feature
+                  );
+                } else if (
+                  name.includes(
+                    q
+                  )
+                ) {
+                  results.push(
+                    feature
+                  );
+                }
+              }
+            );
           }
-        });
-      });
+        );
 
-      return results;
-    },
+        return results;
+      },
 
-    render: (item) => {
-      if (item.properties?.kind === 'coords') {
-        return `<div class="custom-coord-suggestion">${item.place_name}</div>`;
-      }
+      render: (item) => {
+        // 🔹 coordinate
+        if (
+          item.properties
+            ?.kind ===
+          'coords'
+        ) {
+          return `
+            <div class="custom-coord-suggestion">
+              ${item.place_name}
+            </div>
+          `;
+        }
 
-      if (item.properties?.kind === 'pingeo') {
+        // 🔹 pin geojson
+        if (
+          item.properties
+            ?.kind ===
+          'pingeo'
+        ) {
+          const sourceKey =
+            item.properties
+              ?.sourceKey ||
+            'nero';
+
+          const size =
+            Number(
+              item
+                .properties
+                ?.original
+                ?.properties
+                ?.size
+            ) || 1;
+
+          const country =
+            item.properties
+              ?.original
+              ?.properties
+              ?.country ||
+            '';
+
+          return `
+            <div class="custom-search-result">
+
+              <div class="search-result-marker">
+               <span
+                  class="
+                    search-result-dot
+                    layer-${sourceKey}
+                    size-${size}
+                  ">
+                </span>
+              </div>
+
+              <div class="search-result-text">
+                ${item.text}
+                <span style="opacity:0.6">
+                  — ${country}
+                </span>
+              </div>
+
+            </div>
+          `;
+        }
+
+        // 🔹 risultati Mapbox standard
+        const name =
+          item.text || '';
+
+        const context =
+          item.context
+            ? item.context
+                .map(
+                  (c) => c.text
+                )
+                .join(', ')
+            : '';
+
         return `
           <div>
-            ${item.text}
-            <span style="opacity:0.6"> — ${item.properties.original?.properties?.country || ''}</span>
+            ${name}
+            ${
+              context
+                ? `
+              <span style="opacity:0.6">
+                — ${context}
+              </span>
+            `
+                : ''
+            }
           </div>
         `;
       }
-
-      const name = item.text || '';
-      const context = item.context
-        ? item.context.map(c => c.text).join(', ')
-        : '';
-
-      return `
-        <div>
-          ${name}
-          ${context ? `<span style="opacity:0.6"> — ${context}</span>` : ''}
-        </div>
-      `;
-    }
-  });
+    });
 
   // 🔹 mount
-  searchContainer.appendChild(geocoder.onAdd(map));
+  searchContainer.appendChild(
+    geocoder.onAdd(map)
+  );
 
-  // 🔥 RESULT HANDLER (UNIFICATO)
-  geocoder.on('result', async (e) => {
-    const feature = e.result;
-    if (!feature) return;
+  // 🔥 RESULT HANDLER
+  geocoder.on(
+    'result',
+    async (e) => {
+      const feature =
+        e.result;
 
-    const coords = feature.center;
-    if (!coords) return;
+      if (!feature) {
+        return;
+      }
 
-    const [lon, lat] = coords;
+      const coords =
+        feature.center;
 
-    // ✅ CASO 1: pin tuo
-    if (feature.properties?.kind === 'pingeo') {
-      const sourceKey = feature.properties.sourceKey;
-      const originalFeature = feature.properties.original;
+      if (!coords) {
+        return;
+      }
 
-      if (!sourceKey || !originalFeature) return;
+      const [lon, lat] =
+        coords;
 
-      ensureLayerVisible(sourceKey);
+      // ✅ CASO 1:
+      // pin tuo
+      if (
+        feature.properties
+          ?.kind ===
+        'pingeo'
+      ) {
+        const sourceKey =
+          feature.properties
+            .sourceKey;
 
-      const canonicalFeature = await resolveCanonicalFeature(originalFeature, sourceKey);
+        const originalFeature =
+          feature.properties
+            .original;
 
-      updatePanel(canonicalFeature, sourceKey);
+        if (
+          !sourceKey ||
+          !originalFeature
+        ) {
+          return;
+        }
 
+        ensureLayerVisible(
+          sourceKey
+        );
+
+        const canonicalFeature =
+          await resolveCanonicalFeature(
+            originalFeature,
+            sourceKey
+          );
+
+        updatePanel(
+          canonicalFeature,
+          sourceKey
+        );
+
+        map.stop();
+
+        isProgrammaticMove =
+          true;
+
+        map.easeTo({
+          center:
+            canonicalFeature
+              .geometry
+              .coordinates,
+
+          zoom: 10,
+          duration: 800,
+
+          easing: (t) =>
+            1 -
+            Math.pow(
+              1 - t,
+              3
+            )
+        });
+
+        const target =
+          buildTargetFromFeature(
+            canonicalFeature,
+            sourceKey
+          );
+
+        activateSearchHighlight(
+          target
+        );
+
+        return;
+      }
+
+      // ✅ CASO 2:
+      // Mapbox → nearest
       map.stop();
 
-      isProgrammaticMove = true;
-      map.easeTo({
-        center: canonicalFeature.geometry.coordinates,
+      isProgrammaticMove =
+        true;
+
+      map.flyTo({
+        center: [
+          lon,
+          lat
+        ],
+
         zoom: 10,
-        duration: 800,
-        easing: (t) => 1 - Math.pow(1 - t, 3)
+        speed: 1.2
       });
 
-      const target = buildTargetFromFeature(canonicalFeature, sourceKey);
-      activateSearchHighlight(target);
+      const nearest =
+        findNearestGeojsonPoint(
+          lon,
+          lat
+        );
 
-      return;
+      if (nearest) {
+        const {
+          feature:
+            nearestFeature,
+          sourceKey
+        } = nearest;
+
+        const canonicalFeature =
+          await resolveCanonicalFeature(
+            nearestFeature,
+            sourceKey
+          );
+
+        updatePanel(
+          canonicalFeature,
+          sourceKey
+        );
+      }
+
+      clearInteraction();
     }
-
-    // ✅ CASO 2: Mapbox → nearest
-    map.stop();
-
-    isProgrammaticMove = true;
-    map.flyTo({
-      center: [lon, lat],
-      zoom: 10,
-      speed: 1.2
-    });
-
-    const nearest = findNearestGeojsonPoint(lon, lat);
-
-    if (nearest) {
-      const { feature: nearestFeature, sourceKey } = nearest;
-
-      const canonicalFeature = await resolveCanonicalFeature(nearestFeature, sourceKey);
-
-      updatePanel(canonicalFeature, sourceKey);
-    }
-
-    // 🔹 niente overlay/crosshair
-    clearInteraction();
-  });
+  );
 
   // 🔹 Enter su coordinate
-  const input = searchContainer.querySelector('.mapboxgl-ctrl-geocoder--input');
-  if (!input) return;
+  const input =
+    searchContainer.querySelector(
+      '.mapboxgl-ctrl-geocoder--input'
+    );
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
+  if (!input) {
+    return;
+  }
 
-    const query = input.value.trim();
-    const match = query.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
-    if (!match) return;
+  input.addEventListener(
+    'keydown',
+    (e) => {
+      if (
+        e.key !== 'Enter'
+      ) {
+        return;
+      }
 
-    const a = parseFloat(match[1]);
-    const b = parseFloat(match[3]);
-    const coords = getCoordsFromSimplePair(a, b);
+      const query =
+        input.value.trim();
 
-    if (!coords) return;
+      const match =
+        query.match(
+          /^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/
+        );
 
-    e.preventDefault();
+      if (!match) {
+        return;
+      }
 
-    map.flyTo({
-      center: [coords.lon, coords.lat],
-      zoom: 12,
-      speed: 1.2
-    });
+      const a =
+        parseFloat(
+          match[1]
+        );
 
-    clearInteraction();
-  });
+      const b =
+        parseFloat(
+          match[3]
+        );
+
+      const coords =
+        getCoordsFromSimplePair(
+          a,
+          b
+        );
+
+      if (!coords) {
+        return;
+      }
+
+      e.preventDefault();
+
+      map.flyTo({
+        center: [
+          coords.lon,
+          coords.lat
+        ],
+
+        zoom: 12,
+        speed: 1.2
+      });
+
+      clearInteraction();
+    }
+  );
 }
 
 /* ========= LAYER ID ========= */
