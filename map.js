@@ -2469,6 +2469,32 @@ function updatePanel(feature, sourceKey = null) {
   const coordsTextEl = document.querySelector('.panel-card.is-active .coords-text');
   if (coordsTextEl) coordsTextEl.textContent = coordsText;
 
+  const coordsDot =
+    document.querySelector(
+      '.panel-card.is-active .card-coords-dot'
+    );
+
+  if (coordsDot) {
+    coordsDot.className =
+      'card-coords-dot';
+
+    const size =
+      Number(identity.size) || 1;
+
+    const layer =
+      normalizedFeature.sourceKey || '';
+
+    coordsDot.classList.add(
+      `size-${size}`
+    );
+
+    if (layer) {
+      coordsDot.classList.add(
+        `layer-${layer}`
+      );
+    }
+  }
+
   setActiveCardOverlayData(normalizedFeature);
 
   const titleTextEl =

@@ -693,10 +693,51 @@ html, body {
   opacity: 0.75;
 }
 
+.card-coords-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+
+  display: block;
+
+  border-radius: 50%;
+  border: 1.5px solid #000;
+
+  box-sizing: border-box;
+}
+
+/* SIZE */
+.card-coords-dot.size-1 {
+  width: 10px;
+  height: 10px;
+}
+
+.card-coords-dot.size-2 {
+  width: 14px;
+  height: 14px;
+}
+
+.card-coords-dot.size-3 {
+  width: 18px;
+  height: 18px;
+}
+
+/* LAYER COLOR */
+.card-coords-dot.layer-nero {
+  background: #2d2d2d;
+}
+
+.card-coords-dot.layer-bianco {
+  background: #ffffff;
+}
+
 .overlay-bottom {
   position: absolute;
   left: 10px;
+  right: 10px;
   bottom: 10px;
+
+  padding-right: 26px;
 }
 
 /* ============================= */
