@@ -632,6 +632,46 @@ html, body {
   font-size: clamp(10px, calc(28px * var(--card-scale)), 28px);
 }
 
+.overlay-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title-dot {
+  flex: 0 0 auto;
+
+  display: block;
+
+  border-radius: 50%;
+  border: 1.5px solid #000;
+
+  box-sizing: border-box;
+}
+
+.card-title-dot.size-1 {
+  width: 10px;
+  height: 10px;
+}
+
+.card-title-dot.size-2 {
+  width: 14px;
+  height: 14px;
+}
+
+.card-title-dot.size-3 {
+  width: 18px;
+  height: 18px;
+}
+
+.card-title-dot.layer-nero {
+  background: #2d2d2d;
+}
+
+.card-title-dot.layer-bianco {
+  background: #ffffff;
+}
+
 .overlay-description {
   margin: 0 0 5px 0;
 

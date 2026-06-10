@@ -2471,8 +2471,42 @@ function updatePanel(feature, sourceKey = null) {
 
   setActiveCardOverlayData(normalizedFeature);
 
-  const titleTextEl = document.querySelector('.panel-card.is-active .title-text');
-  if (titleTextEl) titleTextEl.textContent = identity.name || 'Senza nome';
+  const titleTextEl =
+    document.querySelector(
+      '.panel-card.is-active .title-text'
+    );
+
+  if (titleTextEl) {
+    titleTextEl.textContent =
+      identity.name || 'Senza nome';
+  }
+
+  const titleDot =
+    document.querySelector(
+      '.panel-card.is-active .card-title-dot'
+    );
+
+  if (titleDot) {
+    titleDot.className = 'card-title-dot';
+
+    const size =
+      Number(identity.size) || 1;
+
+    const layer =
+      normalizedFeature.sourceKey || '';
+
+    titleDot.classList.add(
+      `size-${size}`
+    );
+
+    if (layer) {
+      titleDot.classList.add(
+        `layer-${layer}`
+      );
+    }
+
+    titleDot.style.display = 'block';
+  }
 
   const imageUrl = getFeatureImageUrl(feature);
   const imgEl = document.querySelector('.panel-card.is-active .panel-image');
