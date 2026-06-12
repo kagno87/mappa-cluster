@@ -1530,19 +1530,29 @@ function addSourcesIfMissing() {
 }
 
 function getPointRadiusExpression() {
-  return ['match', ['get', 'size'], 1, 5, 2, 10, 3, 15, 6];
+  return ['match', ['get', 'size'],
+    1, 6,
+    2, 10,
+    3, 14,
+    6
+  ];
 }
 
 function getClusterRadiusExpression() {
-  return ['match', ['get', 'maxSize'], 1, 5, 2, 10, 3, 15, 7];
+  return ['match', ['get', 'maxSize'],
+    1, 6,
+    2, 10,
+    3, 14,
+    6
+  ];
 }
 
 function getClusterRingRadiusExpression() {
   return ['match', ['get', 'maxSize'],
-    1, 9,
+    1, 11,
     2, 15,
-    3, 21,
-    12
+    3, 19,
+    11
   ];
 }
 
