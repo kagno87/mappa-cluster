@@ -263,36 +263,73 @@ function ensureHtmlCrosshair() {
     return crosshairMarker.getElement();
   }
 
-  const el = document.createElement('div');
-  el.className = 'crosshair-html';
+  // container invisibile zero-size
+  const container =
+    document.createElement('div');
 
-  const parts = [
-    'left outline', 'right outline', 'top outline', 'bottom outline',
-    'left main', 'right main', 'top main', 'bottom main'
-  ];
+  container.className =
+    'crosshair-html';
 
-  const arms = {};
+  container.style.position =
+    'absolute';
 
-  parts.forEach((cls) => {
-    const arm = document.createElement('div');
-    arm.className = `arm ${cls}`;
-    el.appendChild(arm);
+  container.style.width =
+    '0px';
 
-    // 👉 cache DOM reference
-    arms[cls] = arm;
-  });
+  container.style.height =
+    '0px';
 
-  // 👉 salva cache direttamente sull'elemento
-  el._arms = arms;
+  container.style.pointerEvents =
+    'none';
 
-  crosshairMarker = new mapboxgl.Marker({
-    element: el,
-    anchor: 'center'
-  })
-    .setLngLat([0, 0])
-    .addTo(map);
+  // ring reale
+  const ring =
+    document.createElement('div');
 
-  return el;
+  ring.className =
+    'crosshair-ring';
+
+  ring.style.position =
+    'absolute';
+
+  ring.style.left =
+    '50%';
+
+  ring.style.top =
+    '50%';
+
+  ring.style.transform =
+    'translate(-50%, -50%)';
+
+  ring.style.border =
+    '4px solid #ffd400';
+
+  ring.style.borderRadius =
+    '50%';
+
+  ring.style.background =
+    'transparent';
+
+  ring.style.boxSizing =
+    'border-box';
+
+  ring.style.pointerEvents =
+    'none';
+
+  container.appendChild(ring);
+
+  // cache reference
+  container._ring = ring;
+
+  crosshairMarker =
+    new mapboxgl.Marker({
+      element: container,
+      anchor: 'center'
+    })
+      .setLngLat([0, 0])
+      .addTo(map);
+
+  return container;
 }
 
 function positionCrosshairArms(container, metrics) {
@@ -364,20 +401,50 @@ function setupUserInputClear() {
   map.on('zoomstart', clear);
 }
 
-function renderHtmlCrosshair(lon, lat, sizeValue) {
-  const el = ensureHtmlCrosshair();
+function renderHtmlCrosshair(
+  lon,
+  lat,
+  sizeValue
+) {
+  const el =
+    ensureHtmlCrosshair();
+
   if (!el) return;
 
-  const metrics = getCrosshairMetrics(sizeValue);
+  const ring =
+    el._ring;
+
+  if (!ring) return;
+
+  const sizeMap = {
+    1: 30,
+    2: 40,
+    3: 52
+  };
+
+  const diameter =
+    sizeMap[
+      Number(sizeValue)
+    ] || 30;
+
+  ring.style.width =
+    `${diameter}px`;
+
+  ring.style.height =
+    `${diameter}px`;
 
   if (crosshairMarker) {
-    crosshairMarker.setLngLat([lon, lat]);
+    crosshairMarker.setLngLat([
+      lon,
+      lat
+    ]);
   }
 
-  el.style.opacity = '1';
-  el.style.display = 'block';
+  el.style.opacity =
+    '1';
 
-  positionCrosshairArms(el, metrics);
+  el.style.display =
+    'block';
 }
 
 function hideHtmlCrosshair() {
