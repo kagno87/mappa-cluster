@@ -21,7 +21,6 @@ let activeCrosshair = null;
 let crosshairRequestToken = 0;
 let activeHoverTarget = null;
 let crosshairIdlePending = false;
-let crosshairMarker = null;
 let selectedCrosshairTarget = null;
 let adaptiveProjectionMode = 'globe';
 let isProgrammaticMove = false;
@@ -249,80 +248,6 @@ class DualScaleControl {
 
 /* ========= HOVER CROSSHAIR ========= */
 
-function ensureHtmlCrosshair() {
-  if (crosshairMarker) {
-    return crosshairMarker.getElement();
-  }
-
-  // container invisibile zero-size
-  const container =
-    document.createElement('div');
-
-  container.className =
-    'crosshair-html';
-
-  container.style.position =
-    'absolute';
-
-  container.style.width =
-    '0px';
-
-  container.style.height =
-    '0px';
-
-  container.style.pointerEvents =
-    'none';
-
-  // ring reale
-  const ring =
-    document.createElement('div');
-
-  ring.className =
-    'crosshair-ring';
-
-  ring.style.position =
-    'absolute';
-
-  ring.style.left =
-    '0px';
-
-  ring.style.top =
-    '0px';
-
-  ring.style.transform =
-    'translate(-50%, -50%)';
-
-  ring.style.border =
-    '4px solid #ffd400';
-
-  ring.style.borderRadius =
-    '50%';
-
-  ring.style.background =
-    'transparent';
-
-  ring.style.boxSizing =
-    'border-box';
-
-  ring.style.pointerEvents =
-    'none';
-
-  container.appendChild(ring);
-
-  // cache reference
-  container._ring = ring;
-
-  crosshairMarker =
-    new mapboxgl.Marker({
-      element: container,
-      anchor: 'center'
-    })
-      .setLngLat([0, 0])
-      .addTo(map);
-
-  return container;
-}
-
 function setupMapInteractionClear() {
   const clear = () => {
     if (isProgrammaticMove) return;
@@ -356,30 +281,21 @@ function renderHtmlCrosshair(
   lat,
   sizeValue
 ) {
-  const el =
-    ensureHtmlCrosshair();
-
-  if (!el) return;
-
-  const ring =
-    el._ring;
-
-  if (!ring) return;
-
   const pointSizeMap = {
-    1: 30,
-    2: 38,
-    3: 46
+    1: 22,
+    2: 30,
+    3: 38
   };
 
   const clusterSizeMap = {
-    1: 40,
-    2: 48,
-    3: 56
+    1: 32,
+    2: 40,
+    3: 48
   };
 
   const isCluster =
-    activeCrosshair?.isCluster === true;
+    activeCrosshair?.isCluster ===
+    true;
 
   const sizeMap =
     isCluster
@@ -391,39 +307,26 @@ function renderHtmlCrosshair(
       Number(sizeValue)
     ] || 30;
 
-  ring.style.width =
-    `${diameter}px`;
-
-  ring.style.height =
-    `${diameter}px`;
-
-  if (crosshairMarker) {
-    crosshairMarker.setLngLat([
-      lon,
-      lat
-    ]);
-  }
-
-  el.style.opacity =
-    '1';
-
-  el.style.display =
-    'block';
+  showMapboxCrosshairRing({
+    lon,
+    lat,
+    diameter
+  });
 }
 
 function hideHtmlCrosshair() {
-  if (!crosshairMarker) return;
-
-  const el = crosshairMarker.getElement();
-  if (!el) return;
-
-  el.style.opacity = '0';
-  el.style.display = 'none';
+  hideMapboxCrosshairRing();
 }
 
 function refreshHtmlCrosshair() {
-  if (!activeCrosshair) return;
-  renderHtmlCrosshair(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size);
+  if (!activeCrosshair)
+    return;
+
+  renderHtmlCrosshair(
+    activeCrosshair.lon,
+    activeCrosshair.lat,
+    activeCrosshair.size
+  );
 }
 
 function renderCrosshair(
@@ -1642,6 +1545,9 @@ const layerGroups = Object.fromEntries(
 const CROSSHAIR_HIGHLIGHT_SOURCE =
   'crosshair-highlight';
 
+const CROSSHAIR_RING_SOURCE =
+  'crosshair-ring';
+
 const sourceStyleConfig = {
   nero: {
     color: '#2d2d2d'
@@ -1940,6 +1846,127 @@ function ensureCrosshairHighlightLayers() {
   map.moveLayer(
     'crosshair-highlight'
   );
+}
+
+function ensureCrosshairRingLayer() {
+  if (
+    !map.getSource(
+      CROSSHAIR_RING_SOURCE
+    )
+  ) {
+    map.addSource(
+      CROSSHAIR_RING_SOURCE,
+      {
+        type: 'geojson',
+        data: {
+          type:
+            'FeatureCollection',
+          features: []
+        }
+      }
+    );
+  }
+
+  if (
+    !map.getLayer(
+      'crosshair-ring'
+    )
+  ) {
+    map.addLayer({
+      id:
+        'crosshair-ring',
+
+      type: 'circle',
+
+      source:
+        CROSSHAIR_RING_SOURCE,
+
+      paint: {
+        'circle-color':
+          'rgba(0,0,0,0)',
+
+        'circle-stroke-color':
+          '#ffe600',
+
+        'circle-stroke-width':
+          4,
+
+        'circle-radius': [
+          '/',
+          ['get', 'diameter'],
+          2
+        ]
+      }
+    });
+  }
+
+  // sopra tutto,
+  // ma sotto il clone
+  map.moveLayer(
+    'crosshair-ring'
+  );
+
+  map.moveLayer(
+    'crosshair-highlight-ring'
+  );
+
+  map.moveLayer(
+    'crosshair-highlight'
+  );
+}
+
+function showMapboxCrosshairRing({
+  lon,
+  lat,
+  diameter
+}) {
+  const source =
+    map.getSource(
+      CROSSHAIR_RING_SOURCE
+    );
+
+  if (!source) return;
+
+  source.setData({
+    type:
+      'FeatureCollection',
+
+    features: [
+      {
+        type:
+          'Feature',
+
+        properties: {
+          diameter
+        },
+
+        geometry: {
+          type:
+            'Point',
+
+          coordinates: [
+            lon,
+            lat
+          ]
+        }
+      }
+    ]
+  });
+}
+
+function hideMapboxCrosshairRing() {
+  const source =
+    map.getSource(
+      CROSSHAIR_RING_SOURCE
+    );
+
+  if (!source) return;
+
+  source.setData({
+    type:
+      'FeatureCollection',
+    features: []
+  });
 }
 
 function showCrosshairHighlight({
@@ -3054,6 +3081,7 @@ map.on('load', () => {
   });
   initDataLayers();
   ensureCrosshairHighlightLayers();
+  ensureCrosshairRingLayer();
   bindMapInteractions();
   lockZenithNorth();
   initializeAdaptiveProjection('globe');
@@ -3078,8 +3106,17 @@ map.on('load', () => {
 /* ========= STYLE LOAD ========= */
 map.on('style.load', () => {
   initDataLayers();
+
+  ensureCrosshairHighlightLayers();
+  ensureCrosshairRingLayer();
+
   lockZenithNorth();
-  initializeAdaptiveProjection(adaptiveProjectionMode);
+
+  initializeAdaptiveProjection(
+    adaptiveProjectionMode
+  );
+
+  refreshCrosshair();
 });
 
 window.addEventListener('resize', () => {
