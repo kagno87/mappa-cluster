@@ -579,37 +579,185 @@ function getNearestRenderedFeatureForTarget(target, maxPixelDistance = 80) {
   return best;
 }
 
+function getRenderedClusterContainingTarget(target) {
+  if (!target?.sourceKey) return null;
+
+  const clusterLayerId =
+    getClusterLayerIdForSource(target.sourceKey);
+
+  if (!map.getLayer(clusterLayerId)) {
+    return null;
+  }
+
+  const renderedClusters =
+    map.queryRenderedFeatures({
+      layers: [clusterLayerId]
+    });
+
+  if (!renderedClusters.length) {
+    return null;
+  }
+
+  const targetIdentity = {
+    name: target.name || '',
+    country: target.country || '',
+    size: Number(target.size) || 1,
+    mediaLink: target.mediaLink || '',
+    description: target.description || ''
+  };
+
+  for (const cluster of renderedClusters) {
+    const clusterId =
+      cluster.properties?.cluster_id;
+
+    if (clusterId == null) continue;
+
+    const leaves =
+      getClusterLeaves(
+        target.sourceKey,
+        clusterId
+      );
+
+    const containsTarget =
+      leaves.some((leaf) => {
+        const leafIdentity =
+          getFeatureIdentity(leaf);
+
+        return isSameFeatureIdentity(
+          leafIdentity,
+          targetIdentity
+        );
+      });
+
+    if (!containsTarget) {
+      continue;
+    }
+
+    const coords =
+      cluster.geometry?.coordinates;
+
+    if (!coords) {
+      continue;
+    }
+
+    return {
+      lon: coords[0],
+      lat: coords[1],
+      size:
+        Number(
+          cluster.properties?.maxSize
+        ) || 1
+    };
+  }
+
+  return null;
+}
+
 function showBestCrosshairForTarget(target) {
-  const normalizedTarget = normalizeCrosshairTarget(target);
+  const normalizedTarget =
+    normalizeCrosshairTarget(target);
+
   if (!normalizedTarget) return;
 
-  setHoverCrosshairTarget(normalizedTarget);
+  setHoverCrosshairTarget(
+    normalizedTarget
+  );
 
   syncAdaptiveProjection();
   hideCrosshairKeepTarget();
 
-  const requestToken = ++crosshairRequestToken;
+  const requestToken =
+    ++crosshairRequestToken;
 
-  requestAnimationFrame(async () => {
-    if (requestToken !== crosshairRequestToken) return;
+  requestAnimationFrame(
+    async () => {
+      if (
+        requestToken !==
+        crosshairRequestToken
+      ) {
+        return;
+      }
 
-    const pointMatch = getRenderedPointMatch(normalizedTarget);
-    if (pointMatch) {
-      if (requestToken !== crosshairRequestToken) return;
-      renderCrosshair(pointMatch.lon, pointMatch.lat, pointMatch.size);
-      return;
+      // 🔹 1. point renderizzato
+      const pointMatch =
+        getRenderedPointMatch(
+          normalizedTarget
+        );
+
+      if (pointMatch) {
+        if (
+          requestToken !==
+          crosshairRequestToken
+        ) {
+          return;
+        }
+
+        renderCrosshair(
+          pointMatch.lon,
+          pointMatch.lat,
+          pointMatch.size
+        );
+
+        return;
+      }
+
+      // 🔹 2. cluster che contiene il target
+      const clusterMatch =
+        getRenderedClusterContainingTarget(
+          normalizedTarget
+        );
+
+      if (clusterMatch) {
+        if (
+          requestToken !==
+          crosshairRequestToken
+        ) {
+          return;
+        }
+
+        renderCrosshair(
+          clusterMatch.lon,
+          clusterMatch.lat,
+          clusterMatch.size
+        );
+
+        return;
+      }
+
+      // 🔹 3. fallback nearest
+      const fallbackMatch =
+        getNearestRenderedFeatureForTarget(
+          normalizedTarget,
+          80
+        );
+
+      if (fallbackMatch) {
+        if (
+          requestToken !==
+          crosshairRequestToken
+        ) {
+          return;
+        }
+
+        renderCrosshair(
+          fallbackMatch.lon,
+          fallbackMatch.lat,
+          fallbackMatch.size
+        );
+
+        return;
+      }
+
+      if (
+        requestToken !==
+        crosshairRequestToken
+      ) {
+        return;
+      }
+
+      hideCrosshairKeepTarget();
     }
-
-    const fallbackMatch = getNearestRenderedFeatureForTarget(normalizedTarget, 80);
-    if (fallbackMatch) {
-      if (requestToken !== crosshairRequestToken) return;
-      renderCrosshair(fallbackMatch.lon, fallbackMatch.lat, fallbackMatch.size);
-      return;
-    }
-
-    if (requestToken !== crosshairRequestToken) return;
-    hideCrosshairKeepTarget();
-  });
+  );
 }
 
 function buildTargetFromFeature(feature, sourceKey) {
