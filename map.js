@@ -424,6 +424,29 @@ function renderCrosshair(lon, lat, sizeValue) {
     activeCrosshair.lat,
     activeCrosshair.size
   );
+
+  const target =
+    getCurrentCrosshairTarget();
+
+  if (target) {
+    showCrosshairHighlight({
+      lon:
+        activeCrosshair.lon,
+
+      lat:
+        activeCrosshair.lat,
+
+      size:
+        activeCrosshair.size,
+
+      sourceKey:
+        target.sourceKey,
+
+      isCluster:
+        target.clusterId !=
+        null
+    });
+  }
 }
 
 function hideCrosshair() {
@@ -431,6 +454,7 @@ function hideCrosshair() {
   activeHoverTarget = null;
   crosshairRequestToken += 1;
   hideHtmlCrosshair();
+  hideCrosshairHighlight();
   syncAdaptiveProjection();
 }
 
@@ -438,6 +462,7 @@ function hideCrosshairKeepTarget() {
   activeCrosshair = null;
   crosshairRequestToken += 1;
   hideHtmlCrosshair();
+  hideCrosshairHighlight();
 }
 
 function clearAllCrosshairState() {
@@ -1590,6 +1615,9 @@ const layerGroups = Object.fromEntries(
   sourceKeys.map((sourceKey) => [sourceKey, getLayerIdsForSource(sourceKey)])
 );
 
+const CROSSHAIR_HIGHLIGHT_SOURCE =
+  'crosshair-highlight';
+
 const sourceStyleConfig = {
   nero: {
     color: '#2d2d2d'
@@ -1793,6 +1821,164 @@ function addLayersForSource(sourceKey) {
 function addLayersIfMissing() {
   sourceKeys.forEach((sourceKey) => {
     addLayersForSource(sourceKey);
+  });
+}
+
+function ensureCrosshairHighlightLayers() {
+  if (
+    !map.getSource(
+      CROSSHAIR_HIGHLIGHT_SOURCE
+    )
+  ) {
+    map.addSource(
+      CROSSHAIR_HIGHLIGHT_SOURCE,
+      {
+        type: 'geojson',
+        data: {
+          type:
+            'FeatureCollection',
+          features: []
+        }
+      }
+    );
+  }
+
+  // ring cluster highlight
+  if (
+    !map.getLayer(
+      'crosshair-highlight-ring'
+    )
+  ) {
+    map.addLayer({
+      id:
+        'crosshair-highlight-ring',
+
+      type: 'circle',
+
+      source:
+        CROSSHAIR_HIGHLIGHT_SOURCE,
+
+      filter: [
+        '==',
+        ['get', 'isCluster'],
+        true
+      ],
+
+      paint:
+        getClusterRingPaint()
+    });
+  }
+
+  // cluster / point highlight
+  if (
+    !map.getLayer(
+      'crosshair-highlight'
+    )
+  ) {
+    map.addLayer({
+      id:
+        'crosshair-highlight',
+
+      type: 'circle',
+
+      source:
+        CROSSHAIR_HIGHLIGHT_SOURCE,
+
+      paint: {
+        'circle-color': [
+          'get',
+          'color'
+        ],
+
+        'circle-radius': [
+          'match',
+          ['get', 'size'],
+          1, 6,
+          2, 10,
+          3, 14,
+          6
+        ],
+
+        'circle-stroke-width':
+          1.5,
+
+        'circle-stroke-color':
+          '#000000'
+      }
+    });
+  }
+
+  // 👇 sempre sopra tutto
+  map.moveLayer(
+    'crosshair-highlight-ring'
+  );
+
+  map.moveLayer(
+    'crosshair-highlight'
+  );
+}
+
+function showCrosshairHighlight({
+  lon,
+  lat,
+  size,
+  sourceKey,
+  isCluster = false
+}) {
+  const source =
+    map.getSource(
+      CROSSHAIR_HIGHLIGHT_SOURCE
+    );
+
+  if (!source) return;
+
+  source.setData({
+    type:
+      'FeatureCollection',
+
+    features: [
+      {
+        type:
+          'Feature',
+
+        properties: {
+          size:
+            Number(size) || 1,
+
+          color:
+            getSourceColor(
+              sourceKey
+            ),
+
+          isCluster
+        },
+
+        geometry: {
+          type:
+            'Point',
+
+          coordinates: [
+            lon,
+            lat
+          ]
+        }
+      }
+    ]
+  });
+}
+
+function hideCrosshairHighlight() {
+  const source =
+    map.getSource(
+      CROSSHAIR_HIGHLIGHT_SOURCE
+    );
+
+  if (!source) return;
+
+  source.setData({
+    type:
+      'FeatureCollection',
+    features: []
   });
 }
 
@@ -2840,6 +3026,7 @@ map.on('load', () => {
     buildSuperclusterIndex();
   });
   initDataLayers();
+  ensureCrosshairHighlightLayers();
   bindMapInteractions();
   lockZenithNorth();
   initializeAdaptiveProjection('globe');

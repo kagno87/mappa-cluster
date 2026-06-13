@@ -47,7 +47,7 @@ body {
 /* CROSSHAIR                     */
 /* ============================= */
 
-..crosshair-html {
+.crosshair-html {
   position: absolute;
   width: 0;
   height: 0;
