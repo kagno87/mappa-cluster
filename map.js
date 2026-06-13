@@ -36,30 +36,20 @@ const clusterLeavesCache = {};
 
 const clusterBestLeafCache = {};
 
-const interactionState = {
-  mode: null, // 'hover' | 'selected' | 'search'
-};
-
 /* ========= INTERACTION STATE ========= */
 function activateHover(target) {
-  interactionState.mode = 'hover';
-
   setHoverCrosshairTarget(target);
   showBestCrosshairForTarget(target);
   setActiveCardOverlayForced(false);
 }
 
 function activateSelection(target) {
-  interactionState.mode = 'selected';
-
   setSelectedCrosshairTarget(target);
   showBestCrosshairForTarget(target);
   setActiveCardOverlayForced(true);
 }
 
 function activateSearchHighlight(target) {
-  interactionState.mode = 'search';
-
   setSelectedCrosshairTarget(target);
   showBestCrosshairForTarget(target);
   setActiveCardOverlayForced(true);
@@ -69,8 +59,6 @@ function activateSearchHighlight(target) {
 
 function clearInteraction({ keepSelection = false } = {}) {
   if (keepSelection) return;
-
-  interactionState.mode = null;
 
   selectedCrosshairTarget = null;
   activeHoverTarget = null;
@@ -2515,33 +2503,6 @@ function updatePanel(feature, sourceKey = null) {
   if (titleTextEl) {
     titleTextEl.textContent =
       identity.name || 'Senza nome';
-  }
-
-  const titleDot =
-    document.querySelector(
-      '.panel-card.is-active .card-title-dot'
-    );
-
-  if (titleDot) {
-    titleDot.className = 'card-title-dot';
-
-    const size =
-      Number(identity.size) || 1;
-
-    const layer =
-      normalizedFeature.sourceKey || '';
-
-    titleDot.classList.add(
-      `size-${size}`
-    );
-
-    if (layer) {
-      titleDot.classList.add(
-        `layer-${layer}`
-      );
-    }
-
-    titleDot.style.display = 'block';
   }
 
   const imageUrl = getFeatureImageUrl(feature);
