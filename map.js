@@ -366,11 +366,28 @@ function renderHtmlCrosshair(
 
   if (!ring) return;
 
-  const sizeMap = {
+  const pointSizeMap = {
     1: 30,
-    2: 40,
-    3: 52
+    2: 38,
+    3: 46
   };
+
+  const clusterSizeMap = {
+    1: 38,
+    2: 46,
+    3: 54
+  };
+
+  const target =
+    getCurrentCrosshairTarget();
+
+  const isCluster =
+    target?.clusterId != null;
+
+  const sizeMap =
+    isCluster
+      ? clusterSizeMap
+      : pointSizeMap;
 
   const diameter =
     sizeMap[
@@ -1943,6 +1960,9 @@ function showCrosshairHighlight({
 
         properties: {
           size:
+            Number(size) || 1,
+
+          maxSize:
             Number(size) || 1,
 
           color:
