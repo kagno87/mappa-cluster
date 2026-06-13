@@ -268,13 +268,14 @@ function setupUserInputClear() {
       e?.type ===
         'touchstart';
 
-    // 🔹 desktop:
-    // mantieni hover durante zoom
-    if (
+    // 🔹 preserva solo
+    // hover desktop
+    const preserveHover =
       !isTouch &&
       interactionState.mode ===
-        'hover'
-    ) {
+        'hover';
+
+    if (preserveHover) {
       return;
     }
 
