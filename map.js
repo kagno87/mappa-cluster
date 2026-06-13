@@ -378,11 +378,8 @@ function renderHtmlCrosshair(
     3: 56
   };
 
-  const target =
-    getCurrentCrosshairTarget();
-
   const isCluster =
-    target?.clusterId != null;
+    activeCrosshair?.isCluster === true;
 
   const sizeMap =
     isCluster
@@ -429,11 +426,17 @@ function refreshHtmlCrosshair() {
   renderHtmlCrosshair(activeCrosshair.lon, activeCrosshair.lat, activeCrosshair.size);
 }
 
-function renderCrosshair(lon, lat, sizeValue) {
+function renderCrosshair(
+  lon,
+  lat,
+  sizeValue,
+  isCluster = false
+) {
   activeCrosshair = {
     lon: Number(lon),
     lat: Number(lat),
-    size: Number(sizeValue) || 1
+    size: Number(sizeValue) || 1,
+    isCluster
   };
 
   renderHtmlCrosshair(
@@ -460,8 +463,7 @@ function renderCrosshair(lon, lat, sizeValue) {
         target.sourceKey,
 
       isCluster:
-        target.clusterId !=
-        null
+        activeCrosshair.isCluster
     });
   }
 }
@@ -754,7 +756,8 @@ function showBestCrosshairForTarget(target) {
         renderCrosshair(
           pointMatch.lon,
           pointMatch.lat,
-          pointMatch.size
+          pointMatch.size,
+          false
         );
 
         return;
@@ -777,7 +780,8 @@ function showBestCrosshairForTarget(target) {
         renderCrosshair(
           clusterMatch.lon,
           clusterMatch.lat,
-          clusterMatch.size
+          clusterMatch.size,
+          true
         );
 
         return;
@@ -801,7 +805,10 @@ function showBestCrosshairForTarget(target) {
         renderCrosshair(
           fallbackMatch.lon,
           fallbackMatch.lat,
-          fallbackMatch.size
+          fallbackMatch.size,
+          Boolean(
+            fallbackMatch.isCluster
+          )
         );
 
         return;
