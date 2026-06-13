@@ -258,22 +258,58 @@ function setupMapInteractionClear() {
 }
 
 function setupUserInputClear() {
-  const clear = () => {
-    if (isClickInteraction) return;
+  const clear = (e) => {
+    if (isClickInteraction)
+      return;
+
+    const isTouch =
+      e?.pointerType ===
+        'touch' ||
+      e?.type ===
+        'touchstart';
+
+    // 🔹 desktop:
+    // mantieni hover durante zoom
+    if (
+      !isTouch &&
+      interactionState.mode ===
+        'hover'
+    ) {
+      return;
+    }
+
     clearInteraction();
   };
 
-  // 🖱️ mouse wheel (zoom)
-  map.getCanvas().addEventListener('wheel', clear, { passive: true });
+  // 🖱️ wheel zoom
+  map
+    .getCanvas()
+    .addEventListener(
+      'wheel',
+      clear,
+      { passive: true }
+    );
 
   // ✋ touch pan
-  map.getCanvas().addEventListener('touchstart', clear, { passive: true });
+  map
+    .getCanvas()
+    .addEventListener(
+      'touchstart',
+      clear,
+      { passive: true }
+    );
 
   // 🖱️ drag mouse
-  map.on('dragstart', clear);
+  map.on(
+    'dragstart',
+    clear
+  );
 
   // 🔍 pinch zoom
-  map.on('zoomstart', clear);
+  map.on(
+    'zoomstart',
+    clear
+  );
 }
 
 function renderHtmlCrosshair(
@@ -388,10 +424,17 @@ function hideCrosshairKeepTarget() {
 }
 
 function clearAllCrosshairState() {
+    if (activeHoverTarget) {
+    refreshBestCrosshairAfterMove();
+    return;
+  }
+
   if (!selectedCrosshairTarget) {
     activeCrosshair = null;
     activeHoverTarget = null;
+
     crosshairRequestToken += 1;
+
     hideHtmlCrosshair();
 
     setActiveCardOverlayForced(false);
@@ -3070,37 +3113,102 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
 map.on('load', () => {
   refreshPanelLayout();
 
-  map.addControl(new ZoomAndStyleControl(), 'top-right');
-  map.addControl(new DualScaleControl(), 'top-left');
+  map.addControl(
+    new ZoomAndStyleControl(),
+    'top-right'
+  );
+
+  map.addControl(
+    new DualScaleControl(),
+    'top-left'
+  );
 
   setupGeocoderOnce();
   setupMapInteractionClear();
   setupUserInputClear();
-  preloadGeoJSONs().then(() => {
-    buildSuperclusterIndex();
-  });
-  initDataLayers();
-  ensureCrosshairHighlightLayers();
-  ensureCrosshairRingLayer();
-  bindMapInteractions();
+
+  preloadGeoJSONs().then(
+    () => {
+      buildSuperclusterIndex();
+
+      initDataLayers();
+
+      ensureCrosshairHighlightLayers();
+      ensureCrosshairRingLayer();
+
+      bindMapInteractions();
+
+      // 🔹 primo render immediato
+      sourceKeys.forEach(
+        (sourceKey) => {
+          const source =
+            map.getSource(
+              sourceKey
+            );
+
+          if (!source)
+            return;
+
+          const geojson =
+            buildSuperclusterGeoJSON(
+              sourceKey
+            );
+
+          source.setData(
+            geojson
+          );
+        }
+      );
+    }
+  );
+
   lockZenithNorth();
-  initializeAdaptiveProjection('globe');
+
+  initializeAdaptiveProjection(
+    'globe'
+  );
 
   map.setMinZoom(1.8);
 
-  map.once('idle', () => {
+  map.once(
+    'idle',
+    () => {
+      Object.keys(
+        clusterLeavesCache
+      ).forEach(
+        (k) =>
+          delete clusterLeavesCache[k]
+      );
 
-    Object.keys(clusterLeavesCache).forEach(k => delete clusterLeavesCache[k]);
-    Object.keys(clusterBestLeafCache).forEach(k => delete clusterBestLeafCache[k]);
-    
-    sourceKeys.forEach((sourceKey) => {
-      const source = map.getSource(sourceKey);
-      if (!source) return;
+      Object.keys(
+        clusterBestLeafCache
+      ).forEach(
+        (k) =>
+          delete clusterBestLeafCache[k]
+      );
 
-      const geojson = buildSuperclusterGeoJSON(sourceKey);
-      source.setData(geojson);
-    });
-  });
+      sourceKeys.forEach(
+        (sourceKey) => {
+          const source =
+            map.getSource(
+              sourceKey
+            );
+
+          if (!source)
+            return;
+
+          const geojson =
+            buildSuperclusterGeoJSON(
+              sourceKey
+            );
+
+          source.setData(
+            geojson
+          );
+        }
+      );
+    }
+  );
 });
 
 /* ========= STYLE LOAD ========= */
