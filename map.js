@@ -248,15 +248,6 @@ class DualScaleControl {
 }
 
 /* ========= HOVER CROSSHAIR ========= */
-const CROSSHAIR_METRICS = {
-  1: { gap: 13, arm: 12, stroke: 2.5 },
-  2: { gap: 18, arm: 14, stroke: 2.5 },
-  3: { gap: 23, arm: 16, stroke: 2.5 }
-};
-
-function getCrosshairMetrics(sizeValue) {
-  return CROSSHAIR_METRICS[Number(sizeValue)] || CROSSHAIR_METRICS[1];
-}
 
 function ensureHtmlCrosshair() {
   if (crosshairMarker) {
@@ -330,47 +321,6 @@ function ensureHtmlCrosshair() {
       .addTo(map);
 
   return container;
-}
-
-function positionCrosshairArms(container, metrics) {
-  const { gap, arm, stroke } = metrics;
-
-  const arms = container._arms;
-  if (!arms) return;
-
-  const leftMain = arms['left main'];
-  const rightMain = arms['right main'];
-  const topMain = arms['top main'];
-  const bottomMain = arms['bottom main'];
-
-  const leftOutline = arms['left outline'];
-  const rightOutline = arms['right outline'];
-  const topOutline = arms['top outline'];
-  const bottomOutline = arms['bottom outline'];
-
-  function setBox(el, x, y, w, h) {
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.style.width = `${w}px`;
-    el.style.height = `${h}px`;
-  }
-
-  const outlineExtra = 1.5;
-  const outlineInset = outlineExtra / 2;
-  const outlineThickness = 4;
-  const outlineOffset = outlineThickness / 2;
-
-  // outline
-  setBox(leftOutline, -(gap + arm) - outlineInset, -outlineOffset, arm + outlineExtra, outlineThickness);
-  setBox(rightOutline, gap - outlineInset, -outlineOffset, arm + outlineExtra, outlineThickness);
-  setBox(topOutline, -outlineOffset, -(gap + arm) - outlineInset, outlineThickness, arm + outlineExtra);
-  setBox(bottomOutline, -outlineOffset, gap - outlineInset, outlineThickness, arm + outlineExtra);
-
-  // main
-  setBox(leftMain, -(gap + arm), -(stroke / 2), arm, stroke);
-  setBox(rightMain, gap, -(stroke / 2), arm, stroke);
-  setBox(topMain, -(stroke / 2), -(gap + arm), stroke, arm);
-  setBox(bottomMain, -(stroke / 2), gap, stroke, arm);
 }
 
 function setupMapInteractionClear() {

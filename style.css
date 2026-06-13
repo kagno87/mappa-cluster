@@ -47,42 +47,11 @@ body {
 /* CROSSHAIR                     */
 /* ============================= */
 
-.crosshair-html {
+..crosshair-html {
   position: absolute;
   width: 0;
   height: 0;
   pointer-events: none;
-}
-
-.crosshair-html .arm {
-  position: absolute;
-  background: #000;
-  border-radius: 999px;
-}
-
-.crosshair-html .arm.outline {
-  background: #fff;
-  opacity: 0.8;
-}
-
-.crosshair-html .arm.left.main,
-.crosshair-html .arm.right.main {
-  height: 2.5px;
-}
-
-.crosshair-html .arm.top.main,
-.crosshair-html .arm.bottom.main {
-  width: 2.5px;
-}
-
-.crosshair-html .arm.left.outline,
-.crosshair-html .arm.right.outline {
-  height: 5.0px;
-}
-
-.crosshair-html .arm.top.outline,
-.crosshair-html .arm.bottom.outline {
-  width: 5.0px;
 }
 
 /* ============================= */
