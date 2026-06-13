@@ -284,10 +284,10 @@ function ensureHtmlCrosshair() {
     'absolute';
 
   ring.style.left =
-    '50%';
+    '0px';
 
   ring.style.top =
-    '50%';
+    '0px';
 
   ring.style.transform =
     'translate(-50%, -50%)';
@@ -373,9 +373,9 @@ function renderHtmlCrosshair(
   };
 
   const clusterSizeMap = {
-    1: 38,
-    2: 46,
-    3: 54
+    1: 40,
+    2: 48,
+    3: 56
   };
 
   const target =
