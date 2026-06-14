@@ -2193,12 +2193,20 @@ function handleClusterClick(feature, sourceKey) {
   if (bestLeaf) {
     updatePanel(bestLeaf, sourceKey);
 
-    const target = buildTargetFromFeature(bestLeaf, sourceKey);
+    const target =
+      buildTargetFromFeature(
+        bestLeaf,
+        sourceKey
+      );
 
-    target.clusterId = feature.properties?.cluster_id || null;
+    target.clusterId =
+      feature.properties
+        ?.cluster_id || null;
 
-    setSelectedCrosshairTarget(target);
-    setActiveCardOverlayForced(true);
+    // 🔹 stessa logica dei pin
+    activateSelection(
+      target
+    );
   }
 
   map.easeTo({
