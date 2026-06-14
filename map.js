@@ -43,17 +43,6 @@ function activateHover(target) {
 }
 
 function activateSelection(target) {
-  console.log(
-    'ACTIVATE SELECTION',
-    {
-      target,
-      beforeHover:
-        activeHoverTarget,
-      beforeSelected:
-        selectedCrosshairTarget
-    }
-  );
-
   setSelectedCrosshairTarget(target);
   showBestCrosshairForTarget(target);
   setActiveCardOverlayForced(true);
@@ -671,16 +660,6 @@ function getRenderedClusterContainingTarget(target) {
 }
 
 function showBestCrosshairForTarget(target) {
-  console.log(
-    'SHOW BEST CROSSHAIR',
-    {
-      target,
-      activeCrosshair,
-      selectedCrosshairTarget,
-      hoverTarget:
-        activeHoverTarget
-    }
-  );
   const normalizedTarget =
     normalizeCrosshairTarget(target);
 
@@ -2336,16 +2315,14 @@ function onEnterPointer(e) {
 }
 
 function onLeavePointer() {
-  map.getCanvas().style.cursor =
-    '';
+  map.getCanvas().style.cursor = '';
 
-  // 🔹 se c'è una selezione attiva,
-  // non cancellarla
-  if (
-    selectedCrosshairTarget
-  ) {
-    activeHoverTarget =
-      null;
+  if (selectedCrosshairTarget) {
+    activeHoverTarget = null;
+
+    setActiveCardOverlayForced(false);
+
+    hideCrosshair();
 
     return;
   }
@@ -3347,31 +3324,3 @@ function lockZenithNorth() {
 document.getElementById('brand')?.addEventListener('click', () => {
   showRandomSize2Card();
 });
-
-
-
-  // ========= DEBUG CLICK =========
-  map.on('click', (e) => {
-    const features =
-      map.queryRenderedFeatures(
-        e.point
-      );
-
-    console.log(
-      'CLICK FEATURES:',
-      features.map((f) => ({
-        layer: f.layer?.id,
-        source: f.source,
-        cluster:
-          f.properties?.cluster,
-        clusterId:
-          f.properties
-            ?.cluster_id,
-        isCluster:
-          f.properties
-            ?.isCluster,
-        props:
-          f.properties
-      }))
-    );
-  });
