@@ -3168,6 +3168,10 @@ const toggles =
 
 function hideLayerInfo() {
   layerInfo?.classList.remove(
+    'is-animating'
+  );
+
+  layerInfo?.classList.remove(
     'is-visible'
   );
 }
@@ -3186,6 +3190,13 @@ toggles.forEach(
         rect.top +
         rect.height / 2;
 
+      // 🔹 reset animazione
+      layerInfo.classList.remove(
+        'is-animating'
+      );
+
+      // 🔹 posizione iniziale:
+      // centro del toggle
       layerInfo.style.left =
         `${centerX}px`;
 
@@ -3199,8 +3210,21 @@ toggles.forEach(
       layerInfo.innerHTML =
         `<div class="layer-info-title">${text}</div>`;
 
+      // 🔹 render visibile
       layerInfo.classList.add(
         'is-visible'
+      );
+
+      // 🔹 forza reflow
+      layerInfo.offsetHeight;
+
+      // 🔹 trigger animazione
+      requestAnimationFrame(
+        () => {
+          layerInfo.classList.add(
+            'is-animating'
+          );
+        }
       );
     };
 
@@ -3214,7 +3238,7 @@ toggles.forEach(
       hideLayerInfo
     );
 
-    // touch
+    // 👇 touch
     toggle.addEventListener(
       'touchstart',
       show,
@@ -3223,7 +3247,7 @@ toggles.forEach(
   }
 );
 
-// 👇 qualsiasi click/touch sulla mappa lo spegne
+// 👇 qualsiasi interazione mappa lo spegne
 map.on(
   'mousedown',
   hideLayerInfo

@@ -159,10 +159,6 @@ body {
   width: 105px;
   height: 105px;
 
-  transform:
-    translateX(-50%)
-    translateY(-12px);
-
   border-radius: 50%;
 
   background:
@@ -194,10 +190,48 @@ body {
 
   z-index: 2;
   pointer-events: none;
+
+  /* 👇 stato iniziale */
+  transform:
+    translate(-50%, -50%)
+    scale(0.17);
+
+  opacity: 0;
+
+  will-change:
+    transform,
+    opacity;
 }
 
 #layer-info.is-visible {
   display: flex;
+}
+
+#layer-info.is-animating {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 140ms ease;
+
+  transform:
+    translate(-50%, -12px)
+    scale(1);
+
+  opacity: 1;
+}
+
+.layer-info-title {
+  opacity: 0;
+
+  transition:
+    opacity 90ms ease;
+
+  transition-delay:
+    170ms;
+}
+
+#layer-info.is-animating
+.layer-info-title {
+  opacity: 1;
 }
 
 /* ============================= */
