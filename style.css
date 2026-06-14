@@ -711,10 +711,30 @@ body {
 
   line-height:
     inherit;
+
+  transform:
+    translateY(
+      calc(
+        -2px *
+        var(--card-scale)
+      )
+    );
 }
 
 .panel-card .coords-copy {
-  font-size: 12px;
+  font-size:
+    calc(
+      16px *
+      var(--card-scale)
+    );
+
+  transform:
+    translateY(
+      calc(
+        -2px *
+        var(--card-scale)
+      )
+    );
 }
 
 .panel-card .title-copy:hover,
