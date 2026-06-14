@@ -196,7 +196,7 @@ body {
     translate(-50%, -50%)
     scale(0.17);
 
-  opacity: 0;
+  opacity: 0.12;
 
   will-change:
     transform,
@@ -209,24 +209,24 @@ body {
 
 #layer-info.is-animating {
   transition:
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 140ms ease;
+    transform 165ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 90ms ease;
 
   transform:
     translate(-50%, -12px)
     scale(1);
 
-  opacity: 1;
+  opacity: 0.95;
 }
 
 .layer-info-title {
   opacity: 0;
 
   transition:
-    opacity 90ms ease;
+    opacity 70ms ease-in;
 
   transition-delay:
-    170ms;
+    115ms;
 }
 
 #layer-info.is-animating
