@@ -43,6 +43,17 @@ function activateHover(target) {
 }
 
 function activateSelection(target) {
+  console.log(
+    'ACTIVATE SELECTION',
+    {
+      target,
+      beforeHover:
+        activeHoverTarget,
+      beforeSelected:
+        selectedCrosshairTarget
+    }
+  );
+
   setSelectedCrosshairTarget(target);
   showBestCrosshairForTarget(target);
   setActiveCardOverlayForced(true);
@@ -660,6 +671,16 @@ function getRenderedClusterContainingTarget(target) {
 }
 
 function showBestCrosshairForTarget(target) {
+  console.log(
+    'SHOW BEST CROSSHAIR',
+    {
+      target,
+      activeCrosshair,
+      selectedCrosshairTarget,
+      hoverTarget:
+        activeHoverTarget
+    }
+  );
   const normalizedTarget =
     normalizeCrosshairTarget(target);
 
@@ -2216,12 +2237,42 @@ function handleClusterClick(feature, sourceKey) {
     );
   }
 
+  isClickInteraction =
+    true;
+
+  map.stop();
+
+  isProgrammaticMove =
+    true;
+
   map.easeTo({
-    center: feature.geometry.coordinates,
-    zoom: expansionZoom,
+    center:
+      feature.geometry
+        .coordinates,
+
+    zoom:
+      expansionZoom,
+
     duration: 800,
-    easing: (t) => 1 - Math.pow(1 - t, 3)
+
+    easing: (t) =>
+      1 -
+      Math.pow(
+        1 - t,
+        3
+      )
   });
+
+  map.once(
+    'moveend',
+    () => {
+      isClickInteraction =
+        false;
+
+      isProgrammaticMove =
+        false;
+    }
+  );
 }
 
 function onEnterPointer(e) {
@@ -2285,7 +2336,19 @@ function onEnterPointer(e) {
 }
 
 function onLeavePointer() {
-  map.getCanvas().style.cursor = '';
+  map.getCanvas().style.cursor =
+    '';
+
+  // 🔹 se c'è una selezione attiva,
+  // non cancellarla
+  if (
+    selectedCrosshairTarget
+  ) {
+    activeHoverTarget =
+      null;
+
+    return;
+  }
 
   clearInteraction();
 }
