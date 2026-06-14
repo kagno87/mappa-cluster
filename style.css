@@ -602,9 +602,7 @@ body {
 }
 
 .overlay-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
 }
 
 .overlay-description {
@@ -694,8 +692,25 @@ body {
 }
 
 .panel-card .title-copy {
-  font-size: calc(18px * var(--card-scale));
-  vertical-align: middle;
+  display: inline;
+
+  font-size:
+    calc(
+      18px *
+      var(--card-scale)
+    );
+
+  vertical-align:
+    baseline;
+
+  margin-left:
+    calc(
+      4px *
+      var(--card-scale)
+    );
+
+  line-height:
+    inherit;
 }
 
 .panel-card .coords-copy {
