@@ -1468,32 +1468,10 @@ function setupGeocoderOnce() {
         speed: 1.2
       });
 
-      const nearest =
-        findNearestGeojsonPoint(
-          lon,
-          lat
-        );
-
-      if (nearest) {
-        const {
-          feature:
-            nearestFeature,
-          sourceKey
-        } = nearest;
-
-        const canonicalFeature =
-          await resolveCanonicalFeature(
-            nearestFeature,
-            sourceKey
-          );
-
-        updatePanel(
-          canonicalFeature,
-          sourceKey
-        );
-      }
-
-      clearInteraction();
+      await activateNearestPointFromCoords(
+        lon,
+        lat
+      );
     }
   );
 
@@ -1560,7 +1538,10 @@ function setupGeocoderOnce() {
         speed: 1.2
       });
 
-      clearInteraction();
+      activateNearestPointFromCoords(
+        coords.lon,
+        coords.lat
+      );
     }
   );
 }
@@ -2668,6 +2649,53 @@ function findNearestGeojsonPoint(lon, lat, maxDistance = 1.5) {
   if (bestDist > maxDistance * maxDistance) return null;
 
   return best;
+}
+
+async function activateNearestPointFromCoords(
+  lon,
+  lat
+) {
+  const nearest =
+    findNearestGeojsonPoint(
+      lon,
+      lat
+    );
+
+  if (!nearest) {
+    clearInteraction();
+    return;
+  }
+
+  const {
+    feature:
+      nearestFeature,
+    sourceKey
+  } = nearest;
+
+  ensureLayerVisible(
+    sourceKey
+  );
+
+  const canonicalFeature =
+    await resolveCanonicalFeature(
+      nearestFeature,
+      sourceKey
+    );
+
+  updatePanel(
+    canonicalFeature,
+    sourceKey
+  );
+
+  const target =
+    buildTargetFromFeature(
+      canonicalFeature,
+      sourceKey
+    );
+
+  activateSearchHighlight(
+    target
+  );
 }
 
 function getActiveSourceKeys() {
