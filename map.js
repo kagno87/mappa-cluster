@@ -670,7 +670,6 @@ function showBestCrosshairForTarget(target) {
   );
 
   syncAdaptiveProjection();
-  hideCrosshairKeepTarget();
 
   const requestToken =
     ++crosshairRequestToken;
@@ -2134,13 +2133,21 @@ function bindMapInteractions() {
   map.on('moveend', () => {
     const currentTarget = getCurrentCrosshairTarget();
 
-    // 🔹 nascondi crosshair solo se il target
-    // non è più renderizzato stabilmente
     if (currentTarget) {
       const pointMatch =
-        getRenderedPointMatch(currentTarget);
+        getRenderedPointMatch(
+          currentTarget
+        );
 
-      if (!pointMatch) {
+      const clusterMatch =
+        getRenderedClusterContainingTarget(
+          currentTarget
+        );
+
+      if (
+        !pointMatch &&
+        !clusterMatch
+      ) {
         hideHtmlCrosshair();
       }
     }
