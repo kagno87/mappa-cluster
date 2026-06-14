@@ -156,15 +156,41 @@ body {
 #layer-info {
   position: absolute;
 
-  background: rgba(63,63,63,0.8);
+  width: 105px;
+  height: 105px;
+
+  transform:
+    translateX(-50%)
+    translateY(-12px);
+
+  border-radius: 50%;
+
+  background:
+    rgba(33,33,33,0.66);
+
   color: #fff;
 
-  padding: 10px 12px;
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  text-align: center;
+
+  padding:
+    18px 12px 12px;
+
+  box-sizing:
+    border-box;
+
+  font-family:
+    Calibri,
+    "Segoe UI",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.25;
 
   z-index: 2;
   pointer-events: none;
