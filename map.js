@@ -3156,28 +3156,88 @@ document.getElementById('panel')?.addEventListener('mouseout', (e) => {
 });
 
 /* ========= TOOLTIP LAYER INFO ========= */
-const layerInfo = document.getElementById('layer-info');
-const toggles = document.querySelectorAll('.layer-toggle');
+const layerInfo =
+  document.getElementById(
+    'layer-info'
+  );
 
-toggles.forEach((toggle) => {
-  toggle.addEventListener('mouseenter', () => {
-    const rect = toggle.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
+const toggles =
+  document.querySelectorAll(
+    '.layer-toggle'
+  );
 
-    layerInfo.style.left = `${centerX}px`;
-    layerInfo.style.top = `${centerY}px`;
+function hideLayerInfo() {
+  layerInfo?.classList.remove(
+    'is-visible'
+  );
+}
 
-    const text = toggle.dataset.layerInfo || '';
-    layerInfo.innerHTML = `<div class="layer-info-title">${text}</div>`;
+toggles.forEach(
+  (toggle) => {
+    const show = () => {
+      const rect =
+        toggle.getBoundingClientRect();
 
-    layerInfo.hidden = false;
-  });
+      const centerX =
+        rect.left +
+        rect.width / 2;
 
-  toggle.addEventListener('mouseleave', () => {
-    layerInfo.hidden = true;
-  });
-});
+      const centerY =
+        rect.top +
+        rect.height / 2;
+
+      layerInfo.style.left =
+        `${centerX}px`;
+
+      layerInfo.style.top =
+        `${centerY}px`;
+
+      const text =
+        toggle.dataset
+          .layerInfo || '';
+
+      layerInfo.innerHTML =
+        `<div class="layer-info-title">${text}</div>`;
+
+      layerInfo.classList.add(
+        'is-visible'
+      );
+    };
+
+    toggle.addEventListener(
+      'mouseenter',
+      show
+    );
+
+    toggle.addEventListener(
+      'mouseleave',
+      hideLayerInfo
+    );
+
+    // touch
+    toggle.addEventListener(
+      'touchstart',
+      show,
+      { passive: true }
+    );
+  }
+);
+
+// 👇 qualsiasi click/touch sulla mappa lo spegne
+map.on(
+  'mousedown',
+  hideLayerInfo
+);
+
+map.on(
+  'touchstart',
+  hideLayerInfo
+);
+
+map.on(
+  'movestart',
+  hideLayerInfo
+);
 
 /* ========= TOGGLE UI CLICK ========= */
 document.querySelectorAll('.layer-toggle').forEach((toggle) => {
