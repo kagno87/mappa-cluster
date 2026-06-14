@@ -268,12 +268,10 @@ function setupUserInputClear() {
       e?.type ===
         'touchstart';
 
-    // 🔹 preserva solo
-    // hover desktop
+    // 🔹 preserva hover desktop
     const preserveHover =
       !isTouch &&
-      interactionState.mode ===
-        'hover';
+      activeHoverTarget;
 
     if (preserveHover) {
       return;
@@ -3271,3 +3269,31 @@ function lockZenithNorth() {
 document.getElementById('brand')?.addEventListener('click', () => {
   showRandomSize2Card();
 });
+
+
+
+  // ========= DEBUG CLICK =========
+  map.on('click', (e) => {
+    const features =
+      map.queryRenderedFeatures(
+        e.point
+      );
+
+    console.log(
+      'CLICK FEATURES:',
+      features.map((f) => ({
+        layer: f.layer?.id,
+        source: f.source,
+        cluster:
+          f.properties?.cluster,
+        clusterId:
+          f.properties
+            ?.cluster_id,
+        isCluster:
+          f.properties
+            ?.isCluster,
+        props:
+          f.properties
+      }))
+    );
+  });
