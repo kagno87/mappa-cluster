@@ -269,7 +269,8 @@ body {
   flex: 1 1 auto;
   min-width: 0;
   margin-left: 50px;
-
+  padding-right: 10px;
+  box-sizing: border-box;
   position: relative;
   z-index: 3;
 
@@ -417,20 +418,49 @@ body {
 /* ============================= */
 
 .zoom-style-control {
-  background: #424242;
+  background:
+    #424242;
 
-  border-radius: 999px;
+  border-radius:
+    999px;
 
-  padding: 4px;
+  padding:
+    5px;
 
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display:
+    flex;
 
-  border: none;
-  box-shadow: none;
+  flex-direction:
+    column;
 
-  overflow: visible;
+  gap:
+    3px;
+
+  border:
+    none !important;
+
+  outline:
+    none !important;
+
+  box-shadow:
+    none !important;
+
+  overflow:
+    visible;
+}
+
+.zoom-style-control.mapboxgl-ctrl-group {
+  border:
+    none !important;
+
+  outline:
+    none !important;
+
+  box-shadow:
+    none !important;
+
+  background:
+    #424242 !important;
 }
 
 .zoom-style-control button,
@@ -478,7 +508,7 @@ button.mapboxgl-ctrl-icon {
 }
 
 .zoom-style-control button:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.15);
 }
 
 .zoom-style-control
@@ -496,6 +526,14 @@ button.mapboxgl-ctrl-icon {
   font-weight: 400;
 
   background-image: none !important;
+
+  color:
+    rgba(
+      255,
+      255,
+      255,
+      0.8
+    );
 }
 
 .zoom-style-control .style-btn {
