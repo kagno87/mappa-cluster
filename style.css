@@ -466,8 +466,8 @@ body {
 .zoom-style-control button,
 .zoom-style-control .mapboxgl-ctrl-icon,
 .zoom-style-control .style-btn {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
 
   display: grid;
   place-items: center;
