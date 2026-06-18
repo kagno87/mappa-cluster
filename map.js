@@ -208,10 +208,21 @@ class DualScaleControl {
       label.className = 'dual-scale-label';
       label.textContent = scEl.textContent || '';
 
+      const syncPillSize = () => {
+        const w = scEl.offsetWidth;
+
+        item.style.height =
+          `${w + 40}px`;
+      };
+
       const obs = new MutationObserver(() => {
         label.textContent = scEl.textContent || '';
+
+        syncPillSize();
       });
+
       obs.observe(scEl, { childList: true, characterData: true, subtree: true });
+      syncPillSize();
 
       this._items = this._items || [];
       this._items.push({ sc, obs });
