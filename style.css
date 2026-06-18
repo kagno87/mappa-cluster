@@ -584,6 +584,7 @@ button.mapboxgl-ctrl-icon {
 .dual-scale-control {
   display: flex;
   gap: 4px;
+
 }
 
 .dual-scale-item {
@@ -603,6 +604,7 @@ button.mapboxgl-ctrl-icon {
   padding: 6px;
 
   box-sizing: border-box;
+  align-self: flex-end;
 }
 
 .dual-scale-item:nth-child(2) {
@@ -611,8 +613,8 @@ button.mapboxgl-ctrl-icon {
 
 .dual-scale-item .mapboxgl-ctrl-scale {
   position: absolute;
-  left: 0;
-  top: 0;
+  left: 50%;
+  bottom: 34px;
 
   transform: rotate(-90deg);
   transform-origin: left top;
@@ -633,11 +635,15 @@ button.mapboxgl-ctrl-icon {
 
 .dual-scale-item .dual-scale-label {
   position: absolute;
-  right: 0;
-  bottom: 0;
 
-  transform-origin: right bottom;
-  transform: rotate(-90deg) translateX(100px) translateY(-16px);
+  left: 50%;
+  bottom: 8px;
+
+  transform:
+    translateX(-50%)
+    rotate(-90deg);
+
+  transform-origin: center;
 
   white-space: nowrap;
 
@@ -655,8 +661,11 @@ button.mapboxgl-ctrl-icon {
 
 .mapboxgl-ctrl-top-left {
   left: 18px !important;
-  top: calc(50% + 70px) !important;
-  transform: translateY(-50%);
+
+  top: auto !important;
+  bottom: calc(50% - 70px) !important;
+
+  transform: none !important;
 }
 
 .mapboxgl-ctrl-top-left .mapboxgl-ctrl {
