@@ -605,7 +605,7 @@ button.mapboxgl-ctrl-icon {
 }
 
 .dual-scale-item:nth-child(2) {
-  margin-left: 4px;
+  margin-left: 2px;
 }
 
 .dual-scale-item .mapboxgl-ctrl-scale {
@@ -681,7 +681,7 @@ button.mapboxgl-ctrl-icon {
 }
 
 .mapboxgl-ctrl-top-left {
-  left: 18px !important;
+  left: 10px !important;
 
   top: auto !important;
   bottom: calc(50% - 75px) !important;
