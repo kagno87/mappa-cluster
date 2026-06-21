@@ -610,8 +610,8 @@ button.mapboxgl-ctrl-icon {
 
 .dual-scale-item .mapboxgl-ctrl-scale {
   position: absolute;
-  left: 50%;
-  bottom: 50px;
+  left: calc(50% - 0.75px);
+  bottom: 54px;
 
   transform: rotate(-90deg);
   transform-origin: left top;
@@ -626,8 +626,32 @@ button.mapboxgl-ctrl-icon {
   font-size: 0 !important;
   color: transparent !important;
 
-  border-top: 4px solid rgba(255,255,255,0.9) !important;
+  border-top: 1.5px solid #b3b3b3 !important;
   box-shadow: none;
+}
+
+.dual-scale-item .mapboxgl-ctrl-scale::before,
+.dual-scale-item .mapboxgl-ctrl-scale::after {
+  content: '';
+
+  position: absolute;
+
+  width: 4px;
+  height: 4px;
+
+  border-radius: 50%;
+
+  background: #b3b3b3;
+}
+
+.dual-scale-item .mapboxgl-ctrl-scale::before {
+  left: -3px;
+  top: -2.75px;
+}
+
+.dual-scale-item .mapboxgl-ctrl-scale::after {
+  right: -3px;
+  top: -2.75px;
 }
 
 .dual-scale-item .dual-scale-label {
@@ -646,8 +670,8 @@ button.mapboxgl-ctrl-icon {
 
   font-family: Calibri,"Segoe UI","Helvetica Neue",Arial,sans-serif;
   font-size: 12px;
-  font-weight: 450;
-  color: rgba(255,255,255,0.7);
+  font-weight: 500;
+  color: #b3b3b3;
 }
 
 .dual-scale-box {
