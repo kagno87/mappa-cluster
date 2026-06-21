@@ -212,7 +212,7 @@ class DualScaleControl {
         const w = scEl.offsetWidth;
 
         item.style.height =
-          `${w + 40}px`;
+          `${w + 60}px`;
       };
 
       const obs = new MutationObserver(() => {
