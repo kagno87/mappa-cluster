@@ -17,49 +17,99 @@ async function getInitialMapView() {
     zoom: DEFAULT_EUROPE_ZOOM
   };
 
-  // 1. Prova prima la posizione del dispositivo
-  if (navigator.geolocation) {
+  const GPS_PREF_KEY =
+    'pingeo-gps-preference';
+
+  const gpsPreference =
+    localStorage.getItem(
+      GPS_PREF_KEY
+    );
+
+  let permissionState =
+    null;
+
+  // 1. Legge lo stato del permesso,
+  // se il browser supporta Permissions API
+  if (navigator.permissions) {
+    try {
+      const permission =
+        await navigator.permissions.query({
+          name: 'geolocation'
+        });
+
+      permissionState =
+        permission.state;
+
+      console.log(
+        'GEO permission:',
+        permissionState
+      );
+    } catch (e) {
+      console.log(
+        'GEO permission unavailable:',
+        e
+      );
+    }
+  }
+
+  // 2. Decide se tentare il GPS
+  const shouldTryDevice =
+    navigator.geolocation &&
+    gpsPreference !== 'skip' &&
+    permissionState !== 'denied';
+
+  if (shouldTryDevice) {
     try {
       const browserLocation =
         await new Promise((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              console.log(
-                'GEO device:',
-                position.coords.latitude,
-                position.coords.longitude,
-                'accuracy:',
-                position.coords.accuracy
-              );
-
-              resolve({
-                center: [
+          navigator.geolocation
+            .getCurrentPosition(
+              (position) => {
+                console.log(
+                  'GEO device:',
+                  position.coords.latitude,
                   position.coords.longitude,
-                  position.coords.latitude
-                ],
-                zoom: 6
-              });
-            },
+                  'accuracy:',
+                  position.coords.accuracy
+                );
 
-            (error) => {
-              console.log(
-                'GEO device unavailable:',
-                error.code,
-                error.message
-              );
+                resolve({
+                  center: [
+                    position.coords.longitude,
+                    position.coords.latitude
+                  ],
+                  zoom: 6
+                });
+              },
 
-              resolve(null);
-            },
+              (error) => {
+                console.log(
+                  'GEO device unavailable:',
+                  error.code,
+                  error.message
+                );
 
-            {
-              enableHighAccuracy: true,
-              timeout: 5000,
-              maximumAge: 0
-            }
-          );
+                resolve(null);
+              },
+
+              {
+                enableHighAccuracy: false,
+                timeout: 1000,
+                maximumAge: 600000
+              }
+            );
         });
 
       if (browserLocation) {
+        localStorage.setItem(
+          GPS_PREF_KEY,
+          'prefer'
+        );
+
+        console.log(
+          'GEO preference saved: prefer'
+        );
+
         console.log(
           'GEO selected: device',
           browserLocation
@@ -67,15 +117,35 @@ async function getInitialMapView() {
 
         return browserLocation;
       }
+
+      // Il tentativo GPS non ha prodotto
+      // una posizione: non ritentarlo
+      // automaticamente ai prossimi caricamenti.
+      localStorage.setItem(
+        GPS_PREF_KEY,
+        'skip'
+      );
+
+      console.log(
+        'GEO preference saved: skip'
+      );
     } catch (e) {
       console.log(
         'GEO device error:',
         e
       );
     }
+  } else {
+    console.log(
+      'GEO device skipped:',
+      {
+        gpsPreference,
+        permissionState
+      }
+    );
   }
 
-  // 2. Fallback IP / VPN via Worker
+  // 3. Fallback IP / VPN via Worker
   try {
     const response = await fetch(
       'https://pingeo-image-proxy.danielecinquini1.workers.dev/geo',
@@ -114,7 +184,7 @@ async function getInitialMapView() {
           longitude,
           latitude
         ],
-        zoom: 6
+        zoom: 3.5
       };
 
       console.log(
@@ -131,7 +201,7 @@ async function getInitialMapView() {
     );
   }
 
-  // 3. Ultimo fallback Europa
+  // 4. Ultimo fallback Europa
   console.log(
     'GEO selected: Europe fallback',
     fallback
