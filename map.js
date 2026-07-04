@@ -55,7 +55,6 @@ async function getInitialMapView() {
   // 2. Decide se tentare il GPS
   const shouldTryDevice =
     navigator.geolocation &&
-    gpsPreference !== 'skip' &&
     permissionState !== 'denied';
 
   if (shouldTryDevice) {
@@ -94,7 +93,7 @@ async function getInitialMapView() {
 
               {
                 enableHighAccuracy: false,
-                timeout: 1000,
+                timeout: 3000,
                 maximumAge: 600000
               }
             );
@@ -118,17 +117,6 @@ async function getInitialMapView() {
         return browserLocation;
       }
 
-      // Il tentativo GPS non ha prodotto
-      // una posizione: non ritentarlo
-      // automaticamente ai prossimi caricamenti.
-      localStorage.setItem(
-        GPS_PREF_KEY,
-        'skip'
-      );
-
-      console.log(
-        'GEO preference saved: skip'
-      );
     } catch (e) {
       console.log(
         'GEO device error:',
