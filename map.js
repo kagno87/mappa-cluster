@@ -13,68 +13,149 @@ const DEFAULT_EUROPE_ZOOM =
 
 async function getInitialMapView() {
   const fallback = {
-    center:
-      DEFAULT_EUROPE_CENTER,
-
-    zoom:
-      DEFAULT_EUROPE_ZOOM
+    center: DEFAULT_EUROPE_CENTER,
+    zoom: DEFAULT_EUROPE_ZOOM
   };
 
+  // 1. Prova la geolocalizzazione browser
+  // solo se il permesso è già granted:
+  // nessun popup viene mostrato.
   if (
-    !navigator.geolocation ||
-    !navigator.permissions
+    navigator.geolocation &&
+    navigator.permissions
   ) {
-    return fallback;
+    try {
+      const permission =
+        await navigator.permissions.query({
+          name: 'geolocation'
+        });
+
+      console.log(
+        'GEO permission:',
+        permission.state
+      );
+
+      if (permission.state === 'granted') {
+        const browserLocation =
+          await new Promise((resolve) => {
+            navigator.geolocation
+              .getCurrentPosition(
+                (position) => {
+                  console.log(
+                    'GEO browser:',
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    'accuracy:',
+                    position.coords.accuracy
+                  );
+
+                  resolve({
+                    center: [
+                      position.coords.longitude,
+                      position.coords.latitude
+                    ],
+                    zoom: 6
+                  });
+                },
+
+                (error) => {
+                  console.log(
+                    'GEO browser error:',
+                    error.code,
+                    error.message
+                  );
+
+                  resolve(null);
+                },
+
+                {
+                  enableHighAccuracy: false,
+                  timeout: 3000,
+                  maximumAge: 300000
+                }
+              );
+          });
+
+        if (browserLocation) {
+          console.log(
+            'GEO selected: browser',
+            browserLocation
+          );
+
+          return browserLocation;
+        }
+      }
+    } catch (e) {
+      console.log(
+        'GEO permission error:',
+        e
+      );
+    }
   }
 
+  // 2. Prova la geolocalizzazione IP via Worker
   try {
-    const permission =
-      await navigator.permissions.query({
-        name: 'geolocation'
-      });
-
-    if (
-      permission.state !==
-      'granted'
-    ) {
-      return fallback;
-    }
-
-    return await new Promise(
-      (resolve) => {
-        navigator.geolocation
-          .getCurrentPosition(
-            (position) => {
-              resolve({
-                center: [
-                  position.coords.longitude,
-                  position.coords.latitude
-                ],
-
-                zoom: 6
-              });
-            },
-
-            () => {
-              resolve(fallback);
-            },
-
-            {
-              enableHighAccuracy:
-                false,
-
-              timeout:
-                3000,
-
-              maximumAge:
-                300000
-            }
-          );
+    const response = await fetch(
+      'https://pingeo-image-proxy.danielecinquini1.workers.dev/geo',
+      {
+        cache: 'no-store'
       }
     );
-  } catch {
-    return fallback;
+
+    if (!response.ok) {
+      throw new Error(
+        `Geo endpoint failed: ${response.status}`
+      );
+    }
+
+    const data =
+      await response.json();
+
+    console.log(
+      'GEO IP:',
+      data
+    );
+
+    const latitude =
+      Number(data.latitude);
+
+    const longitude =
+      Number(data.longitude);
+
+    if (
+      data.ok === true &&
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude)
+    ) {
+      const ipLocation = {
+        center: [
+          longitude,
+          latitude
+        ],
+        zoom: 6
+      };
+
+      console.log(
+        'GEO selected: IP',
+        ipLocation
+      );
+
+      return ipLocation;
+    }
+  } catch (e) {
+    console.log(
+      'GEO IP error:',
+      e
+    );
   }
+
+  // 3. Ultimo fallback Europa
+  console.log(
+    'GEO selected: Europe fallback',
+    fallback
+  );
+
+  return fallback;
 }
 
 async function initMap() {
@@ -314,7 +395,9 @@ function updatePanelHeight() {
   document.documentElement.style.setProperty('--panel-height', `${height}px`);
 
   requestAnimationFrame(() => {
-    map.resize();
+    if (map) {
+      map.resize();
+    }
   });
 }
 
