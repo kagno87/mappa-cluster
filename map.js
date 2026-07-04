@@ -17,16 +17,7 @@ async function getInitialMapView() {
     zoom: DEFAULT_EUROPE_ZOOM
   };
 
-  const GPS_PREF_KEY =
-    'pingeo-gps-preference';
-
-  const gpsPreference =
-    localStorage.getItem(
-      GPS_PREF_KEY
-    );
-
-  let permissionState =
-    null;
+  let permissionState = null;
 
   // 1. Legge lo stato del permesso,
   // se il browser supporta Permissions API
@@ -39,20 +30,14 @@ async function getInitialMapView() {
 
       permissionState =
         permission.state;
-
-      console.log(
-        'GEO permission:',
-        permissionState
-      );
     } catch (e) {
-      console.log(
-        'GEO permission unavailable:',
-        e
-      );
+      // Permissions API non disponibile:
+      // prova comunque la geolocalizzazione
     }
   }
 
-  // 2. Decide se tentare il GPS
+  // 2. Prova la posizione del dispositivo,
+  // salvo permesso esplicitamente negato
   const shouldTryDevice =
     navigator.geolocation &&
     permissionState !== 'denied';
@@ -64,14 +49,6 @@ async function getInitialMapView() {
           navigator.geolocation
             .getCurrentPosition(
               (position) => {
-                console.log(
-                  'GEO device:',
-                  position.coords.latitude,
-                  position.coords.longitude,
-                  'accuracy:',
-                  position.coords.accuracy
-                );
-
                 resolve({
                   center: [
                     position.coords.longitude,
@@ -81,13 +58,7 @@ async function getInitialMapView() {
                 });
               },
 
-              (error) => {
-                console.log(
-                  'GEO device unavailable:',
-                  error.code,
-                  error.message
-                );
-
+              () => {
                 resolve(null);
               },
 
@@ -100,37 +71,11 @@ async function getInitialMapView() {
         });
 
       if (browserLocation) {
-        localStorage.setItem(
-          GPS_PREF_KEY,
-          'prefer'
-        );
-
-        console.log(
-          'GEO preference saved: prefer'
-        );
-
-        console.log(
-          'GEO selected: device',
-          browserLocation
-        );
-
         return browserLocation;
       }
-
     } catch (e) {
-      console.log(
-        'GEO device error:',
-        e
-      );
+      // passa al fallback IP
     }
-  } else {
-    console.log(
-      'GEO device skipped:',
-      {
-        gpsPreference,
-        permissionState
-      }
-    );
   }
 
   // 3. Fallback IP / VPN via Worker
@@ -151,11 +96,6 @@ async function getInitialMapView() {
     const data =
       await response.json();
 
-    console.log(
-      'GEO IP:',
-      data
-    );
-
     const latitude =
       Number(data.latitude);
 
@@ -167,34 +107,19 @@ async function getInitialMapView() {
       Number.isFinite(latitude) &&
       Number.isFinite(longitude)
     ) {
-      const ipLocation = {
+      return {
         center: [
           longitude,
           latitude
         ],
         zoom: 3.5
       };
-
-      console.log(
-        'GEO selected: IP',
-        ipLocation
-      );
-
-      return ipLocation;
     }
   } catch (e) {
-    console.log(
-      'GEO IP error:',
-      e
-    );
+    // passa al fallback Europa
   }
 
   // 4. Ultimo fallback Europa
-  console.log(
-    'GEO selected: Europe fallback',
-    fallback
-  );
-
   return fallback;
 }
 
