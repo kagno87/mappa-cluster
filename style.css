@@ -11,6 +11,11 @@ body {
   background: #424242;
 }
 
+* {
+  -webkit-tap-highlight-color:
+    transparent;
+}
+
 :root {
   --panel-height: 250px;
 
