@@ -17,83 +17,65 @@ async function getInitialMapView() {
     zoom: DEFAULT_EUROPE_ZOOM
   };
 
-  // 1. Prova la geolocalizzazione browser
-  // solo se il permesso è già granted:
-  // nessun popup viene mostrato.
-  if (
-    navigator.geolocation &&
-    navigator.permissions
-  ) {
+  // 1. Prova prima la posizione del dispositivo
+  if (navigator.geolocation) {
     try {
-      const permission =
-        await navigator.permissions.query({
-          name: 'geolocation'
+      const browserLocation =
+        await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log(
+                'GEO device:',
+                position.coords.latitude,
+                position.coords.longitude,
+                'accuracy:',
+                position.coords.accuracy
+              );
+
+              resolve({
+                center: [
+                  position.coords.longitude,
+                  position.coords.latitude
+                ],
+                zoom: 6
+              });
+            },
+
+            (error) => {
+              console.log(
+                'GEO device unavailable:',
+                error.code,
+                error.message
+              );
+
+              resolve(null);
+            },
+
+            {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0
+            }
+          );
         });
 
-      console.log(
-        'GEO permission:',
-        permission.state
-      );
+      if (browserLocation) {
+        console.log(
+          'GEO selected: device',
+          browserLocation
+        );
 
-      if (permission.state === 'granted') {
-        const browserLocation =
-          await new Promise((resolve) => {
-            navigator.geolocation
-              .getCurrentPosition(
-                (position) => {
-                  console.log(
-                    'GEO browser:',
-                    position.coords.latitude,
-                    position.coords.longitude,
-                    'accuracy:',
-                    position.coords.accuracy
-                  );
-
-                  resolve({
-                    center: [
-                      position.coords.longitude,
-                      position.coords.latitude
-                    ],
-                    zoom: 6
-                  });
-                },
-
-                (error) => {
-                  console.log(
-                    'GEO browser error:',
-                    error.code,
-                    error.message
-                  );
-
-                  resolve(null);
-                },
-
-                {
-                  enableHighAccuracy: false,
-                  timeout: 3000,
-                  maximumAge: 300000
-                }
-              );
-          });
-
-        if (browserLocation) {
-          console.log(
-            'GEO selected: browser',
-            browserLocation
-          );
-
-          return browserLocation;
-        }
+        return browserLocation;
       }
     } catch (e) {
       console.log(
-        'GEO permission error:',
+        'GEO device error:',
         e
       );
     }
   }
 
-  // 2. Prova la geolocalizzazione IP via Worker
+  // 2. Fallback IP / VPN via Worker
   try {
     const response = await fetch(
       'https://pingeo-image-proxy.danielecinquini1.workers.dev/geo',
