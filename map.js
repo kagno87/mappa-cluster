@@ -1,13 +1,243 @@
 mapboxgl.accessToken = window.MAPBOX_TOKEN;
 
 /* ========= MAP ========= */
-const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/pingeo/cmle3qgj100br01s9fgb3gbo3',
-  projection: 'globe',
-  center: [9.2, 45.5],
-  zoom: 6
-});
+let map;
+
+const DEFAULT_EUROPE_CENTER = [
+  10,
+  50
+];
+
+const DEFAULT_EUROPE_ZOOM =
+  3.5;
+
+async function getInitialMapView() {
+  const fallback = {
+    center:
+      DEFAULT_EUROPE_CENTER,
+
+    zoom:
+      DEFAULT_EUROPE_ZOOM
+  };
+
+  if (
+    !navigator.geolocation ||
+    !navigator.permissions
+  ) {
+    return fallback;
+  }
+
+  try {
+    const permission =
+      await navigator.permissions.query({
+        name: 'geolocation'
+      });
+
+    if (
+      permission.state !==
+      'granted'
+    ) {
+      return fallback;
+    }
+
+    return await new Promise(
+      (resolve) => {
+        navigator.geolocation
+          .getCurrentPosition(
+            (position) => {
+              resolve({
+                center: [
+                  position.coords.longitude,
+                  position.coords.latitude
+                ],
+
+                zoom: 6
+              });
+            },
+
+            () => {
+              resolve(fallback);
+            },
+
+            {
+              enableHighAccuracy:
+                false,
+
+              timeout:
+                3000,
+
+              maximumAge:
+                300000
+            }
+          );
+      }
+    );
+  } catch {
+    return fallback;
+  }
+}
+
+async function initMap() {
+  const initialMapView =
+    await getInitialMapView();
+
+  map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/pingeo/cmle3qgj100br01s9fgb3gbo3',
+    projection: 'globe',
+    center: initialMapView.center,
+    zoom: initialMapView.zoom
+  });
+
+  setupMapRuntime();
+}
+
+function setupMapRuntime() {
+  // layer info: qualsiasi interazione mappa lo spegne
+  map.on(
+    'mousedown',
+    hideLayerInfo
+  );
+
+  map.on(
+    'touchstart',
+    hideLayerInfo
+  );
+
+  map.on(
+    'movestart',
+    hideLayerInfo
+  );
+
+  // load iniziale
+  map.on('load', () => {
+    refreshPanelLayout();
+
+    map.addControl(
+      new ZoomAndStyleControl(),
+      'top-right'
+    );
+
+    map.addControl(
+      new DualScaleControl(),
+      'top-left'
+    );
+
+    setupGeocoderOnce();
+    setupMapInteractionClear();
+    setupUserInputClear();
+
+    preloadGeoJSONs().then(
+      () => {
+        buildSuperclusterIndex();
+
+        initDataLayers();
+
+        ensureCrosshairHighlightLayers();
+        ensureCrosshairRingLayer();
+
+        bindMapInteractions();
+
+        // primo render immediato
+        sourceKeys.forEach(
+          (sourceKey) => {
+            const source =
+              map.getSource(
+                sourceKey
+              );
+
+            if (!source)
+              return;
+
+            const geojson =
+              buildSuperclusterGeoJSON(
+                sourceKey
+              );
+
+            source.setData(
+              geojson
+            );
+          }
+        );
+      }
+    );
+
+    lockZenithNorth();
+
+    initializeAdaptiveProjection(
+      'globe'
+    );
+
+    map.setMinZoom(1.8);
+
+    map.once(
+      'idle',
+      () => {
+        Object.keys(
+          clusterLeavesCache
+        ).forEach(
+          (k) =>
+            delete clusterLeavesCache[k]
+        );
+
+        Object.keys(
+          clusterBestLeafCache
+        ).forEach(
+          (k) =>
+            delete clusterBestLeafCache[k]
+        );
+
+        sourceKeys.forEach(
+          (sourceKey) => {
+            const source =
+              map.getSource(
+                sourceKey
+              );
+
+            if (!source)
+              return;
+
+            const geojson =
+              buildSuperclusterGeoJSON(
+                sourceKey
+              );
+
+            source.setData(
+              geojson
+            );
+          }
+        );
+      }
+    );
+  });
+
+  // style load
+  map.on('style.load', () => {
+    initDataLayers();
+
+    ensureCrosshairHighlightLayers();
+    ensureCrosshairRingLayer();
+
+    lockZenithNorth();
+
+    initializeAdaptiveProjection(
+      adaptiveProjectionMode
+    );
+
+    refreshCrosshair();
+  });
+
+  // adaptive projection
+  map.on(
+    'zoom',
+    syncAdaptiveProjection
+  );
+
+  map.on(
+    'moveend',
+    syncAdaptiveProjection
+  );
+}
 
 /* ========= STILI BASE ========= */
 const BASE_STYLES = {
@@ -3258,22 +3488,6 @@ toggles.forEach(
   }
 );
 
-// 👇 qualsiasi interazione mappa lo spegne
-map.on(
-  'mousedown',
-  hideLayerInfo
-);
-
-map.on(
-  'touchstart',
-  hideLayerInfo
-);
-
-map.on(
-  'movestart',
-  hideLayerInfo
-);
-
 /* ========= TOGGLE UI CLICK ========= */
 document.querySelectorAll('.layer-toggle').forEach((toggle) => {
   const layerKey = toggle.dataset.layer;
@@ -3286,132 +3500,10 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
   });
 });
 
-/* ========= LOAD ========= */
-map.on('load', () => {
-  refreshPanelLayout();
-
-  map.addControl(
-    new ZoomAndStyleControl(),
-    'top-right'
-  );
-
-  map.addControl(
-    new DualScaleControl(),
-    'top-left'
-  );
-
-  setupGeocoderOnce();
-  setupMapInteractionClear();
-  setupUserInputClear();
-
-  preloadGeoJSONs().then(
-    () => {
-      buildSuperclusterIndex();
-
-      initDataLayers();
-
-      ensureCrosshairHighlightLayers();
-      ensureCrosshairRingLayer();
-
-      bindMapInteractions();
-
-      // 🔹 primo render immediato
-      sourceKeys.forEach(
-        (sourceKey) => {
-          const source =
-            map.getSource(
-              sourceKey
-            );
-
-          if (!source)
-            return;
-
-          const geojson =
-            buildSuperclusterGeoJSON(
-              sourceKey
-            );
-
-          source.setData(
-            geojson
-          );
-        }
-      );
-    }
-  );
-
-  lockZenithNorth();
-
-  initializeAdaptiveProjection(
-    'globe'
-  );
-
-  map.setMinZoom(1.8);
-
-  map.once(
-    'idle',
-    () => {
-      Object.keys(
-        clusterLeavesCache
-      ).forEach(
-        (k) =>
-          delete clusterLeavesCache[k]
-      );
-
-      Object.keys(
-        clusterBestLeafCache
-      ).forEach(
-        (k) =>
-          delete clusterBestLeafCache[k]
-      );
-
-      sourceKeys.forEach(
-        (sourceKey) => {
-          const source =
-            map.getSource(
-              sourceKey
-            );
-
-          if (!source)
-            return;
-
-          const geojson =
-            buildSuperclusterGeoJSON(
-              sourceKey
-            );
-
-          source.setData(
-            geojson
-          );
-        }
-      );
-    }
-  );
-});
-
-/* ========= STYLE LOAD ========= */
-map.on('style.load', () => {
-  initDataLayers();
-
-  ensureCrosshairHighlightLayers();
-  ensureCrosshairRingLayer();
-
-  lockZenithNorth();
-
-  initializeAdaptiveProjection(
-    adaptiveProjectionMode
-  );
-
-  refreshCrosshair();
-});
-
 window.addEventListener('resize', () => {
   refreshPanelLayout();
   refreshCrosshair();
 });
-
-/* ========= ADAPTIVE PROJECTION ========= */
-map.on('zoom', syncAdaptiveProjection);
-map.on('moveend', syncAdaptiveProjection);
 
 /* ========= LOCK NORTH / NO ROTATION ========= */
 function lockZenithNorth() {
@@ -3447,3 +3539,6 @@ function lockZenithNorth() {
 document.getElementById('brand')?.addEventListener('click', () => {
   showRandomSize2Card();
 });
+
+/* ========= START MAP ========= */
+initMap();
