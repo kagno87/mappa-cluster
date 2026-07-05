@@ -158,6 +158,8 @@ function setupMapRuntime() {
   // load iniziale
   map.on('load', () => {
     refreshPanelLayout();
+    
+    showStartupNearestCard();
 
     map.addControl(
       new ZoomAndStyleControl(),
@@ -345,7 +347,6 @@ function clearInteraction({ keepSelection = false } = {}) {
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
-  showStartupRandomSize2Card();
 });
 
 /* ========= PANEL HEIGHT / SCALE ========= */
@@ -2940,6 +2941,64 @@ function findNearestGeojsonPoint(lon, lat, maxDistance = 1.5) {
   return best;
 }
 
+function findNearestStartupPoint(
+  lon,
+  lat
+) {
+  let best = null;
+  let bestDist = Infinity;
+
+  sourceKeys.forEach(
+    (sourceKey) => {
+      const geojson =
+        geojsonCache[
+          getGeoJsonUrlForSource(
+            sourceKey
+          )
+        ];
+
+      if (!geojson?.features) {
+        return;
+      }
+
+      geojson.features.forEach(
+        (feature) => {
+          if (
+            feature.geometry?.type !==
+            'Point'
+          ) {
+            return;
+          }
+
+          const [featureLon, featureLat] =
+            feature.geometry.coordinates;
+
+          const dx =
+            featureLon - lon;
+
+          const dy =
+            featureLat - lat;
+
+          const dist =
+            dx * dx +
+            dy * dy;
+
+          if (dist < bestDist) {
+            bestDist = dist;
+
+            best = {
+              feature,
+              sourceKey
+            };
+          }
+        }
+      );
+    }
+  );
+
+  return best;
+}
+
 async function activateNearestPointFromCoords(
   lon,
   lat
@@ -3250,17 +3309,35 @@ async function pickRandomSize2FromSources() {
   return candidates[idx];
 }
 
-async function showStartupRandomSize2Card() {
+async function showStartupNearestCard() {
   if (startupRandomShown) return;
   startupRandomShown = true;
 
   try {
     await preloadGeoJSONs();
 
-    const f = await pickRandomSize2FromSources();
-    if (f) updatePanel(f, f.properties?.__sourceKey || null);
+    if (!map) return;
+
+    const center =
+      map.getCenter();
+
+    const nearest =
+      findNearestStartupPoint(
+        center.lng,
+        center.lat
+      );
+
+    if (!nearest) return;
+
+    updatePanel(
+      nearest.feature,
+      nearest.sourceKey
+    );
   } catch (e) {
-    console.warn('Startup random size=2 failed:', e);
+    console.warn(
+      'Startup nearest card failed:',
+      e
+    );
   }
 }
 
