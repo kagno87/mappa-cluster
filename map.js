@@ -45,8 +45,6 @@ function setupMapRuntime() {
   map.on('load', () => {
     refreshPanelLayout();
 
-    runStartupFlow();
-
     map.addControl(
       new ZoomAndStyleControl(),
       'top-right'
@@ -3203,6 +3201,53 @@ async function determineStartupContext() {
   };
 }
 
+async function getBrowserLocation(options = {}) {
+
+  if (!navigator.geolocation) {
+    return null;
+  }
+
+  return await new Promise((resolve) => {
+
+    navigator.geolocation.getCurrentPosition(
+
+      (position) => {
+
+        console.log(
+          "GPS SUCCESS",
+          position.coords
+        );
+
+        resolve({
+          center: [
+            position.coords.longitude,
+            position.coords.latitude
+          ],
+          zoom: 6
+        });
+
+      },
+
+      (error) => {
+
+        console.log(
+          "GPS ERROR",
+          error.code,
+          error.message
+        );
+
+        resolve(null);
+
+      },
+
+      options
+
+    );
+
+  });
+
+}
+
 async function determineInitialMapView(startupContext) {
 
   const fallback = {
@@ -3236,58 +3281,42 @@ async function determineInitialMapView(startupContext) {
     navigator.geolocation
   ) {
 
-    try {
+    const browserLocation =
+      await getBrowserLocation({
 
-      const browserLocation =
-        await new Promise((resolve) => {
+        enableHighAccuracy: false,
+        timeout: 3000,
+        maximumAge: 600000
 
-          navigator.geolocation.getCurrentPosition(
+      });
 
-            (position) => {
+    if (browserLocation) {
+      return browserLocation;
+    }
 
-              console.log(
-                "GPS SUCCESS",
-                position.coords
-              );
+  }
 
-              resolve({
-                center: [
-                  position.coords.longitude,
-                  position.coords.latitude
-                ],
-                zoom: 6
-              });
+  if (
+    permissionState === 'prompt' &&
+    navigator.geolocation
+  ) {
 
-            },
+    console.log("Richiesta consenso GPS...");
 
-            (error) => {
+    const browserLocation =
+      await getBrowserLocation({
 
-              console.log(
-                "GPS ERROR",
-                error.code,
-                error.message
-              );
+        enableHighAccuracy: false,
 
-              resolve(null);
+        // nessun timeout mentre
+        // l'utente sta decidendo
 
-            },
+        maximumAge: 0
 
-            {
-              enableHighAccuracy: false,
-              timeout: 3000,
-              maximumAge: 600000
-            }
+      });
 
-          );
-
-        });
-
-      if (browserLocation) {
-        return browserLocation;
-      }
-
-    } catch (e) {
-      // Passa al fallback
+    if (browserLocation) {
+      return browserLocation;
     }
 
   }
