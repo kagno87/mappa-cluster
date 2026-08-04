@@ -49,6 +49,8 @@ async function getInitialMapView() {
           navigator.geolocation
             .getCurrentPosition(
               (position) => {
+                console.log("GPS SUCCESS", position.coords);
+                
                 resolve({
                   center: [
                     position.coords.longitude,
@@ -58,7 +60,14 @@ async function getInitialMapView() {
                 });
               },
 
-              () => {
+              (error) => {
+
+                console.log(
+                  "GPS ERROR",
+                  error.code,
+                  error.message
+                );
+
                 resolve(null);
               },
 
@@ -120,12 +129,11 @@ async function getInitialMapView() {
   }
 
   // 4. Ultimo fallback Europa
+  console.log("EUROPA FALLBACK");
   return fallback;
 }
 
-async function initMap() {
-  const initialMapView =
-    await getInitialMapView();
+async function initMap(initialMapView) {
 
   map = new mapboxgl.Map({
     container: 'map',
@@ -158,8 +166,8 @@ function setupMapRuntime() {
   // load iniziale
   map.on('load', () => {
     refreshPanelLayout();
-    
-    showStartupNearestCard();
+
+    runStartupFlow();
 
     map.addControl(
       new ZoomAndStyleControl(),
@@ -3309,6 +3317,31 @@ async function pickRandomSize2FromSources() {
   return candidates[idx];
 }
 
+/* ========= STARTUP FLOW ========= */
+
+async function determineStartupContext() {
+  return {
+    mode: 'GPS'
+  };
+}
+
+async function runStartupFlow() {
+
+  const startupContext =
+    await determineStartupContext();
+
+  switch (startupContext.mode) {
+
+    case 'GPS':
+      await showStartupNearestCard();
+      break;
+
+  }
+
+}
+
+/* ========= STARTUP HELPERS ========= */
+
 async function showStartupNearestCard() {
   if (startupRandomShown) return;
   startupRandomShown = true;
@@ -3666,4 +3699,12 @@ document.getElementById('brand')?.addEventListener('click', () => {
 });
 
 /* ========= START MAP ========= */
-initMap();
+
+(async () => {
+
+  const initialMapView =
+    await getInitialMapView();
+
+  await initMap(initialMapView);
+
+})();

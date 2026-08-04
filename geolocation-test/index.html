@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Geolocation Test</title>
+
+  <link
+    href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
+    rel="stylesheet"
+  >
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <script src="../config.local.js"></script>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #424242;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    #status {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 10;
+
+      padding: 10px 14px;
+
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+
+      color: #ffffff;
+      background: rgba(33, 33, 33, 0.85);
+
+      border-radius: 6px;
+
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="map"></div>
+
+  <div id="status">
+    Test geolocalizzazione isolato<br>
+    Stato: pronto
+    <br><br>
+
+    <button id="test-google-ip">
+      TEST GOOGLE
+    </button>
+
+    <br><br>
+
+    <button id="test-ipinfo">
+      TEST IPINFO
+    </button>
+
+    <br><br>
+
+    <button id="test-browser">
+      TEST BROWSER
+    </button>
+  </div>
+
+  <script>
+    mapboxgl.accessToken = window.MAPBOX_TOKEN;
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/pingeo/cmle3qgj100br01s9fgb3gbo3',
+      center: [9.2, 45.5],
+      zoom: 6,
+      projection: 'globe'
+    });
+
+    map.addControl(
+      new mapboxgl.NavigationControl({
+        showCompass: false
+      }),
+      'top-right'
+    );
+
+    map.on('load', () => {
+      console.log('Geolocation test: mappa caricata correttamente');
+    });
+
+    document
+      .getElementById('test-google-ip')
+      .addEventListener('click', async () => {
+        console.log('Avvio test Google IP diretto...');
+
+        try {
+          const response = await fetch(
+            `https://www.googleapis.com/geolocation/v1/geolocate?key=${window.GOOGLE_GEOLOCATION_API_KEY}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                considerIp: true
+              })
+            }
+          );
+
+          const data = await response.json();
+
+          console.log('Risposta Google Geolocation API:', data);
+
+        } catch (error) {
+          console.error('Errore test Google IP:', error);
+        }
+      });
+
+    document
+      .getElementById('test-ipinfo')
+      .addEventListener('click', async () => {
+        console.log('Avvio test IPinfo...');
+
+        try {
+          const response = await fetch('https://ipinfo.io/json');
+
+          const data = await response.json();
+
+          console.log('Risposta IPinfo:', data);
+
+        } catch (error) {
+          console.error('Errore test IPinfo:', error);
+        }
+      });
+
+    document
+      .getElementById('test-browser')
+      .addEventListener('click', () => {
+
+        console.log('Avvio test Browser Geolocation...');
+
+        if (!navigator.geolocation) {
+          console.error('Geolocation non supportata da questo browser.');
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+
+          (position) => {
+
+            console.log('Risposta Browser Geolocation:');
+            console.log('Latitude :', position.coords.latitude);
+            console.log('Longitude:', position.coords.longitude);
+            console.log('Accuracy :', position.coords.accuracy, 'm');
+
+          },
+
+          (error) => {
+
+            console.error('Errore Browser Geolocation:');
+            console.error('Code   :', error.code);
+            console.error('Message:', error.message);
+
+          },
+
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+          }
+
+        );
+
+      });
+
+  </script>
+
+</body>
+</html>
