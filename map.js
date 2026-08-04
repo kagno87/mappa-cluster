@@ -11,128 +11,6 @@ const DEFAULT_EUROPE_CENTER = [
 const DEFAULT_EUROPE_ZOOM =
   3.5;
 
-async function getInitialMapView() {
-  const fallback = {
-    center: DEFAULT_EUROPE_CENTER,
-    zoom: DEFAULT_EUROPE_ZOOM
-  };
-
-  let permissionState = null;
-
-  // 1. Legge lo stato del permesso,
-  // se il browser supporta Permissions API
-  if (navigator.permissions) {
-    try {
-      const permission =
-        await navigator.permissions.query({
-          name: 'geolocation'
-        });
-
-      permissionState =
-        permission.state;
-    } catch (e) {
-      // Permissions API non disponibile:
-      // prova comunque la geolocalizzazione
-    }
-  }
-
-  // 2. Prova la posizione del dispositivo,
-  // salvo permesso esplicitamente negato
-  const shouldTryDevice =
-    navigator.geolocation &&
-    permissionState !== 'denied';
-
-  if (shouldTryDevice) {
-    try {
-      const browserLocation =
-        await new Promise((resolve) => {
-          navigator.geolocation
-            .getCurrentPosition(
-              (position) => {
-                console.log("GPS SUCCESS", position.coords);
-                
-                resolve({
-                  center: [
-                    position.coords.longitude,
-                    position.coords.latitude
-                  ],
-                  zoom: 6
-                });
-              },
-
-              (error) => {
-
-                console.log(
-                  "GPS ERROR",
-                  error.code,
-                  error.message
-                );
-
-                resolve(null);
-              },
-
-              {
-                enableHighAccuracy: false,
-                timeout: 3000,
-                maximumAge: 600000
-              }
-            );
-        });
-
-      if (browserLocation) {
-        return browserLocation;
-      }
-    } catch (e) {
-      // passa al fallback IP
-    }
-  }
-
-  // 3. Fallback IP / VPN via Worker
-  try {
-    const response = await fetch(
-      'https://pingeo-image-proxy.danielecinquini1.workers.dev/geo',
-      {
-        cache: 'no-store'
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `Geo endpoint failed: ${response.status}`
-      );
-    }
-
-    const data =
-      await response.json();
-
-    const latitude =
-      Number(data.latitude);
-
-    const longitude =
-      Number(data.longitude);
-
-    if (
-      data.ok === true &&
-      Number.isFinite(latitude) &&
-      Number.isFinite(longitude)
-    ) {
-      return {
-        center: [
-          longitude,
-          latitude
-        ],
-        zoom: 3.5
-      };
-    }
-  } catch (e) {
-    // passa al fallback Europa
-  }
-
-  // 4. Ultimo fallback Europa
-  console.log("EUROPA FALLBACK");
-  return fallback;
-}
-
 async function initMap(initialMapView) {
 
   map = new mapboxgl.Map({
@@ -3325,18 +3203,110 @@ async function determineStartupContext() {
   };
 }
 
+async function determineInitialMapView(startupContext) {
+
+  const fallback = {
+    center: DEFAULT_EUROPE_CENTER,
+    zoom: DEFAULT_EUROPE_ZOOM
+  };
+
+  let permissionState = null;
+
+  if (navigator.permissions) {
+    try {
+
+      const permission =
+        await navigator.permissions.query({
+          name: 'geolocation'
+        });
+
+      permissionState =
+        permission.state;
+
+    } catch (e) {
+      // Browser senza Permissions API
+    }
+  }
+
+  startupContext.permissionState =
+    permissionState;
+
+  if (
+    permissionState === 'granted' &&
+    navigator.geolocation
+  ) {
+
+    try {
+
+      const browserLocation =
+        await new Promise((resolve) => {
+
+          navigator.geolocation.getCurrentPosition(
+
+            (position) => {
+
+              console.log(
+                "GPS SUCCESS",
+                position.coords
+              );
+
+              resolve({
+                center: [
+                  position.coords.longitude,
+                  position.coords.latitude
+                ],
+                zoom: 6
+              });
+
+            },
+
+            (error) => {
+
+              console.log(
+                "GPS ERROR",
+                error.code,
+                error.message
+              );
+
+              resolve(null);
+
+            },
+
+            {
+              enableHighAccuracy: false,
+              timeout: 3000,
+              maximumAge: 600000
+            }
+
+          );
+
+        });
+
+      if (browserLocation) {
+        return browserLocation;
+      }
+
+    } catch (e) {
+      // Passa al fallback
+    }
+
+  }
+
+  return fallback;
+
+}
+
 async function runStartupFlow() {
 
   const startupContext =
     await determineStartupContext();
 
-  switch (startupContext.mode) {
+  startupContext.initialMapView =
+    await determineInitialMapView(
+      startupContext
+    );
 
-    case 'GPS':
-      await showStartupNearestCard();
-      break;
-
-  }
+  return startupContext;
 
 }
 
@@ -3702,9 +3672,11 @@ document.getElementById('brand')?.addEventListener('click', () => {
 
 (async () => {
 
-  const initialMapView =
-    await getInitialMapView();
+  const startupContext =
+    await runStartupFlow();
 
-  await initMap(initialMapView);
+  await initMap(
+    startupContext.initialMapView
+  );
 
 })();
