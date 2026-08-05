@@ -297,20 +297,20 @@ console.log(
   )
 );
 
-async function initMap(initialMapView) {
+async function initMap(startupContext) {
 
   map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/pingeo/cmle3qgj100br01s9fgb3gbo3',
     projection: 'globe',
-    center: initialMapView.center,
-    zoom: initialMapView.zoom
+    center: startupContext.initialMapView.center,
+    zoom: startupContext.initialMapView.zoom
   });
 
-  setupMapRuntime();
+  setupMapRuntime(startupContext);
 }
 
-function setupMapRuntime() {
+function setupMapRuntime(startupContext) {
   // layer info: qualsiasi interazione mappa lo spegne
   map.on(
     'mousedown',
@@ -3056,6 +3056,80 @@ function getBestLeafFromCluster(sourceKey, clusterFeature) {
   return best;
 }
 
+function pickRenderedClusterRepresentative() {
+
+  if (!map) return null;
+
+  const candidates = [];
+  const seen = new Set();
+
+  for (const sourceKey of sourceKeys) {
+
+    const clusterLayerId =
+      getClusterLayerIdForSource(sourceKey);
+
+    if (!map.getLayer(clusterLayerId)) {
+      continue;
+    }
+
+    const renderedClusters =
+      map.queryRenderedFeatures({
+        layers: [clusterLayerId]
+      });
+
+    for (const clusterFeature of renderedClusters) {
+
+      if (!clusterFeature.properties?.cluster) {
+        continue;
+      }
+
+      const bestLeaf =
+        getBestLeafFromCluster(
+          sourceKey,
+          clusterFeature
+        );
+
+      if (!bestLeaf) {
+        continue;
+      }
+
+      const id = [
+        sourceKey,
+        bestLeaf.geometry.coordinates[0],
+        bestLeaf.geometry.coordinates[1]
+      ].join("_");
+
+      if (seen.has(id)) {
+        continue;
+      }
+
+      seen.add(id);
+
+      candidates.push({
+
+        feature: bestLeaf,
+
+        sourceKey
+
+      });
+
+    }
+
+  }
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  const randomIndex =
+    Math.floor(
+      Math.random() * candidates.length
+    );
+
+  return candidates[randomIndex];
+
+}
+
 function getFeatureIdentity(feature) {
   return {
     name:
@@ -3671,6 +3745,11 @@ async function runStartupFlow() {
       startupContext
     );
 
+  startupContext.cardMode =
+    startupContext.permissionState === "granted"
+      ? "GPS"
+      : "REGION";
+
   return startupContext;
 
 }
@@ -4028,9 +4107,21 @@ function lockZenithNorth() {
   map.on('pitchend', snapBack);
 }
 
-/* ========= LOGO CLICK -> RANDOM CARD ========= */
+/* ========= LOGO CLICK -> RANDOM CLUSTER ========= */
 document.getElementById('brand')?.addEventListener('click', () => {
-  showRandomSize2Card();
+
+  const random =
+    pickRenderedClusterRepresentative();
+
+  console.log(random);
+
+  if (!random) return;
+
+  updatePanel(
+    random.feature,
+    random.sourceKey
+  );
+
 });
 
 /* ========= START MAP ========= */
@@ -4041,7 +4132,7 @@ document.getElementById('brand')?.addEventListener('click', () => {
     await runStartupFlow();
 
   await initMap(
-    startupContext.initialMapView
+    startupContext
   );
 
 })();
