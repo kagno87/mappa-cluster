@@ -248,40 +248,24 @@ function findNearestStartupRegion(lng, lat) {
 
 }
 
-async function getIpStartupRegion() {
+async function getIpLocation() {
 
   try {
 
     const response =
       await fetch(
-        "https://pingeo-google-ip-test.danielecinquini1.workers.dev/"
+        "https://pingeo-ip-location.danielecinquini1.workers.dev/"
       );
-
-    console.log(
-      "HTTP status:",
-      response.status
-    );
 
     if (!response.ok) {
       return null;
     }
 
-    const data =
-      await response.json();
-
-    console.log(
-      "IP location:",
-      data
-    );
-
-    return findNearestStartupRegion(
-      data.longitude,
-      data.latitude
-    );
+    return await response.json();
 
   } catch (e) {
 
-    console.error(
+    console.warn(
       "IP lookup failed:",
       e
     );
@@ -291,9 +275,6 @@ async function getIpStartupRegion() {
   }
 
 }
-
-getIpStartupRegion()
-  .then(console.log);
 
 console.log(
   findNearestStartupRegion(
@@ -3625,15 +3606,14 @@ async function determineInitialMapView(startupContext) {
     navigator.geolocation
   ) {
 
-    console.log("Richiesta consenso GPS...");
+    console.log(
+      "Richiesta consenso GPS..."
+    );
 
     const browserLocation =
       await getBrowserLocation({
 
         enableHighAccuracy: false,
-
-        // nessun timeout mentre
-        // l'utente sta decidendo
 
         maximumAge: 0
 
@@ -3642,6 +3622,38 @@ async function determineInitialMapView(startupContext) {
     if (browserLocation) {
       return browserLocation;
     }
+
+  }
+
+  const ipLocation =
+    await getIpLocation();
+
+  if (
+    ipLocation &&
+    ipLocation.latitude != null &&
+    ipLocation.longitude != null
+  ) {
+
+    const region =
+      findNearestStartupRegion(
+        ipLocation.longitude,
+        ipLocation.latitude
+      );
+
+    console.log(
+      "Startup Region:",
+      region.name
+    );
+
+    return {
+
+      center:
+        region.center,
+
+      zoom:
+        DEFAULT_EUROPE_ZOOM
+
+    };
 
   }
 
