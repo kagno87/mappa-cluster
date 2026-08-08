@@ -425,6 +425,8 @@ function setupMapRuntime(startupContext) {
             );
           }
         );
+
+        showStartupCard(startupContext);
       }
     );
   });
@@ -3670,6 +3672,10 @@ async function determineInitialMapView(startupContext) {
       });
 
     if (browserLocation) {
+
+      startupContext.cardMode =
+        "GPS";
+
       return browserLocation;
     }
 
@@ -3688,12 +3694,15 @@ async function determineInitialMapView(startupContext) {
       await getBrowserLocation({
 
         enableHighAccuracy: false,
-
         maximumAge: 0
 
       });
 
     if (browserLocation) {
+
+      startupContext.cardMode =
+        "GPS";
+
       return browserLocation;
     }
 
@@ -3719,6 +3728,9 @@ async function determineInitialMapView(startupContext) {
       region.name
     );
 
+    startupContext.cardMode =
+      "REGION";
+
     return {
 
       center:
@@ -3730,6 +3742,9 @@ async function determineInitialMapView(startupContext) {
     };
 
   }
+
+  startupContext.cardMode =
+    "REGION";
 
   return fallback;
 
@@ -3745,16 +3760,41 @@ async function runStartupFlow() {
       startupContext
     );
 
-  startupContext.cardMode =
-    startupContext.permissionState === "granted"
-      ? "GPS"
-      : "REGION";
-
   return startupContext;
 
 }
 
 /* ========= STARTUP HELPERS ========= */
+
+function showStartupCard(startupContext) {
+
+  if (!startupContext) {
+    return;
+  }
+
+  if (startupContext.cardMode === "GPS") {
+    showStartupNearestCard();
+    return;
+  }
+
+  const representative =
+    pickRenderedClusterRepresentative();
+
+  if (!representative) {
+    return;
+  }
+
+  updatePanel(
+    representative.feature,
+    representative.sourceKey
+  );
+
+  console.log(
+    "Startup card mode:",
+    startupContext.cardMode,
+    startupContext
+  );
+}
 
 async function showStartupNearestCard() {
   if (startupRandomShown) return;
