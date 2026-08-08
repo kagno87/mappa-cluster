@@ -3120,13 +3120,37 @@ function pickRenderedClusterRepresentative() {
   }
 
   if (!candidates.length) {
+
+    console.log(
+      "Startup representative: nessun candidato"
+    );
+
     return null;
   }
+
+  console.log(
+    "Startup representative candidates:",
+    candidates.length
+  );
+
+  console.table(
+    candidates.map((c) => ({
+      source: c.sourceKey,
+      name: c.feature.properties?.name,
+      country: c.feature.properties?.country
+    }))
+  );
 
   const randomIndex =
     Math.floor(
       Math.random() * candidates.length
     );
+
+  console.log(
+    "Startup representative scelto:",
+    candidates[randomIndex].feature.properties?.name,
+    candidates[randomIndex].feature.properties?.country
+  );
 
   return candidates[randomIndex];
 
@@ -3598,7 +3622,7 @@ async function getBrowserLocation(options = {}) {
             position.coords.longitude,
             position.coords.latitude
           ],
-          zoom: 6
+          zoom: 7
         });
 
       },
@@ -3766,7 +3790,10 @@ async function runStartupFlow() {
 
 /* ========= STARTUP HELPERS ========= */
 
-function showStartupCard(startupContext) {
+function showStartupCard(
+  startupContext,
+  retry = true
+) {
 
   if (!startupContext) {
     return;
@@ -3781,19 +3808,35 @@ function showStartupCard(startupContext) {
     pickRenderedClusterRepresentative();
 
   if (!representative) {
+
+    console.warn(
+      "Startup card: nessun representative trovato"
+    );
+
+    if (retry) {
+
+      requestAnimationFrame(() => {
+        showStartupCard(
+          startupContext,
+          false
+        );
+      });
+
+    }
+
     return;
   }
+
+  console.log(
+    "Startup card caricata:",
+    representative.feature.properties?.name
+  );
 
   updatePanel(
     representative.feature,
     representative.sourceKey
   );
 
-  console.log(
-    "Startup card mode:",
-    startupContext.cardMode,
-    startupContext
-  );
 }
 
 async function showStartupNearestCard() {
