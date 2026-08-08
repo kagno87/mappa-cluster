@@ -3790,6 +3790,37 @@ async function runStartupFlow() {
 
 /* ========= STARTUP HELPERS ========= */
 
+function waitForRenderedClusterRepresentative(callback) {
+
+  const tryPick = () => {
+
+    const representative =
+      pickRenderedClusterRepresentative();
+
+    if (!representative) {
+      return;
+    }
+
+    map.off(
+      "render",
+      tryPick
+    );
+
+    callback(
+      representative
+    );
+
+  };
+
+  map.on(
+    "render",
+    tryPick
+  );
+
+  tryPick();
+
+}
+
 function showStartupCard(
   startupContext,
   retry = true
@@ -3804,37 +3835,20 @@ function showStartupCard(
     return;
   }
 
-  const representative =
-    pickRenderedClusterRepresentative();
+  waitForRenderedClusterRepresentative(
+    (representative) => {
 
-  if (!representative) {
+      console.log(
+        "Startup card caricata:",
+        representative.feature.properties?.name
+      );
 
-    console.warn(
-      "Startup card: nessun representative trovato"
-    );
-
-    if (retry) {
-
-      requestAnimationFrame(() => {
-        showStartupCard(
-          startupContext,
-          false
-        );
-      });
+      updatePanel(
+        representative.feature,
+        representative.sourceKey
+      );
 
     }
-
-    return;
-  }
-
-  console.log(
-    "Startup card caricata:",
-    representative.feature.properties?.name
-  );
-
-  updatePanel(
-    representative.feature,
-    representative.sourceKey
   );
 
 }
