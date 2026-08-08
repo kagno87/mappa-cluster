@@ -276,27 +276,6 @@ async function getIpLocation() {
 
 }
 
-console.log(
-  findNearestStartupRegion(
-    11.4,
-    47.3
-  )
-);
-
-console.log(
-  findNearestStartupRegion(
-    -157.9,
-    21.3
-  )
-);
-
-console.log(
-  findNearestStartupRegion(
-    144,
-    -32
-  )
-);
-
 async function initMap(startupContext) {
 
   map = new mapboxgl.Map({
@@ -3121,37 +3100,14 @@ function pickRenderedClusterRepresentative() {
 
   if (!candidates.length) {
 
-    console.log(
-      "Startup representative: nessun candidato"
-    );
-
     return null;
   }
-
-  console.log(
-    "Startup representative candidates:",
-    candidates.length
-  );
-
-  console.table(
-    candidates.map((c) => ({
-      source: c.sourceKey,
-      name: c.feature.properties?.name,
-      country: c.feature.properties?.country
-    }))
-  );
 
   const randomIndex =
     Math.floor(
       Math.random() * candidates.length
     );
-
-  console.log(
-    "Startup representative scelto:",
-    candidates[randomIndex].feature.properties?.name,
-    candidates[randomIndex].feature.properties?.country
-  );
-
+  
   return candidates[randomIndex];
 
 }
@@ -3597,25 +3553,12 @@ async function getBrowserLocation(options = {}) {
 
     const t0 = performance.now();
 
-    console.log("GPS REQUEST START");
-
     navigator.geolocation.getCurrentPosition(
 
       (position) => {
 
         const elapsed =
           performance.now() - t0;
-
-        console.log(
-          "GPS SUCCESS",
-          `${elapsed.toFixed(0)} ms`,
-          position.coords
-        );
-
-        console.log(
-          "Accuracy:",
-          position.coords.accuracy
-        );
 
         resolve({
           center: [
@@ -3628,13 +3571,6 @@ async function getBrowserLocation(options = {}) {
       },
 
       (error) => {
-
-        console.log(
-          "GPS ERROR",
-          `${(performance.now() - t0).toFixed(0)} ms`,
-          error.code,
-          error.message
-        );
 
         resolve(null);
 
@@ -3668,18 +3604,13 @@ async function determineInitialMapView(startupContext) {
       permissionState =
         permission.state;
 
-    } catch (e) {
+    } catch {
       // Browser senza Permissions API
     }
   }
 
   startupContext.permissionState =
     permissionState;
-
-  console.log(
-    "Permission state:",
-    permissionState
-  );
 
   if (
     permissionState === 'granted' &&
@@ -3709,10 +3640,6 @@ async function determineInitialMapView(startupContext) {
     permissionState === 'prompt' &&
     navigator.geolocation
   ) {
-
-    console.log(
-      "Richiesta consenso GPS..."
-    );
 
     const browserLocation =
       await getBrowserLocation({
@@ -3746,11 +3673,6 @@ async function determineInitialMapView(startupContext) {
         ipLocation.longitude,
         ipLocation.latitude
       );
-
-    console.log(
-      "Startup Region:",
-      region.name
-    );
 
     startupContext.cardMode =
       "REGION";
@@ -3821,10 +3743,7 @@ function waitForRenderedClusterRepresentative(callback) {
 
 }
 
-function showStartupCard(
-  startupContext,
-  retry = true
-) {
+function showStartupCard(startupContext) {
 
   if (!startupContext) {
     return;
@@ -3837,11 +3756,6 @@ function showStartupCard(
 
   waitForRenderedClusterRepresentative(
     (representative) => {
-
-      console.log(
-        "Startup card caricata:",
-        representative.feature.properties?.name
-      );
 
       updatePanel(
         representative.feature,
@@ -4209,8 +4123,6 @@ document.getElementById('brand')?.addEventListener('click', () => {
 
   const random =
     pickRenderedClusterRepresentative();
-
-  console.log(random);
 
   if (!random) return;
 
