@@ -1510,7 +1510,7 @@ function setupGeocoderOnce() {
       language: 'en',
 
       types:
-        'place,locality,region',
+        'country,region,place,locality',
 
       placeholder:
         'Search for a place',
@@ -1896,23 +1896,50 @@ function setupGeocoderOnce() {
       // Mapbox → nearest
       map.stop();
 
-      isProgrammaticMove =
-        true;
+        isProgrammaticMove =
+          true;
 
-      map.flyTo({
-        center: [
+        if (
+          Array.isArray(feature.bbox) &&
+          feature.bbox.length === 4
+        ) {
+
+          map.fitBounds(
+            [
+              [
+                feature.bbox[0],
+                feature.bbox[1]
+              ],
+              [
+                feature.bbox[2],
+                feature.bbox[3]
+              ]
+            ],
+            {
+              padding: 30,
+              duration: 800,
+              maxZoom: 10
+            }
+          );
+
+        } else {
+
+          map.flyTo({
+            center: [
+              lon,
+              lat
+            ],
+
+            zoom: 10,
+            speed: 1.2
+          });
+
+        }
+
+        await activateNearestPointFromCoords(
           lon,
           lat
-        ],
-
-        zoom: 10,
-        speed: 1.2
-      });
-
-      await activateNearestPointFromCoords(
-        lon,
-        lat
-      );
+        );
     }
   );
 
