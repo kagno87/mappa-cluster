@@ -4118,19 +4118,9 @@ function lockZenithNorth() {
   map.on('pitchend', snapBack);
 }
 
-/* ========= LOGO CLICK -> RANDOM CLUSTER ========= */
+/* ========= LOGO CLICK -> RANDOM SIZE 2 ========= */
 document.getElementById('brand')?.addEventListener('click', () => {
-
-  const random =
-    pickRenderedClusterRepresentative();
-
-  if (!random) return;
-
-  updatePanel(
-    random.feature,
-    random.sourceKey
-  );
-
+  showRandomSize2Card();
 });
 
 /* ========= START MAP ========= */
