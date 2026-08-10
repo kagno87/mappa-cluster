@@ -3207,7 +3207,7 @@ function getFeatureIdentity(feature) {
   };
 }
 
-function findNearestGeojsonPoint(lon, lat, maxDistance = 1.5) {
+function findNearestGeojsonPoint(lon, lat) {
   let best = null;
   let bestDist = Infinity;
 
@@ -3233,9 +3233,6 @@ function findNearestGeojsonPoint(lon, lat, maxDistance = 1.5) {
       }
     });
   });
-
-  if (!best) return null;
-  if (bestDist > maxDistance * maxDistance) return null;
 
   return best;
 }
