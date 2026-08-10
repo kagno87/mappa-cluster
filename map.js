@@ -4689,6 +4689,8 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
         activeTarget &&
         activeTarget.sourceKey === layerKey
       ) {
+        clearInteraction();
+        
         const nearest =
           findNearestRenderedBestLeaf(
             activeTarget.lon,
