@@ -809,13 +809,15 @@ function renderCrosshair(
   lon,
   lat,
   sizeValue,
-  isCluster = false
+  isCluster = false,
+  sourceKey = null
 ) {
   activeCrosshair = {
     lon: Number(lon),
     lat: Number(lat),
     size: Number(sizeValue) || 1,
-    isCluster
+    isCluster,
+    sourceKey
   };
 
   renderHtmlCrosshair(
@@ -839,7 +841,7 @@ function renderCrosshair(
         activeCrosshair.size,
 
       sourceKey:
-        target.sourceKey,
+        activeCrosshair.sourceKey,
 
       isCluster:
         activeCrosshair.isCluster
@@ -1142,7 +1144,8 @@ function showBestCrosshairForTarget(target) {
           pointMatch.lon,
           pointMatch.lat,
           pointMatch.size,
-          false
+          false,
+          normalizedTarget.sourceKey
         );
 
         return;
@@ -1166,7 +1169,8 @@ function showBestCrosshairForTarget(target) {
           clusterMatch.lon,
           clusterMatch.lat,
           clusterMatch.size,
-          true
+          true,
+          normalizedTarget.sourceKey
         );
 
         return;
@@ -1193,7 +1197,8 @@ function showBestCrosshairForTarget(target) {
           fallbackMatch.size,
           Boolean(
             fallbackMatch.isCluster
-          )
+          ),
+          normalizedTarget.sourceKey
         );
 
         return;
@@ -2805,6 +2810,7 @@ function onEnterPointer(e) {
       activateHover(target);
       syncActiveCardOverlayWithFeature(feature, pointSourceKey);
     }
+    
     return;
   }
 
