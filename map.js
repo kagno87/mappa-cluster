@@ -1797,6 +1797,11 @@ function setupGeocoderOnce() {
       const feature =
         e.result;
 
+      console.log(
+        "Mapbox feature:",
+        feature
+      );
+
       if (!feature) {
         return;
       }
@@ -1899,20 +1904,28 @@ function setupGeocoderOnce() {
         isProgrammaticMove =
           true;
 
+        const shortCode =
+          feature.properties?.short_code;
+
+        const searchArea =
+          SEARCH_AREA_OVERRIDES[
+            shortCode
+          ] || feature.bbox;
+
         if (
-          Array.isArray(feature.bbox) &&
-          feature.bbox.length === 4
+          Array.isArray(searchArea) &&
+          searchArea.length === 4
         ) {
 
           map.fitBounds(
             [
               [
-                feature.bbox[0],
-                feature.bbox[1]
+                searchArea[0],
+                searchArea[1]
               ],
               [
-                feature.bbox[2],
-                feature.bbox[3]
+                searchArea[2],
+                searchArea[3]
               ]
             ],
             {
@@ -1939,7 +1952,7 @@ function setupGeocoderOnce() {
         await activateNearestPointFromCoords(
           lon,
           lat,
-          feature.bbox
+          searchArea
         );
     }
   );
@@ -2046,6 +2059,45 @@ const sourceStyleConfig = {
   bianco: {
     color: '#ffffff'
   }
+};
+
+const SEARCH_AREA_OVERRIDES = {
+
+  // Bounding box ottimizzati per la UX di PinGeo.
+  // Sostituiscono quelli del geocoder quando includono
+  // territori remoti che alterano viewport e representative.
+
+  // Continental United States
+  us: [
+    -124.8, 24.4,
+    -66.9, 49.4
+  ],
+
+  // Spain (Peninsula + Balearic Islands)
+  es: [
+    -9.5, 36.0,
+    4.4, 43.9
+  ],
+
+  // Mainland Portugal
+  pt: [
+    -9.6, 37.0,
+    -6.0, 42.2
+  ],
+
+  // Main Japanese archipelago
+  // (Hokkaido, Honshu, Shikoku, Kyushu)
+  jp: [
+    129.0, 31.0,
+    146.0, 45.6
+  ],
+
+  // Continental Chile
+  cl: [
+    -75.8, -56.0,
+    -66.0, -17.5
+  ]
+
 };
 
 /* ========= TOGGLE LAYER ========= */
