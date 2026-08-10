@@ -1557,7 +1557,10 @@ function setupGeocoderOnce() {
 
             place_name: label,
             text: label,
-            center: [lon, lat],
+            center: [
+              lon,
+              lat
+            ],
 
             place_type: [
               'coordinate'
@@ -1633,7 +1636,10 @@ function setupGeocoderOnce() {
                       'Point',
 
                     coordinates:
-                      [lon, lat]
+                      [
+                        lon,
+                        lat
+                      ]
                   },
 
                   center: [
@@ -1735,7 +1741,7 @@ function setupGeocoderOnce() {
             <div class="custom-search-result">
 
               <div class="search-result-marker">
-               <span
+                <span
                   class="
                     search-result-dot
                     layer-${sourceKey}
@@ -1796,11 +1802,6 @@ function setupGeocoderOnce() {
     async (e) => {
       const feature =
         e.result;
-
-      console.log(
-        "Mapbox feature:",
-        feature
-      );
 
       if (!feature) {
         return;
@@ -1891,62 +1892,101 @@ function setupGeocoderOnce() {
       }
 
       // ✅ CASO 2:
-      // Mapbox → nearest
+      // Mapbox → representative
       map.stop();
 
-        isProgrammaticMove =
-          true;
+      isProgrammaticMove =
+        true;
 
-        const shortCode =
-          feature.properties?.short_code;
+      const shortCode =
+        feature.properties
+          ?.short_code;
 
-        const searchArea =
-          SEARCH_AREA_OVERRIDES[
-            shortCode
-          ] || feature.bbox;
+      // feature.bbox viene usato
+      // solo per costruire searchArea.
+      const searchArea =
+        SEARCH_AREA_OVERRIDES[
+          shortCode
+        ] || feature.bbox;
 
-        if (
-          Array.isArray(searchArea) &&
-          searchArea.length === 4
-        ) {
-
-          map.fitBounds(
+      if (
+        Array.isArray(searchArea) &&
+        searchArea.length === 4
+      ) {
+        map.fitBounds(
+          [
             [
-              [
-                searchArea[0],
-                searchArea[1]
-              ],
-              [
-                searchArea[2],
-                searchArea[3]
-              ]
+              searchArea[0],
+              searchArea[1]
             ],
-            {
-              padding: 30,
-              duration: 800,
-              maxZoom: 10
+            [
+              searchArea[2],
+              searchArea[3]
+            ]
+          ],
+          {
+            padding: 30,
+            duration: 800,
+            maxZoom: 10
+          }
+        );
+
+        map.once(
+          'idle',
+          async () => {
+            const representative =
+              findRepresentativeRenderedBestLeaf(
+                searchArea,
+                lon,
+                lat
+              );
+
+            if (
+              representative
+            ) {
+              updatePanel(
+                representative.feature,
+                representative.sourceKey
+              );
+
+              const target =
+                buildTargetFromFeature(
+                  representative.feature,
+                  representative.sourceKey
+                );
+
+              activateSearchHighlight(
+                target
+              );
+
+              return;
             }
-          );
 
-        } else {
-
-          map.flyTo({
-            center: [
+            // Fallback invariato:
+            // nearest GeoJSON assoluto.
+            await activateNearestPointFromCoords(
               lon,
               lat
-            ],
+            );
+          }
+        );
 
-            zoom: 10,
-            speed: 1.2
-          });
+      } else {
+        map.flyTo({
+          center: [
+            lon,
+            lat
+          ],
 
-        }
+          zoom: 10,
+          speed: 1.2
+        });
 
         await activateNearestPointFromCoords(
           lon,
-          lat,
-          searchArea
+          lat
         );
+      }
     }
   );
 
@@ -3373,6 +3413,202 @@ function findRepresentativeGeojsonPoint(
     centerLat
   );
 
+}
+
+function findRepresentativeRenderedBestLeaf(
+  bbox,
+  centerLon,
+  centerLat
+) {
+
+  if (
+    !Array.isArray(bbox) ||
+    bbox.length !== 4
+  ) {
+    return findNearestGeojsonPoint(
+      centerLon,
+      centerLat
+    );
+  }
+
+  const [
+    minLon,
+    minLat,
+    maxLon,
+    maxLat
+  ] = bbox;
+
+  // Crop 70% del rettangolo
+  const width =
+    maxLon - minLon;
+
+  const height =
+    maxLat - minLat;
+
+  const cropLon =
+    width * 0.15;
+
+  const cropLat =
+    height * 0.15;
+
+  const innerMinLon =
+    minLon + cropLon;
+
+  const innerMaxLon =
+    maxLon - cropLon;
+
+  const innerMinLat =
+    minLat + cropLat;
+
+  const innerMaxLat =
+    maxLat - cropLat;
+
+  const candidates = [];
+  const seen = new Set();
+
+  sourceKeys.forEach(
+    (sourceKey) => {
+
+      const clusterLayerId =
+        getClusterLayerIdForSource(
+          sourceKey
+        );
+
+      if (
+        !map.getLayer(
+          clusterLayerId
+        )
+      ) {
+        return;
+      }
+
+      const renderedClusters =
+        map.queryRenderedFeatures({
+          layers: [
+            clusterLayerId
+          ]
+        });
+
+      renderedClusters.forEach(
+        (clusterFeature) => {
+
+          if (
+            !clusterFeature
+              .properties
+              ?.cluster
+          ) {
+            return;
+          }
+
+          const bestLeaf =
+            getBestLeafFromCluster(
+              sourceKey,
+              clusterFeature
+            );
+
+          if (!bestLeaf) {
+            return;
+          }
+
+          const coords =
+            bestLeaf.geometry
+              ?.coordinates;
+
+          if (
+            !coords ||
+            coords.length < 2
+          ) {
+            return;
+          }
+
+          const lon =
+            Number(coords[0]);
+
+          const lat =
+            Number(coords[1]);
+
+          // Il bestLeaf deve essere
+          // realmente dentro il crop 70%
+          if (
+            lon < innerMinLon ||
+            lon > innerMaxLon ||
+            lat < innerMinLat ||
+            lat > innerMaxLat
+          ) {
+            return;
+          }
+
+          const identity =
+            getFeatureIdentity(
+              bestLeaf
+            );
+
+          const key = [
+            sourceKey,
+            identity.name,
+            identity.country,
+            identity.size,
+            identity.mediaLink,
+            identity.description
+          ].join('|');
+
+          if (seen.has(key)) {
+            return;
+          }
+
+          seen.add(key);
+
+          candidates.push({
+            feature:
+              bestLeaf,
+
+            sourceKey
+          });
+
+        }
+      );
+
+    }
+  );
+
+  // Priorità editoriale:
+  // size 3 → size 2 → size 1
+  for (
+    const size of [3, 2, 1]
+  ) {
+
+    const matches =
+      candidates.filter(
+        (candidate) =>
+          Number(
+            candidate
+              .feature
+              .properties
+              ?.size
+          ) === size
+      );
+
+    if (
+      matches.length
+    ) {
+
+      return matches[
+        Math.floor(
+          Math.random() *
+          matches.length
+        )
+      ];
+
+    }
+
+  }
+
+  // Fallback emergenziale:
+  // resta la logica GeoJSON attuale.
+  return findNearestGeojsonPoint(
+    centerLon,
+    centerLat
+  );
 }
 
 function findNearestStartupPoint(
