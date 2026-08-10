@@ -1938,7 +1938,8 @@ function setupGeocoderOnce() {
 
         await activateNearestPointFromCoords(
           lon,
-          lat
+          lat,
+          feature.bbox
         );
     }
   );
@@ -3194,6 +3195,115 @@ function findNearestGeojsonPoint(lon, lat, maxDistance = 1.5) {
   return best;
 }
 
+function findRepresentativeGeojsonPoint(
+  bbox,
+  centerLon,
+  centerLat
+) {
+
+  if (
+    !Array.isArray(bbox) ||
+    bbox.length !== 4
+  ) {
+    return findNearestGeojsonPoint(
+      centerLon,
+      centerLat
+    );
+  }
+
+  const [
+    minLon,
+    minLat,
+    maxLon,
+    maxLat
+  ] = bbox;
+
+  const candidates = [];
+
+  sourceKeys.forEach(
+    (sourceKey) => {
+
+      const geojson =
+        geojsonCache[
+          getGeoJsonUrlForSource(
+            sourceKey
+          )
+        ];
+
+      if (!geojson?.features) {
+        return;
+      }
+
+      geojson.features.forEach(
+        (feature) => {
+
+          if (
+            feature.geometry?.type !==
+            'Point'
+          ) {
+            return;
+          }
+
+          const [
+            lon,
+            lat
+          ] =
+            feature.geometry.coordinates;
+
+          if (
+            lon < minLon ||
+            lon > maxLon ||
+            lat < minLat ||
+            lat > maxLat
+          ) {
+            return;
+          }
+
+          candidates.push({
+            feature,
+            sourceKey
+          });
+
+        }
+      );
+
+    }
+  );
+
+  for (
+    const size of [3, 2, 1]
+  ) {
+
+    const matches =
+      candidates.filter(
+        (c) =>
+          Number(
+            c.feature.properties?.size
+          ) === size
+      );
+
+    if (
+      matches.length
+    ) {
+
+      return matches[
+        Math.floor(
+          Math.random() *
+          matches.length
+        )
+      ];
+
+    }
+
+  }
+
+  return findNearestGeojsonPoint(
+    centerLon,
+    centerLat
+  );
+
+}
+
 function findNearestStartupPoint(
   lon,
   lat
@@ -3254,10 +3364,12 @@ function findNearestStartupPoint(
 
 async function activateNearestPointFromCoords(
   lon,
-  lat
+  lat,
+  bbox = null
 ) {
   const nearest =
-    findNearestGeojsonPoint(
+    findRepresentativeGeojsonPoint(
+      bbox,
       lon,
       lat
     );
