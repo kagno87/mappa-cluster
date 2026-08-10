@@ -3283,6 +3283,134 @@ function findNearestGeojsonPoint(lon, lat) {
   return best;
 }
 
+function findNearestRenderedBestLeaf(lon, lat) {
+  let best = null;
+  let bestDist = Infinity;
+
+  const activeSources = getActiveSourceKeys();
+
+  if (!activeSources.length) return null;
+
+  activeSources.forEach((sourceKey) => {
+    const clusterLayerId =
+      getClusterLayerIdForSource(sourceKey);
+
+    /*
+     * =========================================================
+     * 1. BESTLEAF DEI CLUSTER RENDERIZZATI
+     * =========================================================
+     */
+
+    if (map.getLayer(clusterLayerId)) {
+      const renderedClusters =
+        map.queryRenderedFeatures({
+          layers: [clusterLayerId]
+        });
+
+      renderedClusters.forEach((clusterFeature) => {
+        if (!clusterFeature.properties?.cluster) {
+          return;
+        }
+
+        const bestLeaf =
+          getBestLeafFromCluster(
+            sourceKey,
+            clusterFeature
+          );
+
+        if (!bestLeaf?.geometry?.coordinates) {
+          return;
+        }
+
+        const [leafLon, leafLat] =
+          bestLeaf.geometry.coordinates;
+
+        const dx = leafLon - lon;
+        const dy = leafLat - lat;
+        const dist = dx * dx + dy * dy;
+
+        if (dist < bestDist) {
+          bestDist = dist;
+
+          best = {
+            feature: bestLeaf,
+            sourceKey
+          };
+        }
+      });
+    }
+
+    /*
+     * =========================================================
+     * 2. PIN SINGOLI
+     *
+     * Usa Supercluster sull'intero mondo, non solo sulla
+     * viewport, così un pin isolato fuori schermo può comunque
+     * diventare il candidato più vicino.
+     * =========================================================
+     */
+
+    const sc =
+      superclusterIndex[sourceKey];
+
+    if (!sc) {
+      return;
+    }
+
+    const zoom =
+      Math.round(map.getZoom());
+
+    const clusters =
+      sc.getClusters(
+        [-180, -90, 180, 90],
+        zoom
+      );
+
+    clusters.forEach((feature) => {
+      /*
+       * Se è un cluster lo ignoriamo:
+       * i cluster sono già gestiti sopra tramite bestLeaf.
+       */
+      if (feature.properties?.cluster) {
+        return;
+      }
+
+      if (
+        feature.geometry?.type !== 'Point' ||
+        !feature.geometry.coordinates
+      ) {
+        return;
+      }
+
+      const [
+        pointLon,
+        pointLat
+      ] = feature.geometry.coordinates;
+
+      const dx =
+        pointLon - lon;
+
+      const dy =
+        pointLat - lat;
+
+      const dist =
+        dx * dx +
+        dy * dy;
+
+      if (dist < bestDist) {
+        bestDist = dist;
+
+        best = {
+          feature,
+          sourceKey
+        };
+      }
+    });
+  });
+
+  return best;
+}
+
 function findRepresentativeGeojsonPoint(
   bbox,
   centerLon,
@@ -4546,7 +4674,7 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
         activeTarget &&
         activeTarget.sourceKey === layerKey
       ) {
-        const nearest = findNearestGeojsonPoint(
+        const nearest = findNearestRenderedBestLeaf(
           activeTarget.lon,
           activeTarget.lat
         );
