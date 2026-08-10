@@ -3218,6 +3218,35 @@ function findRepresentativeGeojsonPoint(
     maxLat
   ] = bbox;
 
+  const REPRESENTATIVE_BBOX_FACTOR =
+    0.70;
+
+  const bboxCenterLon =
+    (minLon + maxLon) / 2;
+
+  const bboxCenterLat =
+    (minLat + maxLat) / 2;
+
+  const halfWidth =
+    (maxLon - minLon) *
+    REPRESENTATIVE_BBOX_FACTOR / 2;
+
+  const halfHeight =
+    (maxLat - minLat) *
+    REPRESENTATIVE_BBOX_FACTOR / 2;
+
+  const innerMinLon =
+    bboxCenterLon - halfWidth;
+
+  const innerMaxLon =
+    bboxCenterLon + halfWidth;
+
+  const innerMinLat =
+    bboxCenterLat - halfHeight;
+
+  const innerMaxLat =
+    bboxCenterLat + halfHeight;
+
   const candidates = [];
 
   sourceKeys.forEach(
@@ -3251,10 +3280,10 @@ function findRepresentativeGeojsonPoint(
             feature.geometry.coordinates;
 
           if (
-            lon < minLon ||
-            lon > maxLon ||
-            lat < minLat ||
-            lat > maxLat
+            lon < innerMinLon ||
+            lon > innerMaxLon ||
+            lat < innerMinLat ||
+            lat > innerMaxLat
           ) {
             return;
           }
