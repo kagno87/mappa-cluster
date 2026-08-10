@@ -4531,7 +4531,34 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
 
   toggle.addEventListener('click', () => {
     const isActive = toggle.classList.toggle('active');
-    setLayerGroupVisibility(layerKey, isActive);
+
+    setLayerGroupVisibility(
+      layerKey,
+      isActive
+    );
+
+    // Se stiamo spegnendo il layer della card attiva,
+    // sostituiscilo con il punto attivo geograficamente più vicino.
+    if (!isActive) {
+      const activeTarget = buildTargetFromActiveCard();
+
+      if (
+        activeTarget &&
+        activeTarget.sourceKey === layerKey
+      ) {
+        const nearest = findNearestGeojsonPoint(
+          activeTarget.lon,
+          activeTarget.lat
+        );
+
+        if (nearest) {
+          updatePanel(
+            nearest.feature,
+            nearest.sourceKey
+          );
+        }
+      }
+    }
   });
 });
 
