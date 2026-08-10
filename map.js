@@ -4658,7 +4658,21 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
   toggle.classList.add('active');
 
   toggle.addEventListener('click', () => {
-    const isActive = toggle.classList.toggle('active');
+    /*
+     * Non permettere di spegnere l'ultimo layer attivo.
+     */
+    const activeToggles =
+      document.querySelectorAll('.layer-toggle.active');
+
+    if (
+      toggle.classList.contains('active') &&
+      activeToggles.length === 1
+    ) {
+      return;
+    }
+
+    const isActive =
+      toggle.classList.toggle('active');
 
     setLayerGroupVisibility(
       layerKey,
@@ -4666,18 +4680,20 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
     );
 
     // Se stiamo spegnendo il layer della card attiva,
-    // sostituiscilo con il punto attivo geograficamente più vicino.
+    // sostituiscilo con il closest element.
     if (!isActive) {
-      const activeTarget = buildTargetFromActiveCard();
+      const activeTarget =
+        buildTargetFromActiveCard();
 
       if (
         activeTarget &&
         activeTarget.sourceKey === layerKey
       ) {
-        const nearest = findNearestRenderedBestLeaf(
-          activeTarget.lon,
-          activeTarget.lat
-        );
+        const nearest =
+          findNearestRenderedBestLeaf(
+            activeTarget.lon,
+            activeTarget.lat
+          );
 
         if (nearest) {
           updatePanel(
