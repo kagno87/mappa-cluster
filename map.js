@@ -1806,14 +1806,7 @@ function setupGeocoderOnce() {
         return;
       }
 
-      const input =
-        searchContainer.querySelector(
-          '.mapboxgl-ctrl-geocoder--input'
-        );
-
-      if (input) {
-        input.value = '';
-      }
+      geocoder.clear();
 
       const coords =
         feature.center;
