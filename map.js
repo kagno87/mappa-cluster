@@ -464,6 +464,8 @@ const clusterLeavesCache = {};
 
 const clusterBestLeafCache = {};
 
+const secondaryCardFeatureMap = new Map();
+
 /* ========= INTERACTION STATE ========= */
 function activateHover(target) {
   setHoverCrosshairTarget(target);
@@ -4905,6 +4907,8 @@ function refreshSecondaryCards(
   const secondaryCards =
     cards.slice(1);
 
+  secondaryCardFeatureMap.clear();  
+
   secondaryCards.forEach((card) => {
     buildSecondaryCardMarkup(card);
   });
@@ -4927,6 +4931,14 @@ function refreshSecondaryCards(
           card,
           candidate.feature,
           candidate.sourceKey
+        );
+
+        secondaryCardFeatureMap.set(
+          card,
+          {
+            feature: candidate.feature,
+            sourceKey: candidate.sourceKey
+          }
         );
       }
     }
