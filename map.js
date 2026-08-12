@@ -466,6 +466,8 @@ const clusterBestLeafCache = {};
 
 const secondaryCardFeatureMap = new Map();
 
+const panelCardFeatureMap = new Map();
+
 /* ========= INTERACTION STATE ========= */
 function activateHover(target) {
   setHoverCrosshairTarget(target);
@@ -2984,6 +2986,108 @@ function getSecondaryCardMatchingFeature(
   return null;
 }
 
+function getPanelCardMatchingFeature(
+  feature,
+  sourceKey
+) {
+  if (!feature || !sourceKey) {
+    return null;
+  }
+
+  const normalizedFeature =
+    normalizeFeature(
+      feature,
+      sourceKey
+    );
+
+  const featureIdentity =
+    normalizedFeature.identity;
+
+  const featureRawLon =
+    Number(
+      normalizedFeature.coords.rawLon ??
+      normalizedFeature.coords.visualLon
+    );
+
+  const featureRawLat =
+    Number(
+      normalizedFeature.coords.rawLat ??
+      normalizedFeature.coords.visualLat
+    );
+
+  if (
+    !Number.isFinite(featureRawLon) ||
+    !Number.isFinite(featureRawLat)
+  ) {
+    return null;
+  }
+
+  for (
+    const [
+      card,
+      entry
+    ] of panelCardFeatureMap
+  ) {
+    if (!entry) {
+      continue;
+    }
+
+    if (
+      entry.sourceKey !==
+      sourceKey
+    ) {
+      continue;
+    }
+
+    const candidate =
+      normalizeFeature(
+        entry.feature,
+        entry.sourceKey
+      );
+
+    if (
+      isSameFeatureIdentity(
+        candidate.identity,
+        featureIdentity
+      )
+    ) {
+      return card;
+    }
+
+    const candidateRawLon =
+      Number(
+        candidate.coords.rawLon ??
+        candidate.coords.visualLon
+      );
+
+    const candidateRawLat =
+      Number(
+        candidate.coords.rawLat ??
+        candidate.coords.visualLat
+      );
+
+    if (
+      !Number.isFinite(candidateRawLon) ||
+      !Number.isFinite(candidateRawLat)
+    ) {
+      continue;
+    }
+
+    if (
+      areSameCoordinates(
+        candidateRawLon,
+        candidateRawLat,
+        featureRawLon,
+        featureRawLat
+      )
+    ) {
+      return card;
+    }
+  }
+
+  return null;
+}
+
 function onEnterPointer(e) {
   map.getCanvas().style.cursor = 'pointer';
 
@@ -3006,61 +3110,17 @@ function onEnterPointer(e) {
     if (target) {
       activateHover(target);
 
-      // Card 1: logica originale, invariata.
-      syncActiveCardOverlayWithFeature(
-        feature,
-        pointSourceKey
-      );
+      clearAllPanelCardOverlays();
 
-      // Card 2–5: pulizia dell'eventuale
-      // overlay precedente.
-      document
-        .querySelectorAll(
-          '.panel-card:not(.is-active)'
-        )
-        .forEach((card) => {
-          setPanelCardOverlayForced(
-            card,
-            false
-          );
-        });
-
-      // Cerca la card secondaria corrispondente
-      // tramite layer + coordinate.
-      console.log(
-        'SECONDARY MATCH TEST',
-        {
-          sourceKey: pointSourceKey,
-          feature,
-          cards: getPanelCards()
-            .slice(1)
-            .map((card, index) => {
-              const overlay =
-                card.querySelector('.image-overlay');
-
-              return {
-                card: index + 2,
-                sourceKey:
-                  overlay?.dataset.sourceKey,
-                rawLon:
-                  overlay?.dataset.rawLon,
-                rawLat:
-                  overlay?.dataset.rawLat
-              };
-            })
-        }
-      );
-
-
-      const matchingSecondaryCard =
-        getSecondaryCardMatchingFeature(
+      const matchingPanelCard =
+        getPanelCardMatchingFeature(
           feature,
           pointSourceKey
         );
 
-      if (matchingSecondaryCard) {
+      if (matchingPanelCard) {
         setPanelCardOverlayForced(
-          matchingSecondaryCard,
+          matchingPanelCard,
           true
         );
       }
@@ -4937,7 +4997,7 @@ function refreshSecondaryCards(
     cards.slice(1);
 
   secondaryCardFeatureMap.clear();  
-
+  
   secondaryCards.forEach((card) => {
     buildSecondaryCardMarkup(card);
   });
@@ -4969,6 +5029,14 @@ function refreshSecondaryCards(
             sourceKey: candidate.sourceKey
           }
         );
+
+        panelCardFeatureMap.set(
+          card,
+          {
+            feature: candidate.feature,
+            sourceKey: candidate.sourceKey
+          }
+        );
       }
     }
   );
@@ -4976,16 +5044,37 @@ function refreshSecondaryCards(
 
 /* ========= PANEL ========= */
 function updatePanel(feature, sourceKey = null) {
-  const normalizedFeature = normalizeFeature(feature, sourceKey);
-  const { identity, coords } = normalizedFeature;
+  panelCardFeatureMap.clear();
+
+  const normalizedFeature =
+    normalizeFeature(
+      feature,
+      sourceKey
+    );
+
+  const {
+    identity,
+    coords
+  } = normalizedFeature;
 
   const coordsText =
-    coords.visualLon != null && coords.visualLat != null
-      ? formatCoords(coords.visualLat, coords.visualLon)
+    coords.visualLon != null &&
+    coords.visualLat != null
+      ? formatCoords(
+          coords.visualLat,
+          coords.visualLon
+        )
       : '';
 
-  const coordsTextEl = document.querySelector('.panel-card.is-active .coords-text');
-  if (coordsTextEl) coordsTextEl.textContent = coordsText;
+  const coordsTextEl =
+    document.querySelector(
+      '.panel-card.is-active .coords-text'
+    );
+
+  if (coordsTextEl) {
+    coordsTextEl.textContent =
+      coordsText;
+  }
 
   const coordsDot =
     document.querySelector(
@@ -5013,7 +5102,25 @@ function updatePanel(feature, sourceKey = null) {
     }
   }
 
-  setActiveCardOverlayData(normalizedFeature);
+  setActiveCardOverlayData(
+    normalizedFeature
+  );
+
+  const activeCard =
+    document.querySelector(
+      '.panel-card.is-active'
+    );
+
+  if (activeCard) {
+    panelCardFeatureMap.set(
+      activeCard,
+      {
+        feature,
+        sourceKey:
+          normalizedFeature.sourceKey
+      }
+    );
+  }
 
   const titleTextEl =
     document.querySelector(
@@ -5025,26 +5132,43 @@ function updatePanel(feature, sourceKey = null) {
       identity.name || 'Senza nome';
   }
 
-  const imageUrl = getFeatureImageUrl(feature);
-  const imgEl = document.querySelector('.panel-card.is-active .panel-image');
+  const imageUrl =
+    getFeatureImageUrl(feature);
+
+  const imgEl =
+    document.querySelector(
+      '.panel-card.is-active .panel-image'
+    );
 
   if (imgEl && imageUrl) {
     const proxiedUrl =
       'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' +
       encodeURIComponent(imageUrl);
 
-    preloadImage(proxiedUrl, (loadedUrl) => {
-      if (loadedUrl) {
-        imgEl.src = loadedUrl;
-        imgEl.style.display = 'block';
+    preloadImage(
+      proxiedUrl,
+      (loadedUrl) => {
+        if (loadedUrl) {
+          imgEl.src = loadedUrl;
+          imgEl.style.display =
+            'block';
+        }
       }
-    });
+    );
   } else if (imgEl) {
-    imgEl.style.display = 'none';
+    imgEl.style.display =
+      'none';
   }
 
-  const overlayDescEl = document.querySelector('.panel-card.is-active .overlay-description');
-  if (overlayDescEl) overlayDescEl.textContent = identity.country;
+  const overlayDescEl =
+    document.querySelector(
+      '.panel-card.is-active .overlay-description'
+    );
+
+  if (overlayDescEl) {
+    overlayDescEl.textContent =
+      identity.country;
+  }
 
   refreshPanelLayout();
 
