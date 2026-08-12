@@ -1258,6 +1258,76 @@ function setActiveCardOverlayForced(force) {
   overlay.classList.toggle('is-forced', Boolean(force));
 }
 
+function setPanelCardOverlayForced(card, force) {
+  if (!card) return;
+
+  const overlay =
+    card.querySelector('.image-overlay');
+
+  if (!overlay) return;
+
+  overlay.classList.toggle(
+    'is-forced',
+    Boolean(force)
+  );
+}
+
+function clearAllPanelCardOverlays() {
+  document
+    .querySelectorAll(
+      '.panel-card .image-overlay.is-forced'
+    )
+    .forEach((overlay) => {
+      overlay.classList.remove('is-forced');
+    });
+}
+
+function buildTargetFromPanelCard(card) {
+  if (!card) return null;
+
+  const overlay =
+    card.querySelector('.image-overlay');
+
+  if (!overlay) return null;
+
+  const lon =
+    parseFloat(overlay.dataset.lon);
+
+  const lat =
+    parseFloat(overlay.dataset.lat);
+
+  const rawLon =
+    parseFloat(overlay.dataset.rawLon);
+
+  const rawLat =
+    parseFloat(overlay.dataset.rawLat);
+
+  const sourceKey =
+    overlay.dataset.sourceKey || '';
+
+  if (
+    !Number.isFinite(lon) ||
+    !Number.isFinite(lat) ||
+    !sourceKey
+  ) {
+    return null;
+  }
+
+  const identity =
+    getFeatureIdentityFromDataset(
+      overlay.dataset
+    );
+
+  return createCrosshairTarget({
+    lon,
+    lat,
+    rawLon,
+    rawLat,
+    sourceKey,
+    identity
+  });
+}
+
 function isNormalizedFeatureSameAsActiveCard(normalizedFeature) {
   const overlay = document.querySelector('.panel-card.is-active .image-overlay');
   if (!overlay || !normalizedFeature) return false;
@@ -2794,6 +2864,95 @@ function handleClusterClick(feature, sourceKey) {
   );
 }
 
+function getSecondaryCardMatchingFeature(
+  feature,
+  sourceKey
+) {
+  if (!feature || !sourceKey) {
+    return null;
+  }
+
+  const normalizedFeature =
+    normalizeFeature(
+      feature,
+      sourceKey
+    );
+
+  const featureRawLon =
+    Number(
+      normalizedFeature.coords.rawLon ??
+      normalizedFeature.coords.visualLon
+    );
+
+  const featureRawLat =
+    Number(
+      normalizedFeature.coords.rawLat ??
+      normalizedFeature.coords.visualLat
+    );
+
+  if (
+    !Number.isFinite(featureRawLon) ||
+    !Number.isFinite(featureRawLat)
+  ) {
+    return null;
+  }
+
+  const secondaryCards =
+    getPanelCards().slice(1);
+
+  for (const card of secondaryCards) {
+    const overlay =
+      card.querySelector('.image-overlay');
+
+    if (!overlay) continue;
+
+    const cardSourceKey =
+      overlay.dataset.sourceKey || '';
+
+    if (cardSourceKey !== sourceKey) {
+      continue;
+    }
+
+    const cardRawLon =
+      Number(
+        overlay.dataset.rawLon ??
+        overlay.dataset.lon
+      );
+
+    const cardRawLat =
+      Number(
+        overlay.dataset.rawLat ??
+        overlay.dataset.lat
+      );
+
+    if (
+      !Number.isFinite(cardRawLon) ||
+      !Number.isFinite(cardRawLat)
+    ) {
+      continue;
+    }
+
+    const lonDiff =
+      Math.abs(
+        cardRawLon - featureRawLon
+      );
+
+    const latDiff =
+      Math.abs(
+        cardRawLat - featureRawLat
+      );
+
+    if (
+      lonDiff <= 5e-5 &&
+      latDiff <= 5e-5
+    ) {
+      return card;
+    }
+  }
+
+  return null;
+}
+
 function onEnterPointer(e) {
   map.getCanvas().style.cursor = 'pointer';
 
@@ -2803,14 +2962,79 @@ function onEnterPointer(e) {
   const layerId = (feature.layer && feature.layer.id) || '';
 
   // 🔹 POINT
-  const pointSourceKey = pointLayerSourceMap[layerId];
+  const pointSourceKey =
+    pointLayerSourceMap[layerId];
+
   if (pointSourceKey) {
-    const target = buildTargetFromFeature(feature, pointSourceKey);
+    const target =
+      buildTargetFromFeature(
+        feature,
+        pointSourceKey
+      );
+
     if (target) {
       activateHover(target);
-      syncActiveCardOverlayWithFeature(feature, pointSourceKey);
+
+      // Card 1: logica originale, invariata.
+      syncActiveCardOverlayWithFeature(
+        feature,
+        pointSourceKey
+      );
+
+      // Card 2–5: pulizia dell'eventuale
+      // overlay precedente.
+      document
+        .querySelectorAll(
+          '.panel-card:not(.is-active)'
+        )
+        .forEach((card) => {
+          setPanelCardOverlayForced(
+            card,
+            false
+          );
+        });
+
+      // Cerca la card secondaria corrispondente
+      // tramite layer + coordinate.
+      console.log(
+        'SECONDARY MATCH TEST',
+        {
+          sourceKey: pointSourceKey,
+          feature,
+          cards: getPanelCards()
+            .slice(1)
+            .map((card, index) => {
+              const overlay =
+                card.querySelector('.image-overlay');
+
+              return {
+                card: index + 2,
+                sourceKey:
+                  overlay?.dataset.sourceKey,
+                rawLon:
+                  overlay?.dataset.rawLon,
+                rawLat:
+                  overlay?.dataset.rawLat
+              };
+            })
+        }
+      );
+
+
+      const matchingSecondaryCard =
+        getSecondaryCardMatchingFeature(
+          feature,
+          pointSourceKey
+        );
+
+      if (matchingSecondaryCard) {
+        setPanelCardOverlayForced(
+          matchingSecondaryCard,
+          true
+        );
+      }
     }
-    
+
     return;
   }
 
@@ -4880,6 +5104,66 @@ document.getElementById('panel')?.addEventListener('mouseout', (e) => {
   if (wrapper.contains(e.relatedTarget)) return;
 
   setActiveCardOverlayForced(false);
+
+  hideCrosshair();
+  setupTouchClearFallback();
+});
+
+/* ========= SECONDARY CARD HOVER -> CROSSHAIR ========= */
+
+document.getElementById('panel')?.addEventListener('mouseover', (e) => {
+  const wrapper =
+    e.target.closest(
+      '.panel-card:not(.is-active) .image-wrapper'
+    );
+
+  if (!wrapper) return;
+
+  if (wrapper.contains(e.relatedTarget)) {
+    return;
+  }
+
+  const card =
+    wrapper.closest('.panel-card');
+
+  if (!card) return;
+
+  const target =
+    normalizeCrosshairTarget(
+      buildTargetFromPanelCard(card)
+    );
+
+  if (!target) return;
+
+  showBestCrosshairForTarget(target);
+
+  setPanelCardOverlayForced(
+    card,
+    true
+  );
+});
+
+document.getElementById('panel')?.addEventListener('mouseout', (e) => {
+  const wrapper =
+    e.target.closest(
+      '.panel-card:not(.is-active) .image-wrapper'
+    );
+
+  if (!wrapper) return;
+
+  if (wrapper.contains(e.relatedTarget)) {
+    return;
+  }
+
+  const card =
+    wrapper.closest('.panel-card');
+
+  if (!card) return;
+
+  setPanelCardOverlayForced(
+    card,
+    false
+  );
 
   hideCrosshair();
   setupTouchClearFallback();
