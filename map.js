@@ -1258,6 +1258,20 @@ function buildTargetFromActiveCard() {
   });
 }
 
+function buildTargetFromPanelCard(card) {
+  if (!card) return null;
+
+  const entry =
+    secondaryCardFeatureMap.get(card);
+
+  if (!entry) return null;
+
+  return buildTargetFromFeature(
+    entry.feature,
+    entry.sourceKey
+  );
+}
+
 function setActiveCardOverlayForced(force) {
   const overlay = document.querySelector('.panel-card.is-active .image-overlay');
   if (!overlay) return;
@@ -5088,7 +5102,14 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
   const lat = parseFloat(overlay.dataset.lat);
 
   if (!isNaN(lon) && !isNaN(lat)) {
-    const target = buildTargetFromActiveCard();
+    const card =
+      overlay.closest('.panel-card');
+
+    const target =
+      card?.classList.contains('is-active')
+        ? buildTargetFromActiveCard()
+        : buildTargetFromPanelCard(card);
+
     if (!target) return;
 
     const currentZoom = map.getZoom();
@@ -5107,9 +5128,17 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 
     activateSelection(target);
 
-    map.once('moveend', () => {
-      isClickInteraction = false;
-    });
+    if (card?.classList.contains('is-active')) {
+      // Card 1: comportamento originale.
+    } else {
+      // Card 2–5: solo la card toccata deve avere l'overlay.
+      clearAllPanelCardOverlays();
+
+      setPanelCardOverlayForced(
+        card,
+        true
+      );
+    }
   }
 });
 
