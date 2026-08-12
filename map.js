@@ -694,6 +694,11 @@ class DualScaleControl {
 function setupMapInteractionClear() {
   const clear = () => {
     if (isProgrammaticMove) return;
+
+    if (activeHoverTarget) {
+      return;
+    }
+
     clearInteraction();
   };
 
