@@ -493,7 +493,7 @@ function clearInteraction({ keepSelection = false } = {}) {
   selectedCrosshairTarget = null;
   activeHoverTarget = null;
 
-  setActiveCardOverlayForced(false);
+  clearAllPanelCardOverlays();
   hideCrosshair();
 }
 
@@ -1272,6 +1272,16 @@ function setPanelCardOverlayForced(card, force) {
     'is-forced',
     Boolean(force)
   );
+}
+
+function clearAllPanelCardOverlays() {
+  document
+    .querySelectorAll(
+      '.panel-card .image-overlay.is-forced'
+    )
+    .forEach((overlay) => {
+      overlay.classList.remove('is-forced');
+    });
 }
 
 function clearAllPanelCardOverlays() {
@@ -3087,7 +3097,7 @@ function onLeavePointer() {
   if (selectedCrosshairTarget) {
     activeHoverTarget = null;
 
-    setActiveCardOverlayForced(false);
+    clearAllPanelCardOverlays();
 
     hideCrosshair();
 
