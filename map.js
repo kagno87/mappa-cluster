@@ -464,8 +464,6 @@ const clusterLeavesCache = {};
 
 const clusterBestLeafCache = {};
 
-const secondaryCardFeatureMap = new Map();
-
 const panelCardFeatureMap = new Map();
 
 /* ========= INTERACTION STATE ========= */
@@ -5337,6 +5335,25 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
       layerKey,
       isActive
     );
+
+    const activeCard =
+      document.querySelector(
+        '.panel-card.is-active'
+      );
+
+    const activeCardEntry =
+      activeCard
+        ? panelCardFeatureMap.get(activeCard)
+        : null;
+
+    if (
+      activeCardEntry
+    ) {
+      refreshSecondaryCards(
+        activeCardEntry.feature,
+        activeCardEntry.sourceKey
+      );
+    }
 
     // Se stiamo spegnendo il layer della card attiva,
     // sostituiscilo con il closest element.
