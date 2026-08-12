@@ -4388,6 +4388,327 @@ async function showRandomSize2Card() {
   }
 }
 
+/* ========= SECONDARY PANEL CARDS ========= */
+
+function getPanelCards() {
+  return Array.from(
+    document.querySelectorAll('.panel-card')
+  );
+}
+
+function getFeatureDistance(lon1, lat1, lon2, lat2) {
+  const dx = Number(lon2) - Number(lon1);
+  const dy = Number(lat2) - Number(lat1);
+
+  return dx * dx + dy * dy;
+}
+
+function getNearestSecondaryFeatures(
+  centerLon,
+  centerLat,
+  primaryFeature,
+  count = 4
+) {
+  const candidates = [];
+  const activeSources = getActiveSourceKeys();
+
+  if (!activeSources.length) {
+    return [];
+  }
+
+  const primaryIdentity =
+    getFeatureIdentity(primaryFeature);
+
+  activeSources.forEach((sourceKey) => {
+    const geojson =
+      geojsonCache[getGeoJsonUrlForSource(sourceKey)];
+
+    if (!geojson?.features) return;
+
+    geojson.features.forEach((feature) => {
+      if (
+        feature.geometry?.type !== 'Point' ||
+        !Array.isArray(feature.geometry.coordinates)
+      ) {
+        return;
+      }
+
+      const [
+        lon,
+        lat
+      ] = feature.geometry.coordinates;
+
+      /*
+       * La card 1 non può comparire anche tra
+       * le card secondarie.
+       */
+      const identity =
+        getFeatureIdentity(feature);
+
+      if (
+        isSameFeatureIdentity(
+          identity,
+          primaryIdentity
+        )
+      ) {
+        return;
+      }
+
+      candidates.push({
+        feature,
+        sourceKey,
+        distance: getFeatureDistance(
+          centerLon,
+          centerLat,
+          lon,
+          lat
+        )
+      });
+    });
+  });
+
+  candidates.sort(
+    (a, b) => a.distance - b.distance
+  );
+
+  return candidates.slice(0, count);
+}
+
+function buildSecondaryCardMarkup(card) {
+  card.innerHTML = `
+    <div class="image-wrapper">
+      <img class="panel-image" />
+
+      <div class="image-overlay">
+        <div class="overlay-text">
+
+          <h3 class="overlay-title">
+            <span class="title-text"></span>
+            <button class="title-copy" type="button">⧉</button>
+          </h3>
+
+        </div>
+
+        <div class="overlay-bottom">
+
+          <p class="overlay-description"></p>
+
+          <div class="overlay-coordinates">
+            <span class="coords-text"></span>
+
+            <button
+              class="coords-copy"
+              type="button">
+              ⧉
+            </button>
+          </div>
+
+          <span class="card-coords-dot"></span>
+
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updateSecondaryCard(
+  card,
+  feature,
+  sourceKey
+) {
+  if (!card || !feature) return;
+
+  const normalizedFeature =
+    normalizeFeature(
+      feature,
+      sourceKey
+    );
+
+  const {
+    identity,
+    coords
+  } = normalizedFeature;
+
+  const wrapper =
+    card.querySelector('.image-wrapper');
+
+  const overlay =
+    card.querySelector('.image-overlay');
+
+  const img =
+    card.querySelector('.panel-image');
+
+  const title =
+    card.querySelector('.title-text');
+
+  const description =
+    card.querySelector('.overlay-description');
+
+  const coordsText =
+    card.querySelector('.coords-text');
+
+  const coordsDot =
+    card.querySelector('.card-coords-dot');
+
+  if (!wrapper || !overlay) return;
+
+  wrapper.classList.remove('empty');
+
+  if (coordsText) {
+    coordsText.textContent =
+      coords.visualLon != null &&
+      coords.visualLat != null
+        ? formatCoords(
+            coords.visualLat,
+            coords.visualLon
+          )
+        : '';
+  }
+
+  if (title) {
+    title.textContent =
+      identity.name || 'Senza nome';
+  }
+
+  if (description) {
+    description.textContent =
+      identity.country;
+  }
+
+  if (coordsDot) {
+    coordsDot.className =
+      'card-coords-dot';
+
+    const size =
+      Number(identity.size) || 1;
+
+    coordsDot.classList.add(
+      `size-${size}`
+    );
+
+    if (sourceKey) {
+      coordsDot.classList.add(
+        `layer-${sourceKey}`
+      );
+    }
+  }
+
+  if (overlay) {
+    overlay.dataset.lon =
+      coords.visualLon;
+
+    overlay.dataset.lat =
+      coords.visualLat;
+
+    overlay.dataset.rawLon =
+      coords.rawLon ?? coords.visualLon;
+
+    overlay.dataset.rawLat =
+      coords.rawLat ?? coords.visualLat;
+
+    overlay.dataset.size =
+      identity.size;
+
+    overlay.dataset.sourceKey =
+      sourceKey || '';
+
+    overlay.dataset.name =
+      identity.name;
+
+    overlay.dataset.country =
+      identity.country;
+
+    overlay.dataset.mediaLink =
+      identity.mediaLink;
+
+    overlay.dataset.description =
+      identity.description;
+  }
+
+  const imageUrl =
+    getFeatureImageUrl(feature);
+
+  if (img && imageUrl) {
+    const proxiedUrl =
+      'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' +
+      encodeURIComponent(imageUrl);
+
+    preloadImage(
+      proxiedUrl,
+      (loadedUrl) => {
+        if (loadedUrl) {
+          img.src = loadedUrl;
+          img.style.display = 'block';
+        }
+      }
+    );
+  } else if (img) {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+  }
+}
+
+function refreshSecondaryCards(
+  primaryFeature,
+  sourceKey
+) {
+  if (!primaryFeature) return;
+
+  const normalized =
+    normalizeFeature(
+      primaryFeature,
+      sourceKey
+    );
+
+  const {
+    coords
+  } = normalized;
+
+  if (
+    coords.visualLon == null ||
+    coords.visualLat == null
+  ) {
+    return;
+  }
+
+  const cards =
+    getPanelCards();
+
+  /*
+   * Card 1 = sorgente.
+   * Le altre quattro sono derivate.
+   */
+  const secondaryCards =
+    cards.slice(1);
+
+  secondaryCards.forEach((card) => {
+    buildSecondaryCardMarkup(card);
+  });
+
+  const nearest =
+    getNearestSecondaryFeatures(
+      coords.visualLon,
+      coords.visualLat,
+      primaryFeature,
+      4
+    );
+
+  secondaryCards.forEach(
+    (card, index) => {
+      const candidate =
+        nearest[index];
+
+      if (candidate) {
+        updateSecondaryCard(
+          card,
+          candidate.feature,
+          candidate.sourceKey
+        );
+      }
+    }
+  );
+}
+
 /* ========= PANEL ========= */
 function updatePanel(feature, sourceKey = null) {
   const normalizedFeature = normalizeFeature(feature, sourceKey);
@@ -4461,6 +4782,11 @@ function updatePanel(feature, sourceKey = null) {
   if (overlayDescEl) overlayDescEl.textContent = identity.country;
 
   refreshPanelLayout();
+
+  refreshSecondaryCards(
+    feature,
+    normalizedFeature.sourceKey
+  );
 }
 
 function preloadImage(url, callback) {
