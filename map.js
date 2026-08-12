@@ -1264,7 +1264,7 @@ function buildTargetFromPanelCard(card) {
   if (!card) return null;
 
   const entry =
-    secondaryCardFeatureMap.get(card);
+    panelCardFeatureMap.get(card)
 
   if (!entry) return null;
 
@@ -1359,38 +1359,6 @@ function buildTargetFromPanelCard(card) {
     sourceKey,
     identity
   });
-}
-
-function isNormalizedFeatureSameAsActiveCard(normalizedFeature) {
-  const overlay = document.querySelector('.panel-card.is-active .image-overlay');
-  if (!overlay || !normalizedFeature) return false;
-
-  const activeSourceKey = overlay.dataset.sourceKey || '';
-  if (activeSourceKey !== (normalizedFeature.sourceKey || '')) return false;
-
-  const activeIdentity = getFeatureIdentityFromDataset(overlay.dataset);
-  const featureIdentity = normalizedFeature.identity;
-
-  if (isSameFeatureIdentity(activeIdentity, featureIdentity)) {
-    return true;
-  }
-
-  const activeRawLon = Number(overlay.dataset.rawLon ?? overlay.dataset.lon);
-  const activeRawLat = Number(overlay.dataset.rawLat ?? overlay.dataset.lat);
-  const featureRawLon = Number(normalizedFeature.coords.rawLon ?? normalizedFeature.coords.visualLon);
-  const featureRawLat = Number(normalizedFeature.coords.rawLat ?? normalizedFeature.coords.visualLat);
-
-  return areSameCoordinates(activeRawLon, activeRawLat, featureRawLon, featureRawLat);
-}
-
-function syncActiveCardOverlayWithFeature(feature, sourceKey) {
-  if (!feature || !sourceKey) {
-    setActiveCardOverlayForced(false);
-    return;
-  }
-
-  const normalizedFeature = normalizeFeature(feature, sourceKey);
-  setActiveCardOverlayForced(isNormalizedFeatureSameAsActiveCard(normalizedFeature));
 }
 
 function getCurrentCrosshairTarget() {
@@ -2895,95 +2863,6 @@ function handleClusterClick(feature, sourceKey) {
         false;
     }
   );
-}
-
-function getSecondaryCardMatchingFeature(
-  feature,
-  sourceKey
-) {
-  if (!feature || !sourceKey) {
-    return null;
-  }
-
-  const normalizedFeature =
-    normalizeFeature(
-      feature,
-      sourceKey
-    );
-
-  const featureRawLon =
-    Number(
-      normalizedFeature.coords.rawLon ??
-      normalizedFeature.coords.visualLon
-    );
-
-  const featureRawLat =
-    Number(
-      normalizedFeature.coords.rawLat ??
-      normalizedFeature.coords.visualLat
-    );
-
-  if (
-    !Number.isFinite(featureRawLon) ||
-    !Number.isFinite(featureRawLat)
-  ) {
-    return null;
-  }
-
-  const secondaryCards =
-    getPanelCards().slice(1);
-
-  for (const card of secondaryCards) {
-    const overlay =
-      card.querySelector('.image-overlay');
-
-    if (!overlay) continue;
-
-    const cardSourceKey =
-      overlay.dataset.sourceKey || '';
-
-    if (cardSourceKey !== sourceKey) {
-      continue;
-    }
-
-    const cardRawLon =
-      Number(
-        overlay.dataset.rawLon ??
-        overlay.dataset.lon
-      );
-
-    const cardRawLat =
-      Number(
-        overlay.dataset.rawLat ??
-        overlay.dataset.lat
-      );
-
-    if (
-      !Number.isFinite(cardRawLon) ||
-      !Number.isFinite(cardRawLat)
-    ) {
-      continue;
-    }
-
-    const lonDiff =
-      Math.abs(
-        cardRawLon - featureRawLon
-      );
-
-    const latDiff =
-      Math.abs(
-        cardRawLat - featureRawLat
-      );
-
-    if (
-      lonDiff <= 5e-5 &&
-      latDiff <= 5e-5
-    ) {
-      return card;
-    }
-  }
-
-  return null;
 }
 
 function getPanelCardMatchingFeature(
@@ -4995,8 +4874,6 @@ function refreshSecondaryCards(
    */
   const secondaryCards =
     cards.slice(1);
-
-  secondaryCardFeatureMap.clear();  
   
   secondaryCards.forEach((card) => {
     buildSecondaryCardMarkup(card);
@@ -5020,14 +4897,6 @@ function refreshSecondaryCards(
           card,
           candidate.feature,
           candidate.sourceKey
-        );
-
-        secondaryCardFeatureMap.set(
-          card,
-          {
-            feature: candidate.feature,
-            sourceKey: candidate.sourceKey
-          }
         );
 
         panelCardFeatureMap.set(
