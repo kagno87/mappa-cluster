@@ -3028,15 +3028,55 @@ function onEnterPointer(e) {
       activateHover(target);
     }
 
-    // 🔹 se il cluster contiene il punto selezionato → overlay ON
-    if (selectedCrosshairTarget) {
-      const bestLeaf = getBestLeafFromCluster(clusterSourceKey, feature);
-      if (!bestLeaf) return;
+    // 🔹 accendi gli overlay delle card
+    // le cui feature appartengono al cluster
+    clearAllPanelCardOverlays();
 
-      const leafIdentity = getFeatureIdentity(bestLeaf);
+    const clusterId =
+      feature.properties?.cluster_id;
 
-      if (isSameFeatureIdentity(leafIdentity, selectedCrosshairTarget)) {
-        setActiveCardOverlayForced(true);
+    if (clusterId != null) {
+      const leaves =
+        getClusterLeaves(
+          clusterSourceKey,
+          clusterId
+        );
+
+      for (
+        const [card, entry]
+        of panelCardFeatureMap
+      ) {
+        if (!entry) continue;
+
+        if (
+          entry.sourceKey !==
+          clusterSourceKey
+        ) {
+          continue;
+        }
+
+        const cardIdentity =
+          getFeatureIdentity(
+            entry.feature
+          );
+
+        const matchesCluster =
+          leaves.some((leaf) => {
+            const leafIdentity =
+              getFeatureIdentity(leaf);
+
+            return isSameFeatureIdentity(
+              cardIdentity,
+              leafIdentity
+            );
+          });
+
+        if (matchesCluster) {
+          setPanelCardOverlayForced(
+            card,
+            true
+          );
+        }
       }
     }
 
