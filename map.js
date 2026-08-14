@@ -1555,6 +1555,45 @@ function parseCoordQuery(raw) {
   return null;
 }
 
+function normalizeGeocoderDisplayText(
+  text
+) {
+  if (!text) {
+    return text;
+  }
+
+  const aliases = {
+    "People's Republic of China": "China",
+    "Czech Republic": "Czechia",
+    "Naoero": "Nauru",
+    "East Timor": "Timor-Leste"
+
+  };
+
+  let normalized =
+    String(text);
+
+  Object.entries(
+    aliases
+  ).forEach(
+    ([from, to]) => {
+      normalized =
+        normalized.replace(
+          new RegExp(
+            from.replace(
+              /[.*+?^${}()|[\]\\]/g,
+              '\\$&'
+            ),
+            'gi'
+          ),
+          to
+        );
+    }
+  );
+
+  return normalized;
+}
+
 function setupGeocoderOnce() {
   const searchContainer =
     document.getElementById(
@@ -1809,11 +1848,13 @@ function setupGeocoderOnce() {
             ) || 1;
 
           const country =
-            item.properties
-              ?.original
-              ?.properties
-              ?.country ||
-            '';
+            normalizeGeocoderDisplayText(
+              item.properties
+                ?.original
+                ?.properties
+                ?.country ||
+              ''
+            );
 
           return `
             <div class="custom-search-result">
@@ -1841,13 +1882,18 @@ function setupGeocoderOnce() {
 
         // 🔹 risultati Mapbox standard
         const name =
-          item.text || '';
+          normalizeGeocoderDisplayText(
+            item.text || ''
+          );
 
         const context =
           item.context
             ? item.context
                 .map(
-                  (c) => c.text
+                  (c) =>
+                    normalizeGeocoderDisplayText(
+                      c.text
+                    )
                 )
                 .join(', ')
             : '';
@@ -1896,11 +1942,6 @@ function setupGeocoderOnce() {
 
       const [lon, lat] =
         coords;
-
-      console.log(
-        '[GEOCODER QUERY]',
-        lastGeocoderQuery
-      );
 
       // ✅ CASO 1:
       // pin tuo
