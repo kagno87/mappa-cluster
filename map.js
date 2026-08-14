@@ -2058,8 +2058,8 @@ function setupGeocoderOnce() {
         map.once(
           'idle',
           async () => {
-            const representative =
-              findRepresentativeRenderedBestLeaf(
+            const candidateSet =
+              findRenderedCandidateSet(
                 searchArea,
                 lon,
                 lat,
@@ -2067,11 +2067,15 @@ function setupGeocoderOnce() {
               );
 
             if (
-              representative
+              candidateSet.length
             ) {
+              const representative =
+                candidateSet[0];
+
               updatePanel(
                 representative.feature,
-                representative.sourceKey
+                representative.sourceKey,
+                candidateSet
               );
 
               const target =
@@ -4119,26 +4123,19 @@ function findRenderedCandidates(
   return selectedCandidates;
 }
 
-function findRepresentativeRenderedBestLeaf(
-  bbox,
-  centerLon,
-  centerLat,
-  query = ''
+function pickCandidateBySize(
+  candidates,
+  excluded = new Set()
 ) {
-  const candidates =
-    findRenderedCandidates(
-      bbox,
-      centerLon,
-      centerLat,
-      query
-    );
-
   for (
     const size of [3, 2, 1]
   ) {
     const matches =
       candidates.filter(
         (candidate) =>
+          !excluded.has(
+            candidate
+          ) &&
           Number(
             candidate.feature
               ?.properties
@@ -4156,6 +4153,83 @@ function findRepresentativeRenderedBestLeaf(
         )
       ];
     }
+  }
+
+  return null;
+}
+
+function pickRenderedCandidateSet(
+  candidates,
+  count = 5
+) {
+  const selected = [];
+  const excluded = new Set();
+
+  for (
+    let i = 0;
+    i < count;
+    i++
+  ) {
+    const candidate =
+      pickCandidateBySize(
+        candidates,
+        excluded
+      );
+
+    if (!candidate) {
+      break;
+    }
+
+    selected.push(
+      candidate
+    );
+
+    excluded.add(
+      candidate
+    );
+  }
+
+  return selected;
+}
+
+function findRenderedCandidateSet(
+  bbox,
+  centerLon,
+  centerLat,
+  query = ''
+) {
+  const candidates =
+    findRenderedCandidates(
+      bbox,
+      centerLon,
+      centerLat,
+      query
+    );
+
+  return pickRenderedCandidateSet(
+    candidates,
+    5
+  );
+}
+
+function findRepresentativeRenderedBestLeaf(
+  bbox,
+  centerLon,
+  centerLat,
+  query = ''
+) {
+  const selectedCandidates =
+    findRenderedCandidateSet(
+      bbox,
+      centerLon,
+      centerLat,
+      query
+    );
+
+  if (
+    selectedCandidates.length
+  ) {
+    return selectedCandidates[0];
   }
 
   return findNearestGeojsonPoint(
@@ -5069,7 +5143,8 @@ function updateSecondaryCard(
 
 function refreshSecondaryCards(
   primaryFeature,
-  sourceKey
+  sourceKey,
+  initialCandidates = null
 ) {
   if (!primaryFeature) return;
 
@@ -5104,18 +5179,71 @@ function refreshSecondaryCards(
     buildSecondaryCardMarkup(card);
   });
 
-  const nearest =
-    getNearestSecondaryFeatures(
-      coords.visualLon,
-      coords.visualLat,
-      primaryFeature,
-      4
-    );
+  let secondaryCandidates;
+
+  if (
+    Array.isArray(initialCandidates)
+  ) {
+    // I candidati dal bbox partono dalla Card 2:
+    // Card 1 è initialCandidates[0].
+    const preferred =
+      initialCandidates.slice(1);
+
+    // Se il pool bbox non basta a riempire
+    // tutte le card, completiamo con i nearest.
+    const nearest =
+      getNearestSecondaryFeatures(
+        coords.visualLon,
+        coords.visualLat,
+        primaryFeature,
+        4 + preferred.length
+      );
+
+    const preferredIdentities =
+      new Set(
+        preferred.map(
+          (candidate) =>
+            JSON.stringify(
+              getFeatureIdentity(
+                candidate.feature
+              )
+            )
+        )
+      );
+
+    const fallback =
+      nearest.filter(
+        (candidate) =>
+          !preferredIdentities.has(
+            JSON.stringify(
+              getFeatureIdentity(
+                candidate.feature
+              )
+            )
+          )
+      );
+
+    secondaryCandidates = [
+      ...preferred,
+      ...fallback
+    ].slice(0, 4);
+
+  } else {
+
+    // Flusso normale invariato.
+    secondaryCandidates =
+      getNearestSecondaryFeatures(
+        coords.visualLon,
+        coords.visualLat,
+        primaryFeature,
+        4
+      );
+  }
 
   secondaryCards.forEach(
     (card, index) => {
       const candidate =
-        nearest[index];
+        secondaryCandidates[index];
 
       if (candidate) {
         updateSecondaryCard(
@@ -5137,7 +5265,12 @@ function refreshSecondaryCards(
 }
 
 /* ========= PANEL ========= */
-function updatePanel(feature, sourceKey = null) {
+function updatePanel(
+  feature,
+  sourceKey = null,
+  initialCandidates = null
+) {
+
   panelCardFeatureMap.clear();
 
   const normalizedFeature =
@@ -5268,7 +5401,8 @@ function updatePanel(feature, sourceKey = null) {
 
   refreshSecondaryCards(
     feature,
-    normalizedFeature.sourceKey
+    normalizedFeature.sourceKey,
+    initialCandidates
   );
 }
 
