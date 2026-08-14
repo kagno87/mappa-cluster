@@ -3852,7 +3852,7 @@ function countryContainsQuery(
     );
 }
 
-function findRepresentativeRenderedBestLeaf(
+function findRenderedCandidates(
   bbox,
   centerLon,
   centerLat,
@@ -4116,19 +4116,32 @@ function findRepresentativeRenderedBestLeaf(
       );
   }
 
-  // Priorità editoriale:
-  // size 3 → size 2 → size 1
+  return selectedCandidates;
+}
+
+function findRepresentativeRenderedBestLeaf(
+  bbox,
+  centerLon,
+  centerLat,
+  query = ''
+) {
+  const candidates =
+    findRenderedCandidates(
+      bbox,
+      centerLon,
+      centerLat,
+      query
+    );
+
   for (
     const size of [3, 2, 1]
   ) {
-
     const matches =
-      selectedCandidates.filter(
+      candidates.filter(
         (candidate) =>
           Number(
-            candidate
-              .feature
-              .properties
+            candidate.feature
+              ?.properties
               ?.size
           ) === size
       );
@@ -4136,20 +4149,15 @@ function findRepresentativeRenderedBestLeaf(
     if (
       matches.length
     ) {
-
       return matches[
         Math.floor(
           Math.random() *
           matches.length
         )
       ];
-
     }
-
   }
 
-  // Fallback emergenziale:
-  // resta la logica GeoJSON attuale.
   return findNearestGeojsonPoint(
     centerLon,
     centerLat
