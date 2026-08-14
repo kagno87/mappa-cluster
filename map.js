@@ -5445,15 +5445,27 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 
 /* ========= OVERLAY CLICK -> INCREMENTAL FLYTO ========= */
 document.getElementById('panel')?.addEventListener('click', (e) => {
-  const overlay = e.target.closest('.image-overlay');
+  const overlay =
+    e.target.closest('.image-overlay');
+
   if (!overlay) return;
 
   if (e.target.closest('button')) return;
 
-  const lon = parseFloat(overlay.dataset.lon);
-  const lat = parseFloat(overlay.dataset.lat);
+  const lon =
+    parseFloat(
+      overlay.dataset.lon
+    );
 
-  if (!isNaN(lon) && !isNaN(lat)) {
+  const lat =
+    parseFloat(
+      overlay.dataset.lat
+    );
+
+  if (
+    !isNaN(lon) &&
+    !isNaN(lat)
+  ) {
     const card =
       overlay.closest('.panel-card');
 
@@ -5464,31 +5476,42 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 
     if (!target) return;
 
-    const currentZoom = map.getZoom();
+    const currentZoom =
+      map.getZoom();
+
     const maxZoom = 10;
-    const nextZoom = Math.min(currentZoom + 2, maxZoom);
+
+    const nextZoom =
+      Math.min(
+        currentZoom + 2,
+        maxZoom
+      );
 
     isClickInteraction = true;
 
     map.stop();
+
     map.easeTo({
       center: [lon, lat],
       zoom: nextZoom,
       duration: 950,
-      easing: (t) => 1 - Math.pow(1 - t, 3)
+      easing: (t) =>
+        1 - Math.pow(1 - t, 3)
     });
 
     activateSelection(target);
 
-    if (card?.classList.contains('is-active')) {
-      // Card 1: comportamento originale.
-    } else {
-      // Card 2–5: solo la card toccata deve avere l'overlay.
-      clearAllPanelCardOverlays();
+    const entry =
+      panelCardFeatureMap.get(
+        card
+      );
 
-      setPanelCardOverlayForced(
-        card,
-        true
+    if (
+      entry?.feature
+    ) {
+      updatePanel(
+        entry.feature,
+        entry.sourceKey
       );
     }
   }
