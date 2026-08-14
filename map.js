@@ -4123,6 +4123,229 @@ function findRenderedCandidates(
   return selectedCandidates;
 }
 
+function findStartupRenderedCandidateSet(
+  centerLon,
+  centerLat
+) {
+  const bounds =
+    map.getBounds();
+
+  if (!bounds) {
+    return [];
+  }
+
+  const minLon =
+    bounds.getWest();
+
+  const minLat =
+    bounds.getSouth();
+
+  const maxLon =
+    bounds.getEast();
+
+  const maxLat =
+    bounds.getNorth();
+
+  const candidates = [];
+  const seen = new Set();
+
+  sourceKeys.forEach(
+    (sourceKey) => {
+
+      const clusterLayerId =
+        getClusterLayerIdForSource(
+          sourceKey
+        );
+
+      if (
+        !map.getLayer(
+          clusterLayerId
+        )
+      ) {
+        return;
+      }
+
+      const renderedClusters =
+        map.queryRenderedFeatures({
+          layers: [
+            clusterLayerId
+          ]
+        });
+
+      renderedClusters.forEach(
+        (clusterFeature) => {
+
+          if (
+            !clusterFeature
+              .properties
+              ?.cluster
+          ) {
+            return;
+          }
+
+          const bestLeaf =
+            getBestLeafFromCluster(
+              sourceKey,
+              clusterFeature
+            );
+
+          if (!bestLeaf) {
+            return;
+          }
+
+          const coords =
+            bestLeaf.geometry
+              ?.coordinates;
+
+          if (
+            !coords ||
+            coords.length < 2
+          ) {
+            return;
+          }
+
+          const lon =
+            Number(coords[0]);
+
+          const lat =
+            Number(coords[1]);
+
+          if (
+            lon < minLon ||
+            lon > maxLon ||
+            lat < minLat ||
+            lat > maxLat
+          ) {
+            return;
+          }
+
+          const identity =
+            getFeatureIdentity(
+              bestLeaf
+            );
+
+          const key = [
+            sourceKey,
+            identity.name,
+            identity.country,
+            identity.size,
+            identity.mediaLink,
+            identity.description
+          ].join('|');
+
+          if (
+            seen.has(key)
+          ) {
+            return;
+          }
+
+          seen.add(key);
+
+          candidates.push({
+            feature:
+              bestLeaf,
+
+            sourceKey
+          });
+        }
+      );
+
+      const pointLayerId =
+        getPointLayerIdForSource(
+          sourceKey
+        );
+
+      if (
+        !map.getLayer(
+          pointLayerId
+        )
+      ) {
+        return;
+      }
+
+      const renderedPoints =
+        map.queryRenderedFeatures({
+          layers: [
+            pointLayerId
+          ]
+        });
+
+      renderedPoints.forEach(
+        (pointFeature) => {
+
+          if (
+            pointFeature
+              ?.geometry
+              ?.type !== 'Point'
+          ) {
+            return;
+          }
+
+          const coords =
+            pointFeature.geometry
+              .coordinates;
+
+          if (
+            !coords ||
+            coords.length < 2
+          ) {
+            return;
+          }
+
+          const lon =
+            Number(coords[0]);
+
+          const lat =
+            Number(coords[1]);
+
+          if (
+            lon < minLon ||
+            lon > maxLon ||
+            lat < minLat ||
+            lat > maxLat
+          ) {
+            return;
+          }
+
+          const identity =
+            getFeatureIdentity(
+              pointFeature
+            );
+
+          const key = [
+            sourceKey,
+            identity.name,
+            identity.country,
+            identity.size,
+            identity.mediaLink,
+            identity.description
+          ].join('|');
+
+          if (
+            seen.has(key)
+          ) {
+            return;
+          }
+
+          seen.add(key);
+
+          candidates.push({
+            feature:
+              pointFeature,
+
+            sourceKey
+          });
+        }
+      );
+    }
+  );
+
+  return pickRenderedCandidateSet(
+    candidates,
+    5
+  );
+}
+
 function pickCandidateBySize(
   candidates,
   excluded = new Set()
@@ -4785,14 +5008,26 @@ async function runStartupFlow() {
 
 /* ========= STARTUP HELPERS ========= */
 
-function waitForRenderedClusterRepresentative(callback) {
-
+function waitForRenderedCandidateSet(
+  callback
+) {
   const tryPick = () => {
+    if (!map) {
+      return;
+    }
 
-    const representative =
-      pickRenderedClusterRepresentative();
+    const center =
+      map.getCenter();
 
-    if (!representative) {
+    const candidateSet =
+      findStartupRenderedCandidateSet(
+        center.lng,
+        center.lat
+      );
+
+    if (
+      !candidateSet.length
+    ) {
       return;
     }
 
@@ -4802,9 +5037,8 @@ function waitForRenderedClusterRepresentative(callback) {
     );
 
     callback(
-      representative
+      candidateSet
     );
-
   };
 
   map.on(
@@ -4813,26 +5047,37 @@ function waitForRenderedClusterRepresentative(callback) {
   );
 
   tryPick();
-
 }
 
-function showStartupCard(startupContext) {
+function showStartupCard(
+  startupContext
+) {
 
   if (!startupContext) {
     return;
   }
 
-  if (startupContext.cardMode === "GPS") {
+  if (
+    startupContext.cardMode === "GPS"
+  ) {
     showStartupNearestCard();
     return;
   }
 
-  waitForRenderedClusterRepresentative(
-    (representative) => {
+  waitForRenderedCandidateSet(
+    (candidateSet) => {
+
+      const representative =
+        candidateSet[0];
+
+      if (!representative) {
+        return;
+      }
 
       updatePanel(
         representative.feature,
-        representative.sourceKey
+        representative.sourceKey,
+        candidateSet
       );
 
     }
