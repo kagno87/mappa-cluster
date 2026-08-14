@@ -1561,6 +1561,8 @@ function setupGeocoderOnce() {
       'search-container'
     );
 
+  let lastGeocoderQuery = '';  
+
   if (
     !searchContainer ||
     typeof MapboxGeocoder ===
@@ -1592,6 +1594,8 @@ function setupGeocoderOnce() {
       localGeocoderOnly: false,
 
       localGeocoder: (query) => {
+        lastGeocoderQuery = query;
+
         const results = [];
 
         if (
@@ -1893,6 +1897,11 @@ function setupGeocoderOnce() {
       const [lon, lat] =
         coords;
 
+      console.log(
+        '[GEOCODER QUERY]',
+        lastGeocoderQuery
+      );
+
       // ✅ CASO 1:
       // pin tuo
       if (
@@ -2012,7 +2021,8 @@ function setupGeocoderOnce() {
               findRepresentativeRenderedBestLeaf(
                 searchArea,
                 lon,
-                lat
+                lat,
+                lastGeocoderQuery
               );
 
             if (
@@ -3781,10 +3791,31 @@ function findRepresentativeGeojsonPoint(
 
 }
 
+function countryContainsQuery(
+  country,
+  query
+) {
+  if (
+    !country ||
+    !query
+  ) {
+    return false;
+  }
+
+  return String(country)
+    .toLowerCase()
+    .includes(
+      String(query)
+        .trim()
+        .toLowerCase()
+    );
+}
+
 function findRepresentativeRenderedBestLeaf(
   bbox,
   centerLon,
-  centerLat
+  centerLat,
+  query = ''
 ) {
 
   if (
@@ -3893,13 +3924,13 @@ function findRepresentativeRenderedBestLeaf(
           const lat =
             Number(coords[1]);
 
-          // Il bestLeaf deve essere
-          // realmente dentro il crop 70%
+          // Il bestLeaf deve essere dentro
+          // il bbox completo del risultato
           if (
-            lon < innerMinLon ||
-            lon > innerMaxLon ||
-            lat < innerMinLat ||
-            lat > innerMaxLat
+            lon < minLon ||
+            lon > maxLon ||
+            lat < minLat ||
+            lat > maxLat
           ) {
             return;
           }
@@ -3934,8 +3965,115 @@ function findRepresentativeRenderedBestLeaf(
         }
       );
 
+      const pointLayerId =
+        getPointLayerIdForSource(
+          sourceKey
+        );
+
+      if (
+        map.getLayer(pointLayerId)
+      ) {
+        const renderedPoints =
+          map.queryRenderedFeatures({
+            layers: [
+              pointLayerId
+            ]
+          });
+
+        renderedPoints.forEach(
+          (pointFeature) => {
+            if (
+              pointFeature
+                ?.geometry
+                ?.type !== 'Point'
+            ) {
+              return;
+            }
+
+            const coords =
+              pointFeature.geometry.coordinates;
+
+            if (
+              !coords ||
+              coords.length < 2
+            ) {
+              return;
+            }
+
+            const lon =
+              Number(coords[0]);
+
+            const lat =
+              Number(coords[1]);
+
+            if (
+              lon < minLon ||
+              lon > maxLon ||
+              lat < minLat ||
+              lat > maxLat
+            ) {
+              return;
+            }
+
+            candidates.push({
+              feature:
+                pointFeature,
+
+              sourceKey
+            });
+          }
+        );
+      }
+
     }
   );
+
+  let selectedCandidates =
+    candidates;
+
+  const countryMatches =
+    candidates.filter(
+      (candidate) =>
+        countryContainsQuery(
+          candidate.feature
+            .properties?.country,
+          query
+        )
+    );
+
+  if (countryMatches.length) {
+    selectedCandidates =
+      countryMatches;
+  } else {
+    selectedCandidates =
+      candidates.filter(
+        (candidate) => {
+          const coords =
+            candidate.feature
+              .geometry?.coordinates;
+
+          if (
+            !coords ||
+            coords.length < 2
+          ) {
+            return false;
+          }
+
+          const lon =
+            Number(coords[0]);
+
+          const lat =
+            Number(coords[1]);
+
+          return (
+            lon >= innerMinLon &&
+            lon <= innerMaxLon &&
+            lat >= innerMinLat &&
+            lat <= innerMaxLat
+          );
+        }
+      );
+  }
 
   // Priorità editoriale:
   // size 3 → size 2 → size 1
@@ -3944,7 +4082,7 @@ function findRepresentativeRenderedBestLeaf(
   ) {
 
     const matches =
-      candidates.filter(
+      selectedCandidates.filter(
         (candidate) =>
           Number(
             candidate
