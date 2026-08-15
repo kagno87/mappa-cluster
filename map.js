@@ -5771,6 +5771,18 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
           entry.sourceKey
         );
       }
+
+    } else if (
+      !card?.classList.contains(
+        'is-active'
+      )
+    ) {
+      clearAllPanelCardOverlays();
+
+      setPanelCardOverlayForced(
+        card,
+        true
+      );
     }
   }
 });
