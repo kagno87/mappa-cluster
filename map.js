@@ -455,6 +455,7 @@ let adaptiveProjectionMode = 'globe';
 let isProgrammaticMove = false;
 let isClickInteraction = false;
 let initialCardPromotionActive = false;
+let suppressNextSecondaryCardHover = false;
 
 const geojsonCache = {};
 let geojsonPreloadPromise = null;
@@ -5762,9 +5763,15 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
       ) {
         initialCardPromotionActive = false;
 
+        suppressNextSecondaryCardHover = true;
+
         updatePanel(
           entry.feature,
           entry.sourceKey
+        );
+
+        card.classList.add(
+          'suppress-secondary-hover'
         );
       }
 
@@ -5825,6 +5832,16 @@ document.getElementById('panel')?.addEventListener('mouseover', (e) => {
 
   if (!card) return;
 
+  if (
+    suppressNextSecondaryCardHover
+  ) {
+    console.log(
+      '[SECONDARY HOVER INHIBITED]',
+      card
+    );
+    return;
+  }
+
   const target =
     normalizeCrosshairTarget(
       buildTargetFromPanelCard(card)
@@ -5856,6 +5873,20 @@ document.getElementById('panel')?.addEventListener('mouseout', (e) => {
     wrapper.closest('.panel-card');
 
   if (!card) return;
+
+  if (
+    card.classList.contains(
+      'suppress-secondary-hover'
+    )
+  ) {
+    clearAllPanelCardOverlays();
+
+    card.classList.remove(
+      'suppress-secondary-hover'
+    );
+
+    suppressNextSecondaryCardHover = false;
+  }
 
   setPanelCardOverlayForced(
     card,
