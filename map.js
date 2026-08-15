@@ -481,11 +481,7 @@ function activateSelection(target) {
 }
 
 function activateSearchHighlight(target) {
-  setSelectedCrosshairTarget(target);
-  showBestCrosshairForTarget(target);
-  setActiveCardOverlayForced(true);
-
-  setupTransientHighlightClear();
+  clearInteraction();
 }
 
 function clearInteraction({ keepSelection = false } = {}) {
