@@ -454,6 +454,7 @@ let selectedCrosshairTarget = null;
 let adaptiveProjectionMode = 'globe';
 let isProgrammaticMove = false;
 let isClickInteraction = false;
+let initialCardPromotionActive = false;
 
 const geojsonCache = {};
 let geojsonPreloadPromise = null;
@@ -5516,6 +5517,12 @@ function updatePanel(
   initialCandidates = null
 ) {
 
+  if (
+    Array.isArray(initialCandidates)
+  ) {
+    initialCardPromotionActive = true;
+  }
+
   panelCardFeatureMap.clear();
 
   const normalizedFeature =
@@ -5746,18 +5753,24 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
 
     activateSelection(target);
 
-    const entry =
-      panelCardFeatureMap.get(
-        card
-      );
-
     if (
-      entry?.feature
+      initialCardPromotionActive
     ) {
-      updatePanel(
-        entry.feature,
-        entry.sourceKey
-      );
+      const entry =
+        panelCardFeatureMap.get(
+          card
+        );
+
+      if (
+        entry?.feature
+      ) {
+        initialCardPromotionActive = false;
+
+        updatePanel(
+          entry.feature,
+          entry.sourceKey
+        );
+      }
     }
   }
 });
