@@ -94,7 +94,7 @@ body {
 
   display: flex;
   align-items: center;
-  padding-left: 20px;
+  padding-left: 17px;
 
   box-sizing: border-box;
   cursor: pointer;
@@ -289,7 +289,7 @@ body {
 
 #layer-menu-button {
   position: absolute;
-  right: 20px;
+  right: 17px;
   top: 50%;
   transform: translateY(-50%);
 
@@ -297,10 +297,9 @@ body {
   height: 30px;
 
   border-radius: 50%;
-
   background: #ffffff;
 
-  z-index: 3;
+  box-sizing: border-box;
 }
 
 #search-container .mapboxgl-ctrl-geocoder {
