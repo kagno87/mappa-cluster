@@ -498,6 +498,21 @@ function clearInteraction({ keepSelection = false } = {}) {
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
+
+  const layerMenuButton =
+    document.getElementById('layer-menu-button');
+
+  const layerMenuDropdown =
+    document.getElementById('layer-menu-dropdown');
+
+  layerMenuButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+
+    layerMenuDropdown.style.display =
+      layerMenuDropdown.style.display === 'block'
+        ? 'none'
+        : 'block';
+  });
 });
 
 /* ========= PANEL HEIGHT / SCALE ========= */

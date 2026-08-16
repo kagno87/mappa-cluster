@@ -287,21 +287,6 @@ body {
   z-index: 3;
 }
 
-#layer-menu-button {
-  position: absolute;
-  right: 17px;
-  top: 50%;
-  transform: translateY(-50%);
-
-  width: 30px;
-  height: 30px;
-
-  border-radius: 50%;
-  background: #ffffff;
-
-  box-sizing: border-box;
-}
-
 #search-container .mapboxgl-ctrl-geocoder {
   flex: 1 1 auto;
   width: 100% !important;
@@ -435,6 +420,53 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ============================= */
+/* LAYER MENU BUTTON             */
+/* ============================= */
+
+#layer-menu-button {
+  position: absolute;
+  right: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  width: 30px;
+  height: 30px;
+
+  border-radius: 50%;
+  background: #ffffff;
+
+  box-sizing: border-box;
+
+  z-index: 3;
+}
+
+#layer-menu-dropdown {
+  position: absolute;
+
+  top: 30px;
+  right: 10px;
+
+  width: 320px;
+  height: 400px;
+
+  background: rgba(33,33,33,0.9);
+
+  border-radius: 20px;
+
+  display: none;
+
+  z-index: 2;
+
+  padding: 15px; 
+  padding-top: 30px;
+  box-sizing: border-box; 
+}
+
+.layer-menu-item {
+  margin-bottom: 12px;
 }
 
 /* ============================= */
