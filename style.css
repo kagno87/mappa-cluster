@@ -363,6 +363,24 @@ body {
   z-index: 5;
 }
 
+#layer-menu-button.is-spinning {
+  animation: layer-menu-spin 400ms ease-out;
+}
+
+@keyframes layer-menu-spin {
+  0% {
+    transform: translateY(-50%) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-50%) rotate(60deg);
+  }
+
+  100% {
+    transform: translateY(-50%) rotate(0deg);
+  }
+}
+
 #layer-menu-dropdown {
   position: absolute;
 

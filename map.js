@@ -496,6 +496,10 @@ function clearInteraction({ keepSelection = false } = {}) {
 }
 
 /* ========= STARTUP ========= */
+let layerMenuIntroPlayed = false;
+
+let spinLayerMenuButtonOnce = null;
+
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
 
@@ -505,12 +509,61 @@ window.addEventListener('DOMContentLoaded', () => {
   const layerMenuDropdown =
     document.getElementById('layer-menu-dropdown');
 
+  function spinLayerMenuButton() {
+    if (
+      layerMenuButton.classList.contains(
+        'is-spinning'
+      )
+    ) {
+      return;
+    }
+
+    layerMenuButton.classList.add(
+      'is-spinning'
+    );
+  }
+
+  spinLayerMenuButtonOnce = () => {
+    if (layerMenuIntroPlayed) {
+      return;
+    }
+
+    layerMenuIntroPlayed = true;
+
+    spinLayerMenuButton();
+  };
+
+  layerMenuButton.addEventListener(
+    'mouseenter',
+    () => {
+      spinLayerMenuButton();
+    }
+  );
+
+  layerMenuButton.addEventListener(
+    'animationend',
+    (event) => {
+      if (
+        event.animationName !==
+        'layer-menu-spin'
+      ) {
+        return;
+      }
+
+      layerMenuButton.classList.remove(
+        'is-spinning'
+      );
+    }
+  );
+
   layerMenuButton.addEventListener('click', (event) => {
     if (event.target !== layerMenuButton) {
       return;
     }
 
     event.stopPropagation();
+
+    spinLayerMenuButton();
 
     layerMenuDropdown.style.display =
       layerMenuDropdown.style.display === 'block'
@@ -642,18 +695,31 @@ class ZoomAndStyleControl {
       btnSat.classList.toggle('is-active', currentBaseStyleKey === 'satellite');
     };
 
-    btnPlus.addEventListener('click', () => this.map.zoomIn());
-    btnMinus.addEventListener('click', () => this.map.zoomOut());
+    btnPlus.addEventListener('click', () => {
+      spinLayerMenuButtonOnce();
+      this.map.zoomIn();
+    });
+
+    btnMinus.addEventListener('click', () => {
+      spinLayerMenuButtonOnce();
+      this.map.zoomOut();
+    });
 
     btnMap.addEventListener('click', () => {
+      spinLayerMenuButtonOnce();
+
       if (currentBaseStyleKey === 'light') return;
+
       currentBaseStyleKey = 'light';
       setActiveUI();
       this.map.setStyle(BASE_STYLES.light);
     });
 
     btnSat.addEventListener('click', () => {
+      spinLayerMenuButtonOnce();
+
       if (currentBaseStyleKey === 'satellite') return;
+
       currentBaseStyleKey = 'satellite';
       setActiveUI();
       this.map.setStyle(BASE_STYLES.satellite);
@@ -810,6 +876,16 @@ function setupUserInputClear() {
       { passive: true }
     );
 
+  map
+    .getCanvas()
+    .addEventListener(
+      'wheel',
+      () => {
+        spinLayerMenuButtonOnce();
+      },
+      { passive: true }
+    );  
+
   // ✋ touch pan
   map
     .getCanvas()
@@ -818,11 +894,28 @@ function setupUserInputClear() {
       clear,
       { passive: true }
     );
+    
+  map
+    .getCanvas()
+    .addEventListener(
+      'touchstart',
+      () => {
+        spinLayerMenuButtonOnce();
+      },
+      { passive: true }
+    );
 
   // 🖱️ drag mouse
   map.on(
     'dragstart',
     clear
+  );
+
+  map.on(
+    'dragstart',
+    () => {
+      spinLayerMenuButtonOnce();
+    }
   );
 
   // 🔍 pinch zoom
@@ -5912,6 +6005,8 @@ document.getElementById('panel')?.addEventListener('mouseover', (e) => {
   ) {
     return;
   }
+
+  spinLayerMenuButtonOnce();
 
   const target =
     normalizeCrosshairTarget(
