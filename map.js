@@ -506,12 +506,58 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('layer-menu-dropdown');
 
   layerMenuButton.addEventListener('click', (event) => {
+    if (event.target !== layerMenuButton) {
+      return;
+    }
+
     event.stopPropagation();
 
     layerMenuDropdown.style.display =
       layerMenuDropdown.style.display === 'block'
         ? 'none'
         : 'block';
+  });
+
+  layerMenuButton.addEventListener(
+    'mouseleave',
+    () => {
+      if (
+        layerMenuDropdown.style.display === 'block'
+      ) {
+        layerMenuDropdown.style.display = 'none';
+      }
+    }
+  );
+
+  layerMenuDropdown.addEventListener(
+    'mouseenter',
+    () => {
+      layerMenuDropdown.style.display = 'block';
+    }
+  );
+
+  layerMenuDropdown.addEventListener(
+    'mouseleave',
+    (event) => {
+      if (
+        layerMenuButton.contains(
+          event.relatedTarget
+        )
+      ) {
+        return;
+      }
+
+      layerMenuDropdown.style.display = 'none';
+    }
+  );
+
+  document.addEventListener('click', (event) => {
+    if (
+      !layerMenuButton.contains(event.target) &&
+      !layerMenuDropdown.contains(event.target)
+    ) {
+      layerMenuDropdown.style.display = 'none';
+    }
   });
 });
 
