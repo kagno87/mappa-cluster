@@ -342,6 +342,7 @@ body {
 
   border-radius: 50%;
   border: 1.5px solid #000;
+  cursor: pointer;
 
   border-radius: 50%;
   background: conic-gradient(
@@ -408,6 +409,8 @@ body {
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+  user-select: none;
+  cursor: default;
 }
 
 .layer-menu-label {
