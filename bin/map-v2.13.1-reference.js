@@ -498,21 +498,6 @@ function clearInteraction({ keepSelection = false } = {}) {
 /* ========= STARTUP ========= */
 window.addEventListener('DOMContentLoaded', () => {
   refreshPanelLayout();
-
-  const layerMenuButton =
-    document.getElementById('layer-menu-button');
-
-  const layerMenuDropdown =
-    document.getElementById('layer-menu-dropdown');
-
-  layerMenuButton.addEventListener('click', (event) => {
-    event.stopPropagation();
-
-    layerMenuDropdown.style.display =
-      layerMenuDropdown.style.display === 'block'
-        ? 'none'
-        : 'block';
-  });
 });
 
 /* ========= PANEL HEIGHT / SCALE ========= */
@@ -5912,12 +5897,18 @@ document.getElementById('panel')?.addEventListener('mouseout', (e) => {
   setupTouchClearFallback();
 });
 
+/* ========= TOOLTIP LAYER INFO ========= */
+const layerInfo =
+  document.getElementById(
+    'layer-info'
+  );
 
-/* ========= LAYER TOGGLE INTERACTION ========= */
+const toggles =
+  document.querySelectorAll(
+    '.layer-toggle'
+  );
+
 function hideLayerInfo() {
-  const layerInfo =
-    document.getElementById('layer-info');
-
   layerInfo?.classList.remove(
     'is-animating'
   );
@@ -5927,6 +5918,78 @@ function hideLayerInfo() {
   );
 }
 
+toggles.forEach(
+  (toggle) => {
+    const show = () => {
+      const rect =
+        toggle.getBoundingClientRect();
+
+      const centerX =
+        rect.left +
+        rect.width / 2;
+
+      const centerY =
+        rect.top +
+        rect.height / 2;
+
+      // 🔹 reset animazione
+      layerInfo.classList.remove(
+        'is-animating'
+      );
+
+      // 🔹 posizione iniziale:
+      // centro del toggle
+      layerInfo.style.left =
+        `${centerX}px`;
+
+      layerInfo.style.top =
+        `${centerY}px`;
+
+      const text =
+        toggle.dataset
+          .layerInfo || '';
+
+      layerInfo.innerHTML =
+        `<div class="layer-info-title">${text}</div>`;
+
+      // 🔹 render visibile
+      layerInfo.classList.add(
+        'is-visible'
+      );
+
+      // 🔹 forza reflow
+      layerInfo.offsetHeight;
+
+      // 🔹 trigger animazione
+      requestAnimationFrame(
+        () => {
+          layerInfo.classList.add(
+            'is-animating'
+          );
+        }
+      );
+    };
+
+    toggle.addEventListener(
+      'mouseenter',
+      show
+    );
+
+    toggle.addEventListener(
+      'mouseleave',
+      hideLayerInfo
+    );
+
+    // 👇 touch
+    toggle.addEventListener(
+      'touchstart',
+      show,
+      { passive: true }
+    );
+  }
+);
+
+/* ========= TOGGLE UI CLICK ========= */
 document.querySelectorAll('.layer-toggle').forEach((toggle) => {
   const layerKey = toggle.dataset.layer;
 

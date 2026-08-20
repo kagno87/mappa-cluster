@@ -111,12 +111,6 @@ body {
 /* LAYER TOGGLES                 */
 /* ============================= */
 
-#layer-toggles {
-  display: flex;
-  gap: 12px;
-  margin-left: 5px;
-}
-
 .layer-toggle {
   position: relative;
   width: 18px;
@@ -177,95 +171,6 @@ body {
 .layer-toggle[data-layer="bianco"] .toggle-dot {
   background: #ffffff;
 }
-
-/* ============================= */
-/* LAYER INFO TOOLTIP            */
-/* ============================= */
-
-#layer-info {
-  position: absolute;
-
-  width: 95px;
-  height: 95px;
-
-  border-radius: 50%;
-
-  background:
-    rgba(33,33,33,0.66);
-
-  color: #fff;
-
-  display: none;
-  align-items: center;
-  justify-content: center;
-
-  text-align: center;
-
-  padding:
-    18px 5px 5px;
-
-  box-sizing:
-    border-box;
-
-  font-family:
-    Calibri,
-    "Segoe UI",
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
-
-  font-size: 13px;
-  line-height: 1.25;
-
-  z-index: 2;
-  pointer-events: none;
-
-  /* 👇 stato iniziale */
-  transform:
-    translate(-50%, -50%)
-    scale(0.17);
-
-  opacity: 0.12;
-
-  will-change:
-    transform,
-    opacity;
-}
-
-#layer-info.is-visible {
-  display: flex;
-}
-
-#layer-info.is-animating {
-  transition:
-    transform 165ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 90ms ease;
-
-  transform:
-    translate(-50%, -5px)
-    scale(1);
-
-  opacity: 0.95;
-}
-
-.layer-info-title {
-  opacity: 0;
-
-  transform:
-    translateY(-5px);
-
-  transition:
-    opacity 120ms ease-out;
-
-  transition-delay:
-    105ms;
-}
-
-#layer-info.is-animating
-.layer-info-title {
-  opacity: 1;
-}
-
 /* ============================= */
 /* SEARCH / GEOCODER             */
 /* ============================= */
