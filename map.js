@@ -5850,10 +5850,6 @@ document.getElementById('panel')?.addEventListener('mouseover', (e) => {
   if (
     suppressNextSecondaryCardHover
   ) {
-    console.log(
-      '[SECONDARY HOVER INHIBITED]',
-      card
-    );
     return;
   }
 

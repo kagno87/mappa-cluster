@@ -766,6 +766,10 @@ button.mapboxgl-ctrl-icon {
   opacity: 1;
 }
 
+.panel-card.suppress-secondary-hover .image-wrapper:hover .image-overlay {
+  opacity: 0;
+}
+
 .panel-card .image-overlay.is-forced {
   opacity: 1;
 }
