@@ -2192,6 +2192,13 @@ function setupGeocoderOnce() {
         feature.properties
           ?.short_code;
 
+      console.log(
+        '[GEOCODER SHORT CODE]',
+        feature.properties?.short_code,
+        feature.properties?.text,
+        feature.properties?.place_name
+      );
+
       // feature.bbox viene usato
       // solo per costruire searchArea.
       const searchArea =
@@ -2401,6 +2408,18 @@ const SEARCH_AREA_OVERRIDES = {
     -66.9, 49.4
   ],
 
+  // Main Hawaiian Islands
+  'US-HI': [
+    -160.3, 18.8,
+    -154.7, 22.3
+  ],
+
+  // Alaska (east of -168°)
+  'US-AK': [
+    -168.0, 51.2,
+    -130.0, 71.5
+  ],
+
   // Spain (Peninsula + Balearic Islands)
   es: [
     -9.5, 36.0,
@@ -2411,6 +2430,17 @@ const SEARCH_AREA_OVERRIDES = {
   pt: [
     -9.6, 37.0,
     -6.0, 42.2
+  ],
+
+  // Svalbard main archipelago
+  sj: [
+    10.5, 76.5,
+    28.5, 80.8
+  ],
+
+  'NO-21': [
+    10.5, 76.5,
+    28.5, 80.8
   ],
 
   // Main Japanese archipelago
@@ -2424,6 +2454,42 @@ const SEARCH_AREA_OVERRIDES = {
   cl: [
     -75.8, -56.0,
     -66.0, -17.5
+  ],
+
+  // Mainland Australia
+  au: [
+    113.0, -43.4,
+    153.7, -10.6
+  ],
+
+  // Antarctica + South Shetland Islands
+  aq: [
+    -180.0, -90.0,
+    180.0, -62.0
+  ],
+
+  // Mainland Norway
+  no: [
+    4.5, 58.0,
+    31.2, 71.2
+  ],
+
+  // Mainland China
+  cn: [
+    73.5, 18.0,
+    134.8, 48.6
+  ],
+
+  // Mainland Canada
+  ca: [
+    -141.0, 41.7,
+    -52.6, 78.1
+  ],
+
+  // Russia
+  ru: [
+    30.4, 49.0,
+    142.0, 69.2
   ]
 
 };
