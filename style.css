@@ -341,7 +341,22 @@ body {
   height: 30px;
 
   border-radius: 50%;
-  background: #ffffff;
+  border: 1.5px solid #000;
+
+  border-radius: 50%;
+  background: conic-gradient(
+    #f395c1 0deg 32.727deg,
+    #ffffff 32.727deg 65.454deg,
+    #0074cf 65.454deg 98.181deg,
+    #a29f9e 98.181deg 130.909deg,
+    #ff0000 130.909deg 163.636deg,
+    #21cbbe 163.636deg 196.364deg,
+    #8b51b1 196.364deg 229.091deg,
+    #ffae00 229.091deg 261.818deg,
+    #7a5300 261.818deg 294.545deg,
+    #689429 294.545deg 327.273deg,
+    #2d2d2d 327.273deg 360deg
+  );
 
   box-sizing: border-box;
 
