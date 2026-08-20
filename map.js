@@ -764,6 +764,18 @@ function setupMapInteractionClear() {
   map.on('movestart', clear);
 }
 
+function closeLayerMenu() {
+  const layerMenuDropdown =
+    document.getElementById(
+      'layer-menu-dropdown'
+    );
+
+  if (!layerMenuDropdown) return;
+
+  layerMenuDropdown.style.display =
+    'none';
+}
+
 function setupUserInputClear() {
   const clear = (e) => {
     if (isClickInteraction)
@@ -783,6 +795,8 @@ function setupUserInputClear() {
     if (preserveHover) {
       return;
     }
+
+    closeLayerMenu();
 
     clearInteraction();
   };
