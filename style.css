@@ -345,7 +345,7 @@ body {
 
   box-sizing: border-box;
 
-  z-index: 3;
+  z-index: 5;
 }
 
 #layer-menu-dropdown {
@@ -357,13 +357,13 @@ body {
   width: 320px;
   height: 400px;
 
-  background: rgba(33,33,33,0.9);
+  background: rgba(33,33,33,0.8);
 
   border-radius: 20px;
 
   display: none;
 
-  z-index: 2;
+  z-index: 4;
 
   padding: 15px; 
   padding-top: 30px;
@@ -371,7 +371,21 @@ body {
 }
 
 .layer-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 12px;
+}
+
+.layer-menu-label {
+  color: #ffffff;
+  font-family:
+    Calibri,
+    "Segoe UI",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  font-size: 14px;
 }
 
 /* ============================= */
