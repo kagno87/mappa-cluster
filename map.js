@@ -4926,34 +4926,12 @@ function setActiveCardOverlayData(normalizedFeature) {
 
 function getFeatureImageUrl(feature) {
   const properties = feature?.properties || {};
-  let htmlContent = '';
 
-  if (properties.description) {
-    if (
-      typeof properties.description === 'string' &&
-      properties.description.trim().startsWith('{')
-    ) {
-      try {
-        const parsed = JSON.parse(properties.description);
-        htmlContent = parsed.value || '';
-      } catch (e) {
-        htmlContent = '';
-      }
-    } else {
-      htmlContent = properties.description;
-    }
-  }
-
-  const imgMatch = htmlContent.match(/<img[^>]+src="([^">]+)"/);
-  if (imgMatch && imgMatch[1]) {
-    return imgMatch[1];
-  }
-
-  if (properties.gx_media_links) {
-    return properties.gx_media_links;
-  }
-
-  return null;
+  return (
+    properties.image_url ||
+    properties.gx_media_links ||
+    null
+  );
 }
 
 async function resolveCanonicalFeature(feature, sourceKey) {
@@ -5603,6 +5581,12 @@ function updateSecondaryCard(
       'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' +
       encodeURIComponent(imageUrl);
 
+    console.log('[IMAGE DEBUG] imageUrl:', JSON.stringify(imageUrl));
+    console.log('[IMAGE DEBUG] proxiedUrl:', JSON.stringify(proxiedUrl));
+    console.log('[IMAGE DEBUG] decoded:', JSON.stringify(
+      new URL(proxiedUrl).searchParams.get('url')
+    ));  
+
     preloadImage(
       proxiedUrl,
       (loadedUrl) => {
@@ -5850,24 +5834,41 @@ function updatePanel(
       '.panel-card.is-active .panel-image'
     );
 
+  console.log('PIN GEO - immagine originale:', imageUrl);
+
   if (imgEl && imageUrl) {
+
     const proxiedUrl =
       'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' +
       encodeURIComponent(imageUrl);
 
+    console.log('PIN GEO - URL proxy:', proxiedUrl);
+    console.log('[IMAGE] Original URL:', imageUrl);
+    console.log('[IMAGE] Proxy URL:', proxiedUrl);
+
     preloadImage(
       proxiedUrl,
       (loadedUrl) => {
+
+        console.log(
+          'PIN GEO - risultato preload:',
+          loadedUrl ? 'CARICATA' : 'ERRORE'
+        );
+
         if (loadedUrl) {
           imgEl.src = loadedUrl;
-          imgEl.style.display =
-            'block';
+          imgEl.style.display = 'block';
         }
       }
     );
+
   } else if (imgEl) {
-    imgEl.style.display =
-      'none';
+
+    console.warn(
+      'PIN GEO - immagine assente o URL non disponibile'
+    );
+
+    imgEl.style.display = 'none';
   }
 
   const overlayDescEl =

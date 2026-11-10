@@ -1,3 +1,4 @@
+
 const fs = require('fs');
 const { DOMParser } = require('xmldom');
 
@@ -28,12 +29,37 @@ function getText(node, tag) {
 
 function getExtendedData(node, name) {
   const data = node.getElementsByTagName('Data');
+
   for (let i = 0; i < data.length; i++) {
     if (data[i].getAttribute('name') === name) {
       const value = data[i].getElementsByTagName('value')[0];
       return value ? value.textContent.trim() : '';
     }
   }
+
+  return '';
+}
+
+/* =========================
+   ESTRAZIONE URL IMMAGINE
+========================= */
+function extractImageUrl(description, gxMedia) {
+  // Prima prova a estrarre l'URL dal tag HTML <img>
+  if (description) {
+    const imgMatch = description.match(
+      /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i
+    );
+
+    if (imgMatch && imgMatch[1]) {
+      return imgMatch[1].trim();
+    }
+  }
+
+  // Se non è presente nella description, usa gx_media_links
+  if (gxMedia) {
+    return gxMedia.trim();
+  }
+
   return '';
 }
 
@@ -41,20 +67,20 @@ function getExtendedData(node, name) {
    CONVERSIONE MANUALE
 ========================= */
 const placemarks = dom.getElementsByTagName('Placemark');
-
 const features = [];
 
 for (let i = 0; i < placemarks.length; i++) {
   const p = placemarks[i];
 
   const name = getText(p, 'name');
-  
   const description = getText(p, 'description');
   const gxMedia = getExtendedData(p, 'gx_media_links');
   const country = getExtendedData(p, 'country');
   const sizeRaw = getExtendedData(p, 'size');
 
   const size = sizeRaw !== '' ? Number(sizeRaw) : null;
+
+  const imageUrl = extractImageUrl(description, gxMedia);
 
   if (!name || !country || size === null || Number.isNaN(size)) {
     console.warn(
@@ -66,7 +92,6 @@ for (let i = 0; i < placemarks.length; i++) {
       }
     );
   }
-
 
   const point = p.getElementsByTagName('Point')[0];
   if (!point) continue;
@@ -86,10 +111,10 @@ for (let i = 0; i < placemarks.length; i++) {
       name: name || '',
       country: country || '',
       size: size,
+      image_url: imageUrl,
       gx_media_links: gxMedia || '',
       description: description || ''
     }
-
   });
 }
 
@@ -108,3 +133,4 @@ fs.writeFileSync(
 );
 
 console.log(`✅ Creato ${outputGeojson}`);
+console.log(`🖼️ Immagini estratte: ${features.filter(f => f.properties.image_url).length}/${features.length}`);
