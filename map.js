@@ -5064,7 +5064,7 @@ async function getBrowserLocation(options = {}) {
             position.coords.longitude,
             position.coords.latitude
           ],
-          zoom: 7
+          zoom: 8.5
         });
 
       },
