@@ -2191,14 +2191,7 @@ function setupGeocoderOnce() {
       const shortCode =
         feature.properties
           ?.short_code;
-
-      console.log(
-        '[GEOCODER SHORT CODE]',
-        feature.properties?.short_code,
-        feature.properties?.text,
-        feature.properties?.place_name
-      );
-
+      
       // feature.bbox viene usato
       // solo per costruire searchArea.
       const searchArea =
@@ -5581,12 +5574,6 @@ function updateSecondaryCard(
       'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' +
       encodeURIComponent(imageUrl);
 
-    console.log('[IMAGE DEBUG] imageUrl:', JSON.stringify(imageUrl));
-    console.log('[IMAGE DEBUG] proxiedUrl:', JSON.stringify(proxiedUrl));
-    console.log('[IMAGE DEBUG] decoded:', JSON.stringify(
-      new URL(proxiedUrl).searchParams.get('url')
-    ));  
-
     preloadImage(
       proxiedUrl,
       (loadedUrl) => {
@@ -5834,26 +5821,15 @@ function updatePanel(
       '.panel-card.is-active .panel-image'
     );
 
-  console.log('PIN GEO - immagine originale:', imageUrl);
-
   if (imgEl && imageUrl) {
 
     const proxiedUrl =
       'https://pingeo-image-proxy.danielecinquini1.workers.dev/image?url=' +
       encodeURIComponent(imageUrl);
 
-    console.log('PIN GEO - URL proxy:', proxiedUrl);
-    console.log('[IMAGE] Original URL:', imageUrl);
-    console.log('[IMAGE] Proxy URL:', proxiedUrl);
-
     preloadImage(
       proxiedUrl,
       (loadedUrl) => {
-
-        console.log(
-          'PIN GEO - risultato preload:',
-          loadedUrl ? 'CARICATA' : 'ERRORE'
-        );
 
         if (loadedUrl) {
           imgEl.src = loadedUrl;
@@ -5863,10 +5839,6 @@ function updatePanel(
     );
 
   } else if (imgEl) {
-
-    console.warn(
-      'PIN GEO - immagine assente o URL non disponibile'
-    );
 
     imgEl.style.display = 'none';
   }

@@ -1,0 +1,312 @@
+
+const ALLOWED_IMAGE_HOSTS = [
+  "mymaps.usercontent.google.com",
+  "lh3.googleusercontent.com"
+];
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,HEAD,OPTIONS",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Max-Age": "86400"
+};
+
+const FIREFOX_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0";
+
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      ...CORS_HEADERS
+    }
+  });
+}
+
+function isAllowedHost(hostname) {
+  return ALLOWED_IMAGE_HOSTS.includes(hostname.toLowerCase());
+}
+
+function getRequestHeaders(upstream, mode = "current") {
+  const headers = new Headers();
+
+  headers.set(
+    "Accept",
+    "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+  );
+
+  if (mode === "current") {
+    headers.set(
+      "User-Agent",
+      "PinGeo Image Proxy (Cloudflare Worker)"
+    );
+    headers.set("Referer", upstream.origin);
+  }
+
+  if (mode === "browser") {
+    headers.set("User-Agent", FIREFOX_UA);
+  }
+
+  if (mode === "google") {
+    headers.set("User-Agent", FIREFOX_UA);
+    headers.set("Referer", "https://www.google.com/maps/");
+  }
+
+  return headers;
+}
+
+async function fetchImage(upstream, mode = "current") {
+  return await fetch(upstream.toString(), {
+    method: "GET",
+    headers: getRequestHeaders(upstream, mode),
+    redirect: "follow",
+    cf: {
+      cacheTtl: 0
+    }
+  });
+}
+
+export default {
+  async fetch(request, env, ctx) {
+
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+
+    // ====================================
+    // CORS PREFLIGHT
+    // ====================================
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: CORS_HEADERS
+      });
+    }
+
+    // ====================================
+    // ROOT
+    // ====================================
+
+    if (pathname === "/") {
+      return new Response("PinGeo Image Proxy OK", {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          ...CORS_HEADERS
+        }
+      });
+    }
+
+    // ====================================
+    // GEOLOCATION
+    // ====================================
+
+    if (pathname === "/geo") {
+
+      if (request.method !== "GET") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: CORS_HEADERS
+        });
+      }
+
+      const latitude = request.cf?.latitude;
+      const longitude = request.cf?.longitude;
+
+      if (latitude == null || longitude == null) {
+        return jsonResponse({
+          ok: false,
+          error: "Geolocation unavailable"
+        }, 503);
+      }
+
+      return jsonResponse({
+        ok: true,
+        latitude: Number(latitude),
+        longitude: Number(longitude)
+      });
+    }
+
+    // ====================================
+    // IMAGE AND DEBUG ENDPOINTS
+    // ====================================
+
+    if (pathname !== "/image" && pathname !== "/debug") {
+      return new Response("Not found", {
+        status: 404,
+        headers: CORS_HEADERS
+      });
+    }
+
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new Response("Method not allowed", {
+        status: 405,
+        headers: CORS_HEADERS
+      });
+    }
+
+    const target = url.searchParams.get("url");
+
+    if (!target) {
+      return new Response("Missing ?url=", {
+        status: 400,
+        headers: CORS_HEADERS
+      });
+    }
+
+    let upstream;
+
+    try {
+      upstream = new URL(target);
+    } catch {
+      return new Response("Invalid URL", {
+        status: 400,
+        headers: CORS_HEADERS
+      });
+    }
+
+    // Only HTTPS Google image sources are accepted.
+    if (
+      upstream.protocol !== "https:" ||
+      !isAllowedHost(upstream.hostname) ||
+      upstream.username ||
+      upstream.password
+    ) {
+      return new Response("Image host not allowed", {
+        status: 403,
+        headers: CORS_HEADERS
+      });
+    }
+
+    // ====================================
+    // DEBUG ENDPOINT
+    // ====================================
+
+    if (pathname === "/debug") {
+
+      const mode = url.searchParams.get("mode") || "current";
+
+      if (!["current", "browser", "google"].includes(mode)) {
+        return jsonResponse({
+          ok: false,
+          error: "Invalid mode"
+        }, 400);
+      }
+
+      try {
+        const resp = await fetchImage(upstream, mode);
+
+        let errorBody = null;
+
+        if (!resp.ok) {
+          errorBody = (await resp.text()).slice(0, 500);
+        } else {
+          await resp.body?.cancel();
+        }
+
+        return jsonResponse({
+          ok: resp.ok,
+          mode,
+          upstreamStatus: resp.status,
+          upstreamStatusText: resp.statusText,
+          contentType: resp.headers.get("content-type"),
+          contentLength: resp.headers.get("content-length"),
+          finalUrl: resp.url,
+          redirected: resp.redirected,
+          server: resp.headers.get("server"),
+          errorBody
+        });
+
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          mode,
+          fetchError: error.message
+        }, 502);
+      }
+    }
+
+    // ====================================
+    // IMAGE PROXY
+    // ====================================
+
+    try {
+
+      const resp = await fetchImage(upstream, "current");
+
+      if (!resp.ok) {
+        await resp.body?.cancel();
+
+        return new Response(
+          `PinGeo upstream error: HTTP ${resp.status}`,
+          {
+            status: 502,
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8",
+              "Cache-Control": "no-store",
+              ...CORS_HEADERS
+            }
+          }
+        );
+      }
+
+      const contentType = resp.headers.get("content-type") || "";
+
+      if (!contentType.toLowerCase().startsWith("image/")) {
+        await resp.body?.cancel();
+
+        return new Response(
+          "Invalid upstream content type: " + contentType,
+          {
+            status: 502,
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8",
+              "Cache-Control": "no-store",
+              ...CORS_HEADERS
+            }
+          }
+        );
+      }
+
+      const headers = new Headers();
+
+      headers.set("Content-Type", contentType);
+      headers.set("Cache-Control", "no-store");
+      headers.set("X-Content-Type-Options", "nosniff");
+
+      for (const [key, value] of Object.entries(CORS_HEADERS)) {
+        headers.set(key, value);
+      }
+
+      if (request.method === "HEAD") {
+        await resp.body?.cancel();
+
+        return new Response(null, {
+          status: 200,
+          headers
+        });
+      }
+
+      return new Response(resp.body, {
+        status: 200,
+        headers
+      });
+
+    } catch (error) {
+
+      return new Response(
+        "PinGeo proxy fetch failed: " + error.message,
+        {
+          status: 502,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+            ...CORS_HEADERS
+          }
+        }
+      );
+    }
+  }
+};

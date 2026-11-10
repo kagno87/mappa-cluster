@@ -1,0 +1,129 @@
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    // Endpoint: /geo
+    if (url.pathname === "/geo") {
+      const latitude = request.cf?.latitude;
+      const longitude = request.cf?.longitude;
+
+      if (latitude == null || longitude == null) {
+        return new Response(
+          JSON.stringify({
+            ok: false
+          }),
+          {
+            status: 503,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*"
+            }
+          }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          latitude: Number(latitude),
+          longitude: Number(longitude)
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store"
+          }
+        }
+      );
+    }
+
+    // Endpoint: /image?url=https://...
+    if (url.pathname !== "/image") {
+      return new Response("OK", { status: 200 });
+    }
+
+    // Endpoint: /image?url=https://...
+    if (url.pathname !== "/image") {
+      return new Response("OK", { status: 200 });
+    }
+
+    // Supporto preflight (non indispensabile per <img>, ma utile in generale)
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET,HEAD,OPTIONS",
+          "Access-Control-Allow-Headers": "*",
+          "Access-Control-Max-Age": "86400"
+        }
+      });
+    }
+
+    const target = url.searchParams.get("url");
+    if (!target) {
+      return new Response("Missing ?url=", { status: 400 });
+    }
+
+    let upstream;
+    try {
+      upstream = new URL(target);
+    } catch {
+      return new Response("Invalid url", { status: 400 });
+    }
+
+    // Blocca schemi non http/https
+    if (upstream.protocol !== "http:" && upstream.protocol !== "https:") {
+      return new Response("Unsupported protocol", { status: 400 });
+    }
+
+    
+    // Fetch verso sorgente
+    const resp = await fetch(upstream.toString(), {
+      method: "GET",
+      headers: {
+        // aiuta alcuni host a non rifiutare
+        "User-Agent": "PinGeo Image Proxy (Cloudflare Worker)",
+        "Accept": "image/*,*/*;q=0.8",
+        "Referer": upstream.origin
+      },
+      cf: {
+        cacheEverything: true,
+        cacheTtl: 86400 // 24h
+      }
+    });
+
+    if (!resp.ok) {
+      return new Response(`Upstream error: ${resp.status}`, { status: 502 });
+    }
+
+    // Copiamo headers utili
+    const headers = new Headers(resp.headers);
+
+    // 🔑 Rimuove policy che spesso bloccano l'uso cross-origin nel browser (CORP/COEP/COOP/CSP)
+    headers.delete("Cross-Origin-Resource-Policy");
+    headers.delete("Cross-Origin-Embedder-Policy");
+    headers.delete("Cross-Origin-Opener-Policy");
+    headers.delete("Content-Security-Policy");
+    headers.delete("Content-Security-Policy-Report-Only");
+
+    // CORS: permette al tuo sito (GitHub Pages) di leggere l'immagine
+    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
+    headers.set("Access-Control-Allow-Headers", "*");
+    headers.set("Access-Control-Max-Age", "86400");
+
+    // Hardening: evita sniffing
+    headers.set("X-Content-Type-Options", "nosniff");
+
+    // Cache lato browser (oltre al cache edge cf)
+    headers.set("Cache-Control", "public, max-age=86400");
+
+    return new Response(resp.body, {
+      status: 200,
+      headers
+    });
+  }
+};
