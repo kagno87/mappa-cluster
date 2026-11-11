@@ -456,6 +456,7 @@ let isProgrammaticMove = false;
 let isClickInteraction = false;
 let initialCardPromotionActive = false;
 let suppressNextSecondaryCardHover = false;
+let bboxInitialCardState = null;
 
 const geojsonCache = {};
 let geojsonPreloadPromise = null;
@@ -2245,6 +2246,14 @@ function setupGeocoderOnce() {
             ) {
               const representative =
                 candidateSet[0];
+
+              bboxInitialCardState = {
+                bbox: [...searchArea],
+                centerLon: lon,
+                centerLat: lat,
+                query: lastGeocoderQuery,
+                candidates: candidateSet.slice()
+              };  
 
               updatePanel(
                 representative.feature,
@@ -4392,6 +4401,106 @@ function findRenderedCandidates(
   return selectedCandidates;
 }
 
+function getBboxCandidateKey(candidate) {
+  if (!candidate?.feature || !candidate.sourceKey) {
+    return '';
+  }
+
+  const identity =
+    getFeatureIdentity(candidate.feature);
+
+  return [
+    candidate.sourceKey,
+    identity.name,
+    identity.country,
+    identity.size,
+    identity.mediaLink,
+    identity.description
+  ].join('|');
+}
+
+function rebuildInitialBboxCardSetAfterLayerToggle() {
+  const state = bboxInitialCardState;
+
+  if (!state || !Array.isArray(state.candidates)) {
+    return false;
+  }
+
+  const activeSources =
+    new Set(getActiveSourceKeys());
+
+  // 1. Conserva le card originali appartenenti
+  // ai layer che sono ancora attivi.
+  const preserved =
+    state.candidates.filter(
+      (candidate) =>
+        activeSources.has(candidate.sourceKey)
+    );
+
+  // 2. Recupera i candidati attualmente visibili
+  // nella stessa area e con lo stesso criterio.
+  const available =
+    findRenderedCandidates(
+      state.bbox,
+      state.centerLon,
+      state.centerLat,
+      state.query
+    );
+
+  if (!Array.isArray(available)) {
+    return false;
+  }
+
+  // 3. Esclude i candidati già conservati.
+  const preservedKeys =
+    new Set(
+      preserved.map(getBboxCandidateKey)
+    );
+
+  const refillPool =
+    available.filter(
+      (candidate) =>
+        activeSources.has(candidate.sourceKey) &&
+        !preservedKeys.has(
+          getBboxCandidateKey(candidate)
+        )
+    );
+
+  // 4. Estrae casualmente soltanto le card mancanti,
+  // mantenendo la priorità size 3, 2, 1.
+  const missingCount =
+    Math.max(0, 5 - preserved.length);
+
+  const newCandidates =
+    pickRenderedCandidateSet(
+      refillPool,
+      missingCount
+    );
+
+  // 5. Ricostruisce il set mantenendo l'ordine.
+  const nextCandidates = [
+    ...preserved,
+    ...newCandidates
+  ].slice(0, 5);
+
+  if (!nextCandidates.length) {
+    return false;
+  }
+
+  // Aggiorna anche lo stato, per eventuali
+  // successive disattivazioni di altri layer.
+  state.candidates =
+    nextCandidates;
+
+  updatePanel(
+    nextCandidates[0].feature,
+    nextCandidates[0].sourceKey,
+    nextCandidates
+  );
+
+  return true;
+}
+
 function findStartupRenderedCandidateSet(
   centerLon,
   centerLat
@@ -5767,6 +5876,8 @@ function updatePanel(
     Array.isArray(initialCandidates)
   ) {
     initialCardPromotionActive = true;
+  } else {
+    bboxInitialCardState = null;
   }
 
   panelCardFeatureMap.clear();
@@ -6181,6 +6292,21 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
       layerKey,
       isActive
     );
+
+    // Ricostruzione speciale del set iniziale bbox.
+    // Conserva le card valide e riempie soltanto
+    // gli spazi rimasti liberi.
+    if (
+      !isActive &&
+      initialCardPromotionActive &&
+      bboxInitialCardState
+    ) {
+      map.once('idle', () => {
+        rebuildInitialBboxCardSetAfterLayerToggle();
+      });
+
+      return;
+    }
 
     const activeCard =
       document.querySelector(
