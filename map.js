@@ -6392,6 +6392,20 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
       isActive
     );
 
+    // Se arriviamo da una ricerca bbox o da Startup REGION,
+    // la riaccensione di un layer non deve modificare
+    // il set di card già costruito.
+    if (
+      isActive &&
+      initialCardPromotionActive &&
+      (
+        bboxInitialCardState ||
+        regionInitialCardState
+      )
+    ) {
+      return;
+    }
+
     // Ricostruzione speciale del set iniziale.
     // Conserva le card valide e riempie soltanto
     // gli spazi rimasti liberi.
