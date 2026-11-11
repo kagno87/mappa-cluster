@@ -2174,9 +2174,17 @@ function setupGeocoderOnce() {
             sourceKey
           );
 
-        activateSearchHighlight(
-          target
-        );
+        map.once('moveend', () => {
+          isProgrammaticMove = false;
+
+          map.once('idle', () => {
+            activateSelection(target);
+
+            requestAnimationFrame(() => {
+              setupTransientHighlightClear();
+            });
+          });
+        });
 
         return;
       }
@@ -2517,31 +2525,67 @@ function applyLayerToggleState() {
   });
 }
 
-function setupTransientHighlightClear() {
-  const clear = () => {
-    setActiveCardOverlayForced(false);
-    hideCrosshair();
 
-    window.removeEventListener('mousemove', clear);
-    window.removeEventListener('mousedown', clear);
+function setupTransientHighlightClear() {
+  let cleared = false;
+
+  const clear = () => {
+    if (cleared) return;
+
+    cleared = true;
+
+    // Ripristina completamente lo stato neutro
+    clearInteraction();
+
+    // Rimuove tutti i listener temporanei
+    window.removeEventListener('pointermove', clear);
+    window.removeEventListener('pointerdown', clear);
+    window.removeEventListener('click', clear);
     window.removeEventListener('touchstart', clear);
+    window.removeEventListener('wheel', clear);
+
     map.off('movestart', clear);
     map.off('zoomstart', clear);
-    map.off('wheel', clear);
   };
 
-  // 👇 eventi desktop
-  window.addEventListener('mousemove', clear, { once: true });
-  window.addEventListener('mousedown', clear, { once: true });
-  window.addEventListener('wheel', clear, { once: true });
+  // Movimento del mouse o del puntatore
+  window.addEventListener(
+    'pointermove',
+    clear,
+    { once: true, passive: true }
+  );
 
-  // 👇 touch
-  window.addEventListener('touchstart', clear, { once: true });
+  // Click e touch
+  window.addEventListener(
+    'pointerdown',
+    clear,
+    { once: true }
+  );
 
-  // 👇 interazioni mappa
+  window.addEventListener(
+    'click',
+    clear,
+    { once: true }
+  );
+
+  window.addEventListener(
+    'touchstart',
+    clear,
+    { once: true, passive: true }
+  );
+
+  // Zoom con rotella
+  window.addEventListener(
+    'wheel',
+    clear,
+    { once: true, passive: true }
+  );
+
+  // Movimenti della mappa
   map.on('movestart', clear);
   map.on('zoomstart', clear);
 }
+
 
 /* ========= INIT ========= */
 function initDataLayers() {
