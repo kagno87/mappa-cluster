@@ -681,9 +681,10 @@ class ZoomAndStyleControl {
 
     const btnGps = document.createElement('button');
     btnGps.type = 'button';
-    btnGps.className = 'mapboxgl-ctrl-icon';
+    btnGps.className = 'mapboxgl-ctrl-icon gps-btn';
     btnGps.setAttribute('aria-label', 'Center on my location');
-    btnGps.textContent = '•';
+
+    btnGps.innerHTML = '<img src="icogps.png" alt="">';
 
     const divider = document.createElement('div');
     divider.className = 'zoom-style-divider';

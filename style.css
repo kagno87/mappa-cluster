@@ -559,6 +559,14 @@ button.mapboxgl-ctrl-icon {
   object-fit: contain;
 }
 
+.zoom-style-control .gps-btn img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display: block;
+  transform: translateY(1.5px);
+}
+
 .zoom-style-control .style-btn.is-active {
   background: #fff;
   color: #111;
