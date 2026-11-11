@@ -5970,15 +5970,9 @@ document.getElementById('panel')?.addEventListener('click', (e) => {
       ) {
         initialCardPromotionActive = false;
 
-        suppressNextSecondaryCardHover = true;
-
         updatePanel(
           entry.feature,
           entry.sourceKey
-        );
-
-        card.classList.add(
-          'suppress-secondary-hover'
         );
       }
 
