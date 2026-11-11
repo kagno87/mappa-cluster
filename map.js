@@ -805,7 +805,7 @@ class DualScaleControl {
       const item = document.createElement('div');
       item.className = 'dual-scale-item';
 
-      const sc = new mapboxgl.ScaleControl({ maxWidth: 110, unit });
+      const sc = new mapboxgl.ScaleControl({ maxWidth: 115, unit });
       const scEl = sc.onAdd(mapInstance);
 
       const label = document.createElement('div');
