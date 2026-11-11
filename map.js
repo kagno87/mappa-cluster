@@ -4502,29 +4502,92 @@ function rebuildInitialBboxCardSetAfterLayerToggle() {
   return true;
 }
 
+function getStartupSafeBox() {
+  if (!map) {
+    return null;
+  }
+
+  const container =
+    map.getContainer();
+
+  const width =
+    container.clientWidth;
+
+  const height =
+    container.clientHeight;
+
+  if (!width || !height) {
+    return null;
+  }
+
+  const targetRatio =
+    5 / 3;
+
+  let safeWidth;
+  let safeHeight;
+
+  if (width / height > targetRatio) {
+    safeHeight = height;
+    safeWidth = height * targetRatio;
+  } else {
+    safeWidth = width;
+    safeHeight = width / targetRatio;
+  }
+
+  const left =
+    (width - safeWidth) / 2;
+
+  const top =
+    (height - safeHeight) / 2;
+
+  return {
+    left,
+    top,
+    right: left + safeWidth,
+    bottom: top + safeHeight
+  };
+}
+
+function isInsideStartupSafeBox(
+  coordinates,
+  safeBox
+) {
+  if (
+    !coordinates ||
+    coordinates.length < 2 ||
+    !safeBox
+  ) {
+    return false;
+  }
+
+  const pixel =
+    map.project([
+      Number(coordinates[0]),
+      Number(coordinates[1])
+    ]);
+
+  return (
+    Number.isFinite(pixel.x) &&
+    Number.isFinite(pixel.y) &&
+    pixel.x >= safeBox.left &&
+    pixel.x <= safeBox.right &&
+    pixel.y >= safeBox.top &&
+    pixel.y <= safeBox.bottom
+  );
+}
+
+
 function findStartupRenderedCandidateSet(
   centerLon,
   centerLat,
   returnAll = false
 ) {
-  const bounds =
-    map.getBounds();
+  const safeBox =
+    getStartupSafeBox();
 
-  if (!bounds) {
+  if (!safeBox) {
     return [];
   }
-
-  const minLon =
-    bounds.getWest();
-
-  const minLat =
-    bounds.getSouth();
-
-  const maxLon =
-    bounds.getEast();
-
-  const maxLat =
-    bounds.getNorth();
 
   const candidates = [];
   const seen = new Set();
@@ -4578,23 +4641,10 @@ function findStartupRenderedCandidateSet(
               ?.coordinates;
 
           if (
-            !coords ||
-            coords.length < 2
-          ) {
-            return;
-          }
-
-          const lon =
-            Number(coords[0]);
-
-          const lat =
-            Number(coords[1]);
-
-          if (
-            lon < minLon ||
-            lon > maxLon ||
-            lat < minLat ||
-            lat > maxLat
+            !isInsideStartupSafeBox(
+              coords,
+              safeBox
+            )
           ) {
             return;
           }
@@ -4666,23 +4716,10 @@ function findStartupRenderedCandidateSet(
               .coordinates;
 
           if (
-            !coords ||
-            coords.length < 2
-          ) {
-            return;
-          }
-
-          const lon =
-            Number(coords[0]);
-
-          const lat =
-            Number(coords[1]);
-
-          if (
-            lon < minLon ||
-            lon > maxLon ||
-            lat < minLat ||
-            lat > maxLat
+            !isInsideStartupSafeBox(
+              coords,
+              safeBox
+            )
           ) {
             return;
           }
