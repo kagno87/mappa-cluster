@@ -66,7 +66,7 @@ const STARTUP_REGIONS = [
 
   {
     name: "South-East Asia",
-    center: [104.39, 11.57]
+    center: [110.25, 11.38]
   },
 
   {
@@ -126,7 +126,7 @@ const STARTUP_REGIONS = [
 
   {
     name: "Subsaharian Africa",
-    center: [2.11, 13.51]
+    center: [-4.20, 12.68]
   },
 
   {
