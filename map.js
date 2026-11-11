@@ -679,6 +679,12 @@ class ZoomAndStyleControl {
     btnMinus.setAttribute('aria-label', 'Zoom out');
     btnMinus.innerHTML = '–';
 
+    const btnGps = document.createElement('button');
+    btnGps.type = 'button';
+    btnGps.className = 'mapboxgl-ctrl-icon';
+    btnGps.setAttribute('aria-label', 'Center on my location');
+    btnGps.textContent = '•';
+
     const divider = document.createElement('div');
     divider.className = 'zoom-style-divider';
 
@@ -707,6 +713,44 @@ class ZoomAndStyleControl {
       this.map.zoomOut();
     });
 
+    btnGps.addEventListener('click', () => {
+      spinLayerMenuButtonOnce();
+
+      if (!navigator.geolocation) {
+        alert('Geolocalizzazione non disponibile in questo browser.');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          this.map.flyTo({
+            center: [
+              position.coords.longitude,
+              position.coords.latitude
+            ],
+            zoom: this.map.getZoom(),
+            essential: true
+          });
+        },
+
+        (error) => {
+          if (error.code === 1) {
+            alert('Permesso GPS negato. Abilita la geolocalizzazione nelle impostazioni del browser.');
+          } else if (error.code === 2) {
+            alert('Posizione GPS non disponibile.');
+          } else if (error.code === 3) {
+            alert('Timeout nella rilevazione della posizione GPS.');
+          }
+        },
+
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
+        }
+      );
+    });
+
     btnMap.addEventListener('click', () => {
       spinLayerMenuButtonOnce();
 
@@ -729,6 +773,7 @@ class ZoomAndStyleControl {
 
     container.appendChild(btnPlus);
     container.appendChild(btnMinus);
+    container.appendChild(btnGps);
     container.appendChild(divider);
     container.appendChild(btnMap);
     container.appendChild(btnSat);
