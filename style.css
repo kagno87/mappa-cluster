@@ -37,7 +37,7 @@ body {
   height: calc(100% - var(--panel-height) - 48px);
   z-index: 1;
   overflow: hidden;
-  background: #424242;
+  background: #ffffff;
 }
 
 #map {
@@ -760,6 +760,9 @@ button.mapboxgl-ctrl-icon {
   position: relative;
   width: var(--card-w);
   height: var(--card-h);
+
+  background: #353535;
+  box-sizing: border-box;
 }
 
 .panel-card .panel-image {
@@ -780,9 +783,9 @@ button.mapboxgl-ctrl-icon {
 }
 
 .panel-card .image-wrapper.empty {
-  background: rgba(255,255,255,0.06);
-  border: 1px dashed rgba(255,255,255,0.25);
-  border-radius: 4px;
+  background: #353535;
+  border: none;
+  border-radius: 0;
 }
 
 /* ============================= */
