@@ -458,6 +458,7 @@ let initialCardPromotionActive = false;
 let suppressNextSecondaryCardHover = false;
 let bboxInitialCardState = null;
 let regionInitialCardState = null;
+let randomMapInitialCardState = null;
 
 const geojsonCache = {};
 let geojsonPreloadPromise = null;
@@ -5810,9 +5811,15 @@ async function showRandomMapCards() {
 
     if (!selectedCandidates.length) return;
 
-    // Il nuovo set del logo non deve ereditare stati iniziali precedenti.
+    // Il nuovo set del logo diventa lo stato iniziale corrente.
     bboxInitialCardState = null;
     regionInitialCardState = null;
+
+    randomMapInitialCardState = {
+      candidates: [...selectedCandidates]
+    };
+
+    initialCardPromotionActive = true;
 
     updatePanel(
       selectedCandidates[0].feature,
@@ -5823,6 +5830,198 @@ async function showRandomMapCards() {
   } catch (e) {
     console.warn('Random map cards failed:', e);
   }
+}
+
+function rebuildRandomMapCardSetAfterLayerToggle() {
+  const state = randomMapInitialCardState;
+
+  if (!state || !Array.isArray(state.candidates)) {
+    return false;
+  }
+
+  const activeSources =
+    new Set(getActiveSourceKeys());
+
+  // 1. Conserva le card appartenenti ai layer ancora attivi.
+  const preserved =
+    state.candidates.filter(
+      (candidate) =>
+        activeSources.has(candidate.sourceKey)
+    );
+
+  const missingCount =
+    Math.max(0, 5 - preserved.length);
+
+  // Se non mancano card, mantieni semplicemente il set.
+  if (missingCount === 0) {
+    state.candidates = preserved;
+
+    updatePanel(
+      preserved[0].feature,
+      preserved[0].sourceKey,
+      preserved
+    );
+
+    return true;
+  }
+
+  // 2. Raccoglie i nuovi candidati visibili:
+  // bestleaf dei cluster e pin singoli dei layer attivi.
+  const visibleCandidates = [];
+
+  activeSources.forEach((sourceKey) => {
+    const clusterLayerId =
+      getClusterLayerIdForSource(sourceKey);
+
+    if (map.getLayer(clusterLayerId)) {
+      const renderedClusters =
+        map.queryRenderedFeatures({
+          layers: [clusterLayerId]
+        });
+
+      renderedClusters.forEach((clusterFeature) => {
+        if (!clusterFeature.properties?.cluster) return;
+
+        const bestLeaf =
+          getBestLeafFromCluster(sourceKey, clusterFeature);
+
+        if (
+          bestLeaf?.geometry?.type === 'Point' &&
+          Array.isArray(bestLeaf.geometry.coordinates)
+        ) {
+          visibleCandidates.push({
+            feature: bestLeaf,
+            sourceKey
+          });
+        }
+      });
+    }
+
+    const pointLayerId =
+      getPointLayerIdForSource(sourceKey);
+
+    if (map.getLayer(pointLayerId)) {
+      const renderedPoints =
+        map.queryRenderedFeatures({
+          layers: [pointLayerId]
+        });
+
+      renderedPoints.forEach((pointFeature) => {
+        if (
+          pointFeature?.geometry?.type !== 'Point' ||
+          !Array.isArray(pointFeature.geometry.coordinates)
+        ) {
+          return;
+        }
+
+        visibleCandidates.push({
+          feature: pointFeature,
+          sourceKey
+        });
+      });
+    }
+  });
+
+  // 3. Esclude le card conservate.
+  const selectedKeys = new Set(
+    preserved.map(getMapCandidateKey)
+  );
+
+  const refillPool =
+    visibleCandidates.filter(
+      (candidate) =>
+        !selectedKeys.has(getMapCandidateKey(candidate))
+    );
+
+  // 4. Sorteggia i candidati visibili con priorità size.
+  const newCandidates =
+    pickRenderedCandidateSet(
+      refillPool,
+      missingCount
+    );
+
+  newCandidates.forEach((candidate) => {
+    selectedKeys.add(getMapCandidateKey(candidate));
+  });
+
+  // 5. Se mancano ancora card, completa con tutte le
+  // feature rimanenti dei layer attivi, ordinate per distanza.
+  if (preserved.length + newCandidates.length < 5) {
+    const center = map.getCenter();
+    const fallbackCandidates = [];
+
+    activeSources.forEach((sourceKey) => {
+      const geojson =
+        geojsonCache[getGeoJsonUrlForSource(sourceKey)];
+
+      if (!geojson?.features) return;
+
+      geojson.features.forEach((feature) => {
+        if (
+          feature?.geometry?.type !== 'Point' ||
+          !Array.isArray(feature.geometry.coordinates)
+        ) {
+          return;
+        }
+
+        const candidate = {
+          feature,
+          sourceKey
+        };
+
+        const key = getMapCandidateKey(candidate);
+
+        if (selectedKeys.has(key)) return;
+
+        const [lon, lat] = feature.geometry.coordinates;
+
+        fallbackCandidates.push({
+          ...candidate,
+          distance: getFeatureDistance(
+            center.lng,
+            center.lat,
+            lon,
+            lat
+          )
+        });
+      });
+    });
+
+    fallbackCandidates.sort(
+      (a, b) => a.distance - b.distance
+    );
+
+    for (const candidate of fallbackCandidates) {
+      if (preserved.length + newCandidates.length >= 5) {
+        break;
+      }
+
+      newCandidates.push(candidate);
+      selectedKeys.add(getMapCandidateKey(candidate));
+    }
+  }
+
+  // 6. Ricompone il set: prima le card conservate,
+  // poi quelle nuove.
+  const nextCandidates = [
+    ...preserved,
+    ...newCandidates
+  ].slice(0, 5);
+
+  if (!nextCandidates.length) {
+    return false;
+  }
+
+  // Aggiorna lo stato per i successivi toggle.
+  state.candidates = nextCandidates;
+
+  updatePanel(
+    nextCandidates[0].feature,
+    nextCandidates[0].sourceKey,
+    nextCandidates
+  );
+
+  return true;
 }
 
 
@@ -6646,7 +6845,8 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
       initialCardPromotionActive &&
       (
         bboxInitialCardState ||
-        regionInitialCardState
+        regionInitialCardState ||
+        randomMapInitialCardState
       )
     ) {
       return;
@@ -6660,7 +6860,8 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
       initialCardPromotionActive &&
       (
         bboxInitialCardState ||
-        regionInitialCardState
+        regionInitialCardState ||
+        randomMapInitialCardState
       )
     ) {
       map.once('idle', () => {
@@ -6672,6 +6873,11 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
 
         if (regionInitialCardState) {
           rebuildInitialRegionCardSetAfterLayerToggle();
+          return;
+        }
+
+        if (randomMapInitialCardState) {
+          rebuildRandomMapCardSetAfterLayerToggle();
         }
 
       });
