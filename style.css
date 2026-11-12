@@ -435,13 +435,38 @@ body {
 
   border-radius: 20px;
 
-  display: none;
-
   z-index: 4;
 
-  padding: 15px; 
+  padding: 15px;
   padding-top: 18px;
-  box-sizing: border-box; 
+  box-sizing: border-box;
+
+  /* Stato chiuso */
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+
+  transform: translateX(calc(100% + 20px));
+
+  /* Animazione */
+  transition:
+    transform 400ms ease,
+    opacity 300ms ease,
+    visibility 0s linear 400ms;
+}
+
+/* Stato aperto */
+#layer-menu-dropdown.is-open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+
+  transform: translateX(0);
+
+  transition:
+    transform 400ms ease,
+    opacity 300ms ease,
+    visibility 0s;
 }
 
 .layer-menu-item {

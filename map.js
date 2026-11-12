@@ -561,10 +561,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       spinLayerMenuButton();
 
-      layerMenuDropdown.style.display =
-        layerMenuDropdown.style.display === 'block'
-          ? 'none'
-          : 'block';
+      layerMenuDropdown.classList.toggle('is-open');
     }
   );
 
@@ -576,7 +573,7 @@ window.addEventListener('DOMContentLoaded', () => {
         !layerMenuButton.contains(event.target) &&
         !layerMenuDropdown.contains(event.target)
       ) {
-        layerMenuDropdown.style.display = 'none';
+        layerMenuDropdown.classList.remove('is-open');
       }
     },
     true
@@ -853,8 +850,9 @@ function closeLayerMenu() {
 
   if (!layerMenuDropdown) return;
 
-  layerMenuDropdown.style.display =
-    'none';
+  layerMenuDropdown.classList.remove(
+    'is-open'
+  );
 }
 
 function setupUserInputClear() {
