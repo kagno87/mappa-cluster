@@ -5663,6 +5663,169 @@ async function showRandomSize2Card() {
   }
 }
 
+
+function getMapCandidateKey(candidate) {
+  if (!candidate?.feature || !candidate.sourceKey) {
+    return '';
+  }
+
+  const identity = getFeatureIdentity(candidate.feature);
+
+  return JSON.stringify([
+    candidate.sourceKey,
+    identity.name,
+    identity.country,
+    identity.size,
+    identity.mediaLink,
+    identity.description
+  ]);
+}
+
+async function showRandomMapCards() {
+  try {
+    await preloadGeoJSONs();
+
+    if (!map) return;
+
+    const activeSources = getActiveSourceKeys();
+    if (!activeSources.length) return;
+
+    // 1. Candidati visibili: bestleaf dei cluster + pin singoli.
+    const visibleCandidates = [];
+
+    activeSources.forEach((sourceKey) => {
+      const clusterLayerId =
+        getClusterLayerIdForSource(sourceKey);
+
+      if (map.getLayer(clusterLayerId)) {
+        const renderedClusters =
+          map.queryRenderedFeatures({
+            layers: [clusterLayerId]
+          });
+
+        renderedClusters.forEach((clusterFeature) => {
+          if (!clusterFeature.properties?.cluster) return;
+
+          const bestLeaf =
+            getBestLeafFromCluster(sourceKey, clusterFeature);
+
+          if (
+            bestLeaf?.geometry?.type === 'Point' &&
+            Array.isArray(bestLeaf.geometry.coordinates)
+          ) {
+            visibleCandidates.push({
+              feature: bestLeaf,
+              sourceKey
+            });
+          }
+        });
+      }
+
+      const pointLayerId =
+        getPointLayerIdForSource(sourceKey);
+
+      if (map.getLayer(pointLayerId)) {
+        const renderedPoints =
+          map.queryRenderedFeatures({
+            layers: [pointLayerId]
+          });
+
+        renderedPoints.forEach((pointFeature) => {
+          if (
+            pointFeature?.geometry?.type !== 'Point' ||
+            !Array.isArray(pointFeature.geometry.coordinates)
+          ) {
+            return;
+          }
+
+          visibleCandidates.push({
+            feature: pointFeature,
+            sourceKey
+          });
+        });
+      }
+    });
+
+    // 2. Sorteggio dei candidati visibili con priorità size 3, 2, 1.
+    const selectedCandidates =
+      pickRenderedCandidateSet(visibleCandidates, 5);
+
+    // 3. Se necessario, completa con tutte le feature rimanenti
+    // dei soli layer attivi, ordinate per distanza dal centro mappa.
+    if (selectedCandidates.length < 5) {
+      const center = map.getCenter();
+
+      const selectedKeys = new Set(
+        selectedCandidates.map(getMapCandidateKey)
+      );
+
+      const fallbackCandidates = [];
+
+      activeSources.forEach((sourceKey) => {
+        const geojson =
+          geojsonCache[getGeoJsonUrlForSource(sourceKey)];
+
+        if (!geojson?.features) return;
+
+        geojson.features.forEach((feature) => {
+          if (
+            feature?.geometry?.type !== 'Point' ||
+            !Array.isArray(feature.geometry.coordinates)
+          ) {
+            return;
+          }
+
+          const candidate = {
+            feature,
+            sourceKey
+          };
+
+          if (selectedKeys.has(getMapCandidateKey(candidate))) {
+            return;
+          }
+
+          const [lon, lat] = feature.geometry.coordinates;
+
+          fallbackCandidates.push({
+            ...candidate,
+            distance: getFeatureDistance(
+              center.lng,
+              center.lat,
+              lon,
+              lat
+            )
+          });
+        });
+      });
+
+      fallbackCandidates.sort(
+        (a, b) => a.distance - b.distance
+      );
+
+      for (const candidate of fallbackCandidates) {
+        if (selectedCandidates.length >= 5) break;
+        selectedCandidates.push(candidate);
+      }
+    }
+
+    if (!selectedCandidates.length) return;
+
+    // Il nuovo set del logo non deve ereditare stati iniziali precedenti.
+    bboxInitialCardState = null;
+    regionInitialCardState = null;
+
+    updatePanel(
+      selectedCandidates[0].feature,
+      selectedCandidates[0].sourceKey,
+      selectedCandidates
+    );
+
+  } catch (e) {
+    console.warn('Random map cards failed:', e);
+  }
+}
+
+
 /* ========= SECONDARY PANEL CARDS ========= */
 
 function getPanelCards() {
@@ -6599,9 +6762,9 @@ function lockZenithNorth() {
   map.on('pitchend', snapBack);
 }
 
-/* ========= LOGO CLICK -> RANDOM SIZE 2 ========= */
+/* ========= LOGO CLICK -> RANDOM MAP CARDS ========= */
 document.getElementById('brand')?.addEventListener('click', () => {
-  showRandomSize2Card();
+  showRandomMapCards();
 });
 
 /* ========= START MAP ========= */
