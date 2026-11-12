@@ -5120,7 +5120,7 @@ async function activateNearestPointFromCoords(
 }
 
 function getActiveSourceKeys() {
-  return Array.from(document.querySelectorAll('.layer-toggle.active'))
+  return Array.from(document.querySelectorAll('.layer-toggle.active:not(.layer-toggle-future)'))
     .map(el => el.dataset.layer)
     .filter(Boolean);
 }
@@ -6906,11 +6906,20 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
   toggle.classList.add('active');
 
   toggle.addEventListener('click', () => {
+
+    // I toggle futuri hanno soltanto una funzione estetica.
+    if (toggle.classList.contains('layer-toggle-future')) {
+      toggle.classList.toggle('active');
+      return;
+    }
+
     /*
      * Non permettere di spegnere l'ultimo layer attivo.
      */
     const activeToggles =
-      document.querySelectorAll('.layer-toggle.active');
+      document.querySelectorAll(
+        '.layer-toggle.active:not(.layer-toggle-future)'
+      );
 
     if (
       toggle.classList.contains('active') &&
@@ -6985,9 +6994,7 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
         ? panelCardFeatureMap.get(activeCard)
         : null;
 
-    if (
-      activeCardEntry
-    ) {
+    if (activeCardEntry) {
       refreshSecondaryCards(
         activeCardEntry.feature,
         activeCardEntry.sourceKey
@@ -7005,7 +7012,7 @@ document.querySelectorAll('.layer-toggle').forEach((toggle) => {
         activeTarget.sourceKey === layerKey
       ) {
         clearInteraction();
-        
+
         const nearest =
           findNearestRenderedBestLeaf(
             activeTarget.lon,

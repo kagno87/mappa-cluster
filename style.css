@@ -171,6 +171,43 @@ body {
 .layer-toggle[data-layer="bianco"] .toggle-dot {
   background: #ffffff;
 }
+
+.layer-toggle[data-layer="blu"] .toggle-dot {
+  background: #0074cf;
+}
+
+.layer-toggle[data-layer="marrone"] .toggle-dot {
+  background: #7a5300;
+}
+
+.layer-toggle[data-layer="rosso"] .toggle-dot {
+  background: #ff0000;
+}
+
+.layer-toggle[data-layer="verde"] .toggle-dot {
+  background: #689429;
+}
+
+.layer-toggle[data-layer="giallo"] .toggle-dot {
+  background: #ffae00;
+}
+
+.layer-toggle[data-layer="viola"] .toggle-dot {
+  background: #8b51b1;
+}
+
+.layer-toggle[data-layer="grigio"] .toggle-dot {
+  background: #a29f9e;
+}
+
+.layer-toggle[data-layer="turchese"] .toggle-dot {
+  background: #21cbbe;
+}
+
+.layer-toggle[data-layer="rosa"] .toggle-dot {
+  background: #f395c1;
+}
+
 /* ============================= */
 /* SEARCH / GEOCODER             */
 /* ============================= */
@@ -388,7 +425,7 @@ body {
   top: 30px;
   right: 10px;
 
-  width: 320px;
+  width: 360px;
   height: 400px;
 
   background: rgba(33,33,33,0.8);
