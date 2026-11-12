@@ -536,13 +536,7 @@ window.addEventListener('DOMContentLoaded', () => {
     spinLayerMenuButton();
   };
 
-  layerMenuButton.addEventListener(
-    'mouseenter',
-    () => {
-      spinLayerMenuButton();
-    }
-  );
-
+  // Fine animazione della ruota.
   layerMenuButton.addEventListener(
     'animationend',
     (event) => {
@@ -559,62 +553,34 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   );
 
-  layerMenuButton.addEventListener('click', (event) => {
-    if (event.target !== layerMenuButton) {
-      return;
-    }
-
-    event.stopPropagation();
-
-    spinLayerMenuButton();
-
-    layerMenuDropdown.style.display =
-      layerMenuDropdown.style.display === 'block'
-        ? 'none'
-        : 'block';
-  });
-
+  // Click sulla ruota: apre o chiude la tendina.
   layerMenuButton.addEventListener(
-    'mouseleave',
-    () => {
-      if (
+    'click',
+    (event) => {
+      event.stopPropagation();
+
+      spinLayerMenuButton();
+
+      layerMenuDropdown.style.display =
         layerMenuDropdown.style.display === 'block'
+          ? 'none'
+          : 'block';
+    }
+  );
+
+  // Qualsiasi click o touch esterno chiude la tendina.
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (
+        !layerMenuButton.contains(event.target) &&
+        !layerMenuDropdown.contains(event.target)
       ) {
         layerMenuDropdown.style.display = 'none';
       }
-    }
+    },
+    true
   );
-
-  layerMenuDropdown.addEventListener(
-    'mouseenter',
-    () => {
-      layerMenuDropdown.style.display = 'block';
-    }
-  );
-
-  layerMenuDropdown.addEventListener(
-    'mouseleave',
-    (event) => {
-      if (
-        layerMenuButton.contains(
-          event.relatedTarget
-        )
-      ) {
-        return;
-      }
-
-      layerMenuDropdown.style.display = 'none';
-    }
-  );
-
-  document.addEventListener('click', (event) => {
-    if (
-      !layerMenuButton.contains(event.target) &&
-      !layerMenuDropdown.contains(event.target)
-    ) {
-      layerMenuDropdown.style.display = 'none';
-    }
-  });
 });
 
 /* ========= PANEL HEIGHT / SCALE ========= */
