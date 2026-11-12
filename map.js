@@ -4485,8 +4485,8 @@ function rebuildInitialBboxCardSetAfterLayerToggle() {
         activeSources.has(candidate.sourceKey)
     );
 
-  // 2. Recupera i candidati attualmente visibili
-  // nella stessa area e con lo stesso criterio.
+  // 2. Recupera i candidati visibili
+  // nella stessa area e con lo stesso criterio BBOX.
   const available =
     findRenderedCandidates(
       state.bbox,
@@ -4495,10 +4495,6 @@ function rebuildInitialBboxCardSetAfterLayerToggle() {
       state.query
     );
 
-  if (!Array.isArray(available)) {
-    return false;
-  }
-
   // 3. Esclude i candidati già conservati.
   const preservedKeys =
     new Set(
@@ -4506,15 +4502,16 @@ function rebuildInitialBboxCardSetAfterLayerToggle() {
     );
 
   const refillPool =
-    available.filter(
-      (candidate) =>
-        activeSources.has(candidate.sourceKey) &&
-        !preservedKeys.has(
-          getBboxCandidateKey(candidate)
-        )
-    );
+    (Array.isArray(available) ? available : [])
+      .filter(
+        (candidate) =>
+          activeSources.has(candidate.sourceKey) &&
+          !preservedKeys.has(
+            getBboxCandidateKey(candidate)
+          )
+      );
 
-  // 4. Estrae casualmente soltanto le card mancanti,
+  // 4. Estrae casualmente le card visibili mancanti,
   // mantenendo la priorità size 3, 2, 1.
   const missingCount =
     Math.max(0, 5 - preserved.length);
@@ -4525,18 +4522,23 @@ function rebuildInitialBboxCardSetAfterLayerToggle() {
       missingCount
     );
 
-  // 5. Ricostruisce il set mantenendo l'ordine.
-  const nextCandidates = [
-    ...preserved,
-    ...newCandidates
-  ].slice(0, 5);
+  // 5. Completa il set con le feature GeoJSON
+  // più vicine al centro corrente della mappa.
+  const nextCandidates =
+    completeCandidatesWithNearestGeoJSON(
+      [
+        ...preserved,
+        ...newCandidates
+      ],
+      5,
+      activeSources
+    );
 
   if (!nextCandidates.length) {
     return false;
   }
 
-  // Aggiorna anche lo stato, per eventuali
-  // successive disattivazioni di altri layer.
+  // 6. Aggiorna lo stato per i successivi toggle.
   state.candidates =
     nextCandidates;
 
@@ -5680,6 +5682,94 @@ function getMapCandidateKey(candidate) {
     identity.mediaLink,
     identity.description
   ]);
+}
+
+function completeCandidatesWithNearestGeoJSON(
+  candidates,
+  targetCount = 5,
+  activeSources = getActiveSourceKeys()
+) {
+  const completed = [
+    ...candidates
+  ].slice(0, targetCount);
+
+  if (
+    !map ||
+    completed.length >= targetCount
+  ) {
+    return completed;
+  }
+
+  const center = map.getCenter();
+
+  const selectedKeys = new Set(
+    completed.map(getMapCandidateKey)
+  );
+
+  const fallbackCandidates = [];
+
+  activeSources.forEach((sourceKey) => {
+    const geojson =
+      geojsonCache[getGeoJsonUrlForSource(sourceKey)];
+
+    if (!geojson?.features) return;
+
+    geojson.features.forEach((feature) => {
+      if (
+        feature?.geometry?.type !== 'Point' ||
+        !Array.isArray(feature.geometry.coordinates) ||
+        feature.geometry.coordinates.length < 2
+      ) {
+        return;
+      }
+
+      const candidate = {
+        feature,
+        sourceKey
+      };
+
+      const key =
+        getMapCandidateKey(candidate);
+
+      if (
+        !key ||
+        selectedKeys.has(key)
+      ) {
+        return;
+      }
+
+      const [lon, lat] =
+        feature.geometry.coordinates;
+
+      fallbackCandidates.push({
+        ...candidate,
+        distance: getFeatureDistance(
+          center.lng,
+          center.lat,
+          lon,
+          lat
+        )
+      });
+    });
+  });
+
+  fallbackCandidates.sort(
+    (a, b) => a.distance - b.distance
+  );
+
+  for (const candidate of fallbackCandidates) {
+    if (completed.length >= targetCount) {
+      break;
+    }
+
+    completed.push(candidate);
+
+    selectedKeys.add(
+      getMapCandidateKey(candidate)
+    );
+  }
+
+  return completed;
 }
 
 async function showRandomMapCards() {
