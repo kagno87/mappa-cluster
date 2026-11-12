@@ -422,13 +422,16 @@ body {
 #layer-menu-dropdown {
   position: absolute;
 
-  top: 30px;
+  top: calc(
+    48px +
+    (100vh - var(--panel-height) - 48px - 352px) / 2
+  );
   right: 10px;
 
-  width: 360px;
-  height: 400px;
+  width: 310px;
+  height: 352px;
 
-  background: rgba(33,33,33,0.8);
+  background: rgba(66,66,66,1.0);
 
   border-radius: 20px;
 
@@ -437,7 +440,7 @@ body {
   z-index: 4;
 
   padding: 15px; 
-  padding-top: 30px;
+  padding-top: 18px;
   box-sizing: border-box; 
 }
 
