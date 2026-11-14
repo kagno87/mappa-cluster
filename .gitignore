@@ -11,3 +11,10 @@ old/
 *.log
 
 config.local.js
+
+# PinGeo Image Manager - credenziali Cloudflare R2
+PinGeo-Image-Manager/r2_config.json
+PinGeo-Image-Manager/API_token/
+
+# PinGeo Image Manager - file di test e risultati
+PinGeo-Image-Manager/input/
