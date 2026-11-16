@@ -18,3 +18,7 @@ PinGeo-Image-Manager/API_token/
 
 # PinGeo Image Manager - file di test e risultati
 PinGeo-Image-Manager/input/
+
+# Python
+__pycache__/
+*.py[cod]
