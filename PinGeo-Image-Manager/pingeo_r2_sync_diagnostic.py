@@ -14,6 +14,8 @@ import json
 import mimetypes
 import re
 import sys
+import shutil
+import tempfile
 import time
 import urllib.request
 import unicodedata
@@ -514,6 +516,18 @@ def main():
     )
     parser.add_argument("--workers", type=int, default=4)
 
+    parser.add_argument(
+        "--gui-confirm",
+        action="store_true",
+        help="Richiede conferma grafica prima di modificare R2",
+    )
+    
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help="Cartella cache delle immagini preparate",
+    )
+
     args = parser.parse_args()
 
     print("\nPinGeo R2 SYNC")
@@ -556,6 +570,23 @@ def main():
         if args.report
         else kml_path.with_name(kml_path.stem + "_r2_sync_report.csv")
     )
+
+    cache_dir = (
+        Path(args.cache_dir).expanduser()
+        if args.cache_dir
+        else None
+    )
+
+    if cache_dir is not None:
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            print(f"ERRORE: impossibile creare la cache: {exc}")
+            return 2
+
+    if args.mode == "sync" and cache_dir is None:
+        print("ERRORE: --cache-dir è obbligatorio in modalità sync.")
+        return 2
 
     print(f"Modalità: {args.mode.upper()}")
     print(f"KML: {kml_path.name}")
@@ -643,6 +674,16 @@ def main():
                 existing = bucket_objects.get(key)
 
                 if existing is None:
+                    cache_path = None
+
+                    if cache_dir is not None:
+                        cache_path = cache_dir / rec["filename"]
+                        cache_path.parent.mkdir(
+                            parents=True,
+                            exist_ok=True,
+                        )
+                        cache_path.write_bytes(prepared["jpeg"])
+
                     return {
                         "rec": rec,
                         "key": key,
@@ -652,6 +693,7 @@ def main():
                         ),
                         "category": "nuovi",
                         "hash": local_hash,
+                        "cache_path": str(cache_path) if cache_path else None,
                         "message": "NUOVO: oggetto assente da R2.",
                     }
 
@@ -682,11 +724,22 @@ def main():
                         "message": "INVARIATO: immagine identica.",
                     }
 
+                cache_path = None
+
+                if cache_dir is not None:
+                    cache_path = cache_dir / rec["filename"]
+                    cache_path.parent.mkdir(
+                        parents=True,
+                        exist_ok=True,
+                    )
+                    cache_path.write_bytes(prepared["jpeg"])
+
                 row = make_row(
                     rec, key, "DA_SOVRASCRIVERE",
                     "SHA-256 diverso; immagine da aggiornare",
                 )
                 row.update(diagnostic)
+
                 return {
                     "rec": rec,
                     "key": key,
@@ -694,9 +747,10 @@ def main():
                     "category": "sovrascritti",
                     "hash": local_hash,
                     "diagnostic": diagnostic,
+                    "cache_path": str(cache_path) if cache_path else None,
                     "message": "MODIFICATO: immagine da sovrascrivere.",
                 }
-
+                
             except Exception as exc:
                 message = str(exc).replace("\n", " ").strip()
                 return {
@@ -792,11 +846,45 @@ def main():
                     print("Le eliminazioni avverranno soltanto dopo")
                     print("il completamento e la verifica di tutti gli upload.")
 
-                    confirmation = input(
-                        f"\nPer confermare, scrivi SINCRONIZZA {category}: "
-                    ).strip()
+                    if args.gui_confirm:
+                        try:
+                            import tkinter as tk
+                            from tkinter import messagebox
 
-                    if confirmation == f"SINCRONIZZA {category}":
+                            root = tk.Tk()
+                            root.withdraw()
+
+                            confirmation = messagebox.askyesno(
+                                title="Conferma sincronizzazione PinGeo",
+                                message=(
+                                    f"Categoria: {category}\n\n"
+                                    f"Nuovi caricamenti: {len(new_items)}\n"
+                                    f"Sovrascritture: {len(changed_items)}\n"
+                                    f"Eliminazioni: {len(stale)}\n\n"
+                                    "Vuoi procedere con la sincronizzazione?"
+                                ),
+                                parent=root,
+                            )
+
+                            root.destroy()
+
+                        except Exception as exc:
+                            print(
+                                "ERRORE: impossibile mostrare "
+                                f"la conferma grafica: {exc}"
+                            )
+                            confirmation = False
+
+                    else:
+                        confirmation = input(
+                            f"\nPer confermare, scrivi SINCRONIZZA {category}: "
+                        ).strip()
+
+                        confirmation = (
+                            confirmation == f"SINCRONIZZA {category}"
+                        )
+
+                    if confirmation:
                         upload_failed = False
 
                         print("\nFASE 1 — CARICAMENTO E SOVRASCRITTURA")
@@ -808,14 +896,27 @@ def main():
                             print(f"\n[{rec['name']}]")
 
                             try:
-                                # Secondo download: verifichiamo che
-                                # l'immagine non sia cambiata dopo l'analisi.
-                                prepared = prepare_image(
-                                    rec,
-                                    int(args.target_kb * 1024),
-                                    args.min_quality,
-                                    args.max_quality,
-                                )
+                                cache_path = result.get("cache_path")
+
+                                if not cache_path:
+                                    raise RuntimeError(
+                                        "file JPEG non presente nella cache"
+                                    )
+
+                                cache_file = Path(cache_path)
+
+                                if not cache_file.is_file():
+                                    raise RuntimeError(
+                                        f"file cache non trovato: {cache_file}"
+                                    )
+
+                                jpeg = cache_file.read_bytes()
+
+                                prepared = {
+                                    "jpeg": jpeg,
+                                    "sha256": hashlib.sha256(jpeg).hexdigest(),
+                                    "size": len(jpeg),
+                                }
 
                                 if prepared["sha256"] != result["hash"]:
                                     raise RuntimeError(
@@ -920,6 +1021,7 @@ def main():
         print(f"Oggetti presenti da verificare: {counts['da_verificare']}")
 
     print(f"Oggetti eliminati: {counts['eliminati']}")
+    print(f"Oggetti obsoleti rilevati: {len(stale)}")
     print("Report CSV:", report_path.resolve())
 
     if incomplete:
