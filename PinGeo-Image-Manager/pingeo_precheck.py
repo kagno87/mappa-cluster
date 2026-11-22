@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # PinGeo - precheck KML immagini My Maps
-# Solo verifica: NON salva immagini, NON le converte e NON carica nulla su Cloudflare.
+# Solo verifica URL: NON scarica le immagini, NON le converte e NON carica nulla su Cloudflare.
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 import html
 import re
@@ -18,9 +19,9 @@ from urllib.parse import urlparse
 
 KML_NS = {"k": "http://www.opengis.net/kml/2.2"}
 ALLOWED_HOSTS = {"mymaps.usercontent.google.com", "lh3.googleusercontent.com"}
-TIMEOUT_SECONDS = 25
-RETRIES = 2
-MAX_IMAGE_BYTES = 25 * 1024 * 1024
+TIMEOUT_SECONDS = 10
+RETRIES = 1
+MAX_WORKERS = 12
 
 # Alcune lettere non vengono convertite in ASCII dalla sola normalizzazione Unicode.
 EXTRA_TRANSLITERATION = str.maketrans({
@@ -120,41 +121,54 @@ def image_info(data):
     return None, None, None
 
 def fetch_image(url):
+    """Controlla l'URL senza scaricare il contenuto dell'immagine."""
     last_error = None
     for attempt in range(RETRIES + 1):
         try:
-            request = urllib.request.Request(
-                url,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (compatible; PinGeo-Precheck/1.0)",
-                    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-                },
-            )
-            with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-                status = getattr(response, "status", 200)
-                content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
-                chunks = []
-                total = 0
-                while True:
-                    chunk = response.read(64 * 1024)
-                    if not chunk:
-                        break
-                    total += len(chunk)
-                    if total > MAX_IMAGE_BYTES:
-                        raise ValueError("immagine oltre il limite di 25 MB")
-                    chunks.append(chunk)
-                body = b"".join(chunks)
-                fmt, width, height = image_info(body)
-                if not 200 <= status < 300:
-                    raise ValueError(f"HTTP {status}")
-                if not fmt:
-                    raise ValueError(f"risposta non riconosciuta come immagine (Content-Type: {content_type or 'assente'})")
-                return status, content_type, len(body), fmt, width, height, None
+            headers = {
+                "User-Agent": "Mozilla/5.0 (compatible; PinGeo-Precheck/2.0)",
+                "Accept": "image/*,*/*;q=0.8",
+            }
+            request = urllib.request.Request(url, headers=headers, method="HEAD")
+            try:
+                with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+                    status = getattr(response, "status", 200)
+                    content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                    if 200 <= status < 400:
+                        return status, content_type, None
+                    last_error = f"HTTP {status}"
+            except urllib.error.HTTPError as exc:
+                # Alcuni host non supportano HEAD: in quel caso prova un GET limitato.
+                if exc.code in (405, 501):
+                    range_headers = dict(headers)
+                    range_headers["Range"] = "bytes=0-0"
+                    range_request = urllib.request.Request(url, headers=range_headers, method="GET")
+                    with urllib.request.urlopen(range_request, timeout=TIMEOUT_SECONDS) as response:
+                        status = getattr(response, "status", 200)
+                        content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                        response.read(1)
+                        if 200 <= status < 400:
+                            return status, content_type, None
+                        last_error = f"HTTP {status}"
+                else:
+                    last_error = f"HTTP {exc.code}"
+                    if exc.code in (404, 410):
+                        return exc.code, "", f"HTTP {exc.code} - URL non trovato"
         except Exception as exc:
             last_error = str(exc)
-            if attempt < RETRIES:
-                time.sleep(1.5 * (attempt + 1))
-    return None, None, None, None, None, None, last_error
+        if attempt < RETRIES:
+            time.sleep(0.5)
+    return None, None, last_error
+
+def extract_image_url(placemark):
+    description = local_text(placemark, "k:description")
+    parser_html = ImgParser()
+    parser_html.feed(description)
+    data = extended_data(placemark)
+    description_urls = parser_html.srcs
+    gx_url = data.get("gx_media_links", "").strip()
+    return description_urls[0] if description_urls else gx_url
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -184,13 +198,39 @@ def main():
         print("ERRORE: nessun Placemark trovato.")
         return 2
 
-    rows = []
-    filename_owners = {}
-    global_errors = []
+    # Controlla gli URL in parallelo prima di compilare il report.
+    # Le richieste HEAD non scaricano il corpo delle immagini.
+    image_checks = {}
+    image_futures = {}
+    for index, pm in enumerate(placemarks, 1):
+        image_url = extract_image_url(pm)
+        if image_url:
+            parsed = urlparse(image_url)
+            if parsed.scheme == "https" and parsed.hostname in ALLOWED_HOSTS:
+                image_futures[index] = (image_url, None)
 
     print(f"\nPinGeo PRECHECK — {kml_path.name}")
     print(f"Placemark trovati: {len(placemarks)}")
-    print("Verifica URL immagini: download temporaneo in memoria, nessun file immagine salvato.\n")
+    print(f"Verifica URL immagini: {len(image_futures)} richieste parallele, nessun download delle immagini.\n", flush=True)
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        for index, (image_url, _) in list(image_futures.items()):
+            image_futures[index] = (image_url, executor.submit(fetch_image, image_url))
+        completed = 0
+        future_to_index = {future: index for index, (_, future) in image_futures.items()}
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+            try:
+                image_checks[index] = future.result()
+            except Exception as exc:
+                image_checks[index] = (None, None, str(exc))
+            completed += 1
+            status_text = image_checks[index][0]
+            print(f"PROGRESS: {completed}/{len(image_futures)} ({completed * 100 // max(1, len(image_futures))}%) — URL HTTP {status_text if status_text is not None else 'non verificato'}", flush=True)
+
+    rows = []
+    filename_owners = {}
+    global_errors = []
 
     for index, pm in enumerate(placemarks, 1):
         name = local_text(pm, "k:name")
@@ -237,16 +277,23 @@ def main():
         description_urls = parser_html.srcs
         gx_url = data.get("gx_media_links", "").strip()
 
+
         if not description_urls:
             issues.append("URL immagine assente nella description")
-        if not gx_url:
-            issues.append("gx_media_links mancante")
-        if len(description_urls) > 1:
-            warnings.append("più immagini nella description: il precheck considera la prima")
+
+        # Usa sempre e soltanto il primo URL della description.
+        # Se la description contiene immagini, gx_media_links viene ignorato.
         image_url = description_urls[0] if description_urls else gx_url
 
-        if description_urls and gx_url and description_urls[0] != gx_url:
-            issues.append("URL immagine diverso tra description e gx_media_links")
+        # Con una sola immagine nella description, manteniamo il controllo
+        # di coerenza con gx_media_links, se presente.
+        # Con più immagini, ignoriamo completamente gx_media_links.
+        if len(description_urls) == 1 and gx_url:
+            if description_urls[0] != gx_url:
+                issues.append(
+                    "URL immagine diverso tra description e gx_media_links"
+                )
+
 
         technical_unverified = False
         if image_url:
@@ -256,16 +303,18 @@ def main():
                 http_status = content_type = img_format = width = height = byte_count = ""
                 fetch_error = "URL non verificato per host non ammesso"
             else:
-                http_status, content_type, byte_count, img_format, width, height, fetch_error = fetch_image(image_url)
+                http_status, content_type, fetch_error = image_checks.get(index, (None, None, "URL non sottoposto a verifica"))
+                byte_count = img_format = width = height = ""
                 if fetch_error:
-                    # Un problema DNS/rete/timeout non dimostra che l'URL o il KML siano errati.
-                    technical_unverified = True
-                    warnings.append("verifica immagine non completata per un problema tecnico: " + fetch_error)
+                    if "HTTP 404" in fetch_error or "HTTP 410" in fetch_error:
+                        issues.append("URL immagine non trovato: " + fetch_error)
+                    else:
+                        # Un errore tecnico o un accesso negato non prova che l'URL sia assente.
+                        technical_unverified = True
+                        warnings.append("URL immagine non verificato: " + fetch_error)
                 else:
-                    if width is None or height is None:
-                        warnings.append("formato riconosciuto, dimensioni non estratte")
-                    if width == 0 or height == 0:
-                        issues.append("dimensioni immagine non valide")
+                    if not content_type.startswith("image/"):
+                        warnings.append("URL raggiungibile, ma Content-Type non indica un'immagine: " + (content_type or "assente"))
         else:
             http_status = content_type = img_format = width = height = byte_count = ""
             fetch_error = "URL assente"
@@ -303,15 +352,15 @@ def main():
         })
 
         mark = "✓" if status == "OK" else ("?" if status == "NON VERIFICATO" else ("!" if status == "ATTENZIONE" else "X"))
-        print(f"[{mark}] {index}. {name or '(senza nome)'} — {status}")
+        print(f"[{mark}] {index}/{len(placemarks)} ({index * 100 // len(placemarks)}%) {name or '(senza nome)'} — {status}", flush=True)
         if issues:
             for item in issues:
                 print(f"    ERRORE: {item}")
         if warnings:
             for item in warnings:
                 print(f"    AVVISO: {item}")
-        if not fetch_error and img_format:
-            print(f"    Immagine: HTTP {http_status}, {img_format}, {width or '?'}x{height or '?'} px, {byte_count:,} byte")
+        if not fetch_error and http_status:
+            print(f"    URL raggiungibile: HTTP {http_status} ({content_type or 'Content-Type assente'})")
         if filename:
             print(f"    Nome file proposto: {filename}")
         print()

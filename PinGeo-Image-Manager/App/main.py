@@ -199,6 +199,7 @@ class PinGeoApp(ctk.CTk):
         status = ctk.CTkFrame(self, corner_radius=0)
         status.grid(row=3, column=0, sticky="ew")
         status.grid_columnconfigure(0, weight=1)
+        status.grid_columnconfigure(1, weight=0)
 
         self.status_label = ctk.CTkLabel(
             status,
@@ -207,8 +208,18 @@ class PinGeoApp(ctk.CTk):
             text_color="gray"
         )
         self.status_label.grid(
-            row=0, column=0, padx=20, pady=10, sticky="w"
+            row=0, column=0, padx=(20, 12), pady=10, sticky="w"
         )
+
+        self.precheck_progress = ctk.CTkProgressBar(
+            status,
+            width=230,
+            mode="determinate"
+        )
+        self.precheck_progress.grid(
+            row=0, column=1, padx=(8, 20), pady=10, sticky="e"
+        )
+        self.precheck_progress.set(0)
 
     # --------------------------------------------------
     # GESTIONE OUTPUT
@@ -220,6 +231,54 @@ class PinGeoApp(ctk.CTk):
         self.output.insert("end", message + "\n")
         self.output.see("end")
         self.output.configure(state="disabled")
+
+    def run_command_with_progress(self, command, env, status_prefix):
+        """Esegue un comando e aggiorna la barra leggendo le righe PROGRESS."""
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+            cwd=str(PROJECT_DIR),
+            env=env,
+        )
+
+        output_lines = []
+        progress_pattern = re.compile(
+            r"PROGRESS:\s*(\d+)\s*/\s*(\d+)\s*\((\d+)%\)"
+        )
+        placemark_pattern = re.compile(
+            r"^\[[✓?!X]\]\s*(\d+)\s*/\s*(\d+)\s*\((\d+)%\)"
+        )
+
+        for line in process.stdout:
+            output_lines.append(line)
+            match = progress_pattern.search(line) or placemark_pattern.search(line)
+            if match:
+                completed = int(match.group(1))
+                total = max(1, int(match.group(2)))
+                percent = int(match.group(3))
+                status_text = (
+                    f"{status_prefix} — {completed}/{total} ({percent}%)"
+                )
+                self.after(
+                    0,
+                    self.update_precheck_progress,
+                    percent / 100,
+                    status_text,
+                )
+
+        process.wait()
+        return process.returncode, "".join(output_lines), ""
+
+    def update_precheck_progress(self, fraction, status_text=None):
+        self.precheck_progress.set(max(0.0, min(1.0, fraction)))
+        if status_text:
+            self.status_label.configure(text=status_text)
+
 
     # --------------------------------------------------
     # VERIFICA CONNESSIONE R2
@@ -395,18 +454,11 @@ class PinGeoApp(ctk.CTk):
         env["PYTHONIOENCODING"] = "utf-8"
 
         try:
-            result = subprocess.run(
+            returncode, stdout, stderr = self.run_command_with_progress(
                 command,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                cwd=str(PROJECT_DIR),
-                env=env,
+                env,
+                "Verifica KML",
             )
-
-            stdout = result.stdout or ""
-            stderr = result.stderr or ""
 
             found_match = re.search(
                 r"Placemark trovati:\s*(\d+)",
@@ -429,7 +481,7 @@ class PinGeoApp(ctk.CTk):
             for line in stdout.splitlines():
 
                 feature_match = re.match(
-                    r"^\s*\[X\]\s*\d+\.\s*(.*?)\s*—\s*ERRORE",
+                    r"^\s*\[X\]\s*(?:\d+(?:/\d+)?(?:\s*\(\d+%\))?\.?\s+)?(.*?)\s*—\s*ERRORE",
                     line,
                 )
 
@@ -466,17 +518,17 @@ class PinGeoApp(ctk.CTk):
 
             self.write_output("")
 
-            if result.returncode == 2:
+            if returncode == 2:
                 self.write_output("ERRORE TECNICO")
 
                 if stderr.strip():
                     self.write_output(stderr.strip())
 
-            if result.returncode == 0:
+            if returncode == 0:
                 self.status_label.configure(
                     text="Verifica KML completata"
                 )
-            elif result.returncode == 1:
+            elif returncode == 1:
                 self.status_label.configure(
                     text="Verifica completata: controllare gli errori"
                 )
@@ -484,6 +536,8 @@ class PinGeoApp(ctk.CTk):
                 self.status_label.configure(
                     text="Errore tecnico durante la verifica"
                 )
+
+            self.update_precheck_progress(1.0)
 
         except Exception as error:
             self.write_output(f"ERRORE: {error}")
@@ -557,17 +611,13 @@ class PinGeoApp(ctk.CTk):
         env["PYTHONIOENCODING"] = "utf-8"
 
         try:
-            result = subprocess.run(
+            returncode, precheck_stdout, precheck_stderr = self.run_command_with_progress(
                 command,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                cwd=str(PROJECT_DIR),
-                env=env,
+                env,
+                "Precheck KML",
             )
 
-            if result.returncode != 0:
+            if returncode != 0:
 
                 self.write_output("")
                 self.write_output("PRECHECK NON SUPERATO.")
@@ -575,11 +625,11 @@ class PinGeoApp(ctk.CTk):
                     "Analisi R2 annullata: nessuna modifica al bucket."
                 )
 
-                if result.stdout.strip():
-                    self.write_output(result.stdout.strip())
+                if precheck_stdout.strip():
+                    self.write_output(precheck_stdout.strip())
 
-                if result.stderr.strip():
-                    self.write_output(result.stderr.strip())
+                if precheck_stderr.strip():
+                    self.write_output(precheck_stderr.strip())
 
                 self.status_label.configure(
                     text="Analisi bloccata: KML non valido"
@@ -589,6 +639,7 @@ class PinGeoApp(ctk.CTk):
             self.write_output("")
             self.write_output("PRECHECK KML: SUPERATO")
             self.write_output("Avvio analisi approfondita R2...")
+            self.update_precheck_progress(0.0)
 
             self.status_label.configure(
                 text="Precheck superato, analisi R2 in corso..."

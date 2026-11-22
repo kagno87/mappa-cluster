@@ -1,0 +1,342 @@
+﻿import sys
+import threading
+from pathlib import Path
+
+import customtkinter as ctk
+
+# --------------------------------------------------
+# CONFIGURAZIONE
+# --------------------------------------------------
+
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+
+APP_TITLE = "PinGeo Image Manager"
+
+APP_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = APP_DIR.parent
+CONFIG_PATH = PROJECT_DIR / "r2_config.json"
+
+# Importa le funzioni R2 già presenti nella pipeline.
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+import pingeo_r2_sync_diagnostic as r2_core
+
+
+LAYERS = [
+    "bianco", "nero", "giallo", "blu", "marrone",
+    "rosso", "verde", "viola", "grigio", "turchese", "rosa"
+]
+
+
+class PinGeoApp(ctk.CTk):
+
+    def __init__(self):
+        super().__init__()
+
+        self.title(APP_TITLE)
+        self.geometry("1050x720")
+        self.minsize(900, 650)
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+
+        self.create_header()
+        self.create_controls()
+        self.create_results()
+        self.create_statusbar()
+
+    # --------------------------------------------------
+    # HEADER
+    # --------------------------------------------------
+
+    def create_header(self):
+
+        header = ctk.CTkFrame(self, corner_radius=0)
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
+
+        title = ctk.CTkLabel(
+            header,
+            text="PinGeo Image Manager",
+            font=ctk.CTkFont(size=27, weight="bold")
+        )
+        title.grid(row=0, column=0, padx=25, pady=(20, 4), sticky="w")
+
+        subtitle = ctk.CTkLabel(
+            header,
+            text="Gestione immagini e sincronizzazione Cloudflare R2",
+            font=ctk.CTkFont(size=13),
+            text_color="gray"
+        )
+        subtitle.grid(row=1, column=0, padx=27, pady=(0, 20), sticky="w")
+
+    # --------------------------------------------------
+    # CONTROLLI
+    # --------------------------------------------------
+
+    def create_controls(self):
+
+        controls = ctk.CTkFrame(self)
+        controls.grid(row=1, column=0, padx=20, pady=15, sticky="ew")
+        controls.grid_columnconfigure(0, weight=1)
+
+        layer_label = ctk.CTkLabel(
+            controls,
+            text="LAYER DA GESTIRE",
+            font=ctk.CTkFont(size=12, weight="bold")
+        )
+        layer_label.grid(row=0, column=0, padx=15, pady=(15, 5), sticky="w")
+
+        self.layer_selector = ctk.CTkComboBox(
+            controls,
+            values=LAYERS,
+            width=220,
+            state="readonly"
+        )
+        self.layer_selector.set("bianco")
+        self.layer_selector.grid(
+            row=1, column=0, padx=15, pady=(0, 15), sticky="w"
+        )
+
+        buttons = ctk.CTkFrame(controls, fg_color="transparent")
+        buttons.grid(row=2, column=0, padx=10, pady=(0, 15), sticky="ew")
+
+        buttons.grid_columnconfigure((0, 1, 2, 3), weight=1)
+
+        self.connection_button = ctk.CTkButton(
+            buttons,
+            text="1. Verifica connessione",
+            command=self.check_connection
+        )
+        self.connection_button.grid(
+            row=0, column=0, padx=5, pady=5, sticky="ew"
+        )
+
+        self.kml_button = ctk.CTkButton(
+            buttons,
+            text="2. Verifica KML",
+            command=self.not_implemented
+        )
+        self.kml_button.grid(
+            row=0, column=1, padx=5, pady=5, sticky="ew"
+        )
+
+        self.analysis_button = ctk.CTkButton(
+            buttons,
+            text="3. Analizza sincronizzazione",
+            command=self.not_implemented
+        )
+        self.analysis_button.grid(
+            row=0, column=2, padx=5, pady=5, sticky="ew"
+        )
+
+        self.sync_button = ctk.CTkButton(
+            buttons,
+            text="4. Sincronizza",
+            command=self.not_implemented,
+            fg_color="#16834A",
+            hover_color="#11683A"
+        )
+        self.sync_button.grid(
+            row=0, column=3, padx=5, pady=5, sticky="ew"
+        )
+
+    # --------------------------------------------------
+    # AREA RISULTATI
+    # --------------------------------------------------
+
+    def create_results(self):
+
+        results = ctk.CTkFrame(self)
+        results.grid(row=2, column=0, padx=20, pady=(0, 15), sticky="nsew")
+
+        results.grid_columnconfigure(0, weight=1)
+        results.grid_rowconfigure(1, weight=1)
+
+        heading = ctk.CTkLabel(
+            results,
+            text="RISULTATI E DETTAGLI OPERAZIONI",
+            font=ctk.CTkFont(size=13, weight="bold")
+        )
+        heading.grid(row=0, column=0, padx=15, pady=15, sticky="w")
+
+        self.output = ctk.CTkTextbox(
+            results,
+            wrap="word",
+            font=ctk.CTkFont(size=13)
+        )
+        self.output.grid(
+            row=1, column=0, padx=15, pady=(0, 15), sticky="nsew"
+        )
+
+        self.output.insert(
+            "end",
+            "Benvenuto in PinGeo Image Manager.\n\n"
+            "Seleziona un layer e scegli l'operazione da eseguire.\n\n"
+            "In quest'area verranno visualizzati:\n"
+            "• Esito della connessione a Cloudflare R2\n"
+            "• Anomalie riscontrate nel KML\n"
+            "• Riepilogo delle immagini da aggiungere, sostituire o eliminare\n"
+            "• Avanzamento e risultato della sincronizzazione\n"
+        )
+        self.output.configure(state="disabled")
+
+    # --------------------------------------------------
+    # BARRA DI STATO
+    # --------------------------------------------------
+
+    def create_statusbar(self):
+
+        status = ctk.CTkFrame(self, corner_radius=0)
+        status.grid(row=3, column=0, sticky="ew")
+        status.grid_columnconfigure(0, weight=1)
+
+        self.status_label = ctk.CTkLabel(
+            status,
+            text="Pronto",
+            font=ctk.CTkFont(size=12),
+            text_color="gray"
+        )
+        self.status_label.grid(
+            row=0, column=0, padx=20, pady=10, sticky="w"
+        )
+
+    # --------------------------------------------------
+    # GESTIONE OUTPUT
+    # --------------------------------------------------
+
+    def write_output(self, message):
+
+        self.output.configure(state="normal")
+        self.output.insert("end", message + "\n")
+        self.output.see("end")
+        self.output.configure(state="disabled")
+
+    # --------------------------------------------------
+    # VERIFICA CONNESSIONE R2
+    # --------------------------------------------------
+
+    def check_connection(self):
+
+        layer = self.layer_selector.get().strip().lower()
+
+        if layer not in LAYERS:
+            self.write_output("ERRORE: layer selezionato non valido.")
+            return
+
+        self.connection_button.configure(state="disabled")
+        self.status_label.configure(text=f"Verifica connessione R2 — {layer}...")
+
+        self.write_output("")
+        self.write_output("========================================")
+        self.write_output("VERIFICA CONNESSIONE CLOUDFLARE R2")
+        self.write_output(f"Layer selezionato: {layer}")
+        self.write_output("Operazione: sola lettura")
+        self.write_output("")
+
+        worker = threading.Thread(
+            target=self.connection_worker,
+            args=(layer,),
+            daemon=True
+        )
+        worker.start()
+
+    def connection_worker(self, layer):
+
+        try:
+            if not CONFIG_PATH.is_file():
+                raise FileNotFoundError(
+                    "File r2_config.json non trovato nella cartella principale "
+                    "PinGeo-Image-Manager."
+                )
+
+            # Legge e valida la configurazione esistente.
+            cfg = r2_core.read_config(CONFIG_PATH)
+
+            # Crea il client utilizzato dalla pipeline.
+            client = r2_core.make_client(cfg)
+
+            bucket = cfg["bucket_name"]
+            prefix = layer + "/"
+
+            # Controlla accesso al bucket e permessi di lettura.
+            client.head_bucket(Bucket=bucket)
+
+            response = client.list_objects_v2(
+                Bucket=bucket,
+                Prefix=prefix,
+                MaxKeys=1
+            )
+
+            result = {
+                "success": True,
+                "bucket": bucket,
+                "layer": layer,
+                "prefix": prefix,
+                "has_objects": bool(response.get("Contents")),
+            }
+
+        except Exception as exc:
+            result = {
+                "success": False,
+                "error": str(exc),
+            }
+
+        self.after(0, self.connection_finished, result)
+
+    def connection_finished(self, result):
+
+        self.connection_button.configure(state="normal")
+
+        if result["success"]:
+
+            self.write_output("ESITO: CONNESSIONE RIUSCITA")
+            self.write_output(f"Bucket: {result['bucket']}")
+            self.write_output(f"Prefisso controllato: {result['prefix']}")
+
+            if result["has_objects"]:
+                self.write_output(
+                    "Accesso in lettura verificato: "
+                    "sono presenti oggetti nel layer."
+                )
+            else:
+                self.write_output(
+                    "Accesso in lettura verificato: "
+                    "nessun oggetto trovato nel layer."
+                )
+
+            self.status_label.configure(
+                text=f"Connessione R2 riuscita — {result['layer']}"
+            )
+
+        else:
+
+            self.write_output("ESITO: CONNESSIONE NON RIUSCITA")
+            self.write_output(f"Dettaglio: {result['error']}")
+            self.write_output(
+                "Nessuna modifica è stata eseguita su R2."
+            )
+
+            self.status_label.configure(
+                text="Errore durante la verifica della connessione R2"
+            )
+
+        self.write_output("========================================")
+        self.write_output("")
+
+    # --------------------------------------------------
+    # SEGNAPOSTO TEMPORANEI
+    # --------------------------------------------------
+
+    def not_implemented(self):
+
+        self.status_label.configure(
+            text="Funzione non ancora collegata alla pipeline."
+        )
+
+
+if __name__ == "__main__":
+    app = PinGeoApp()
+    app.mainloop()
